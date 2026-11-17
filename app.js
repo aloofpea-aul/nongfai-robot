@@ -1,10 +1,10 @@
 // น้องไฟ — แอปหลัก: ฟังเสียงไทย → ถาม Gemini (สตรีม) → พูดตอบทีละประโยค + แสดงบนจอ
-import { Mascot } from './mascot.js?v=11171348';
-import { WavRecorder } from './recorder.js?v=11171348';
-import { TOOL_DECLS, runTool, bkkNow } from './tools.js?v=11171348';
+import { Mascot } from './mascot.js?v=11171350';
+import { WavRecorder } from './recorder.js?v=11171350';
+import { TOOL_DECLS, runTool, bkkNow } from './tools.js?v=11171350';
 
 const $ = (id) => document.getElementById(id);
-export const VERSION = '11171348';
+export const VERSION = '11171350';
 // อัปเดตตัวเอง: ถ้าบนเว็บมีเวอร์ชันใหม่กว่า ให้โหลดหน้าใหม่ทันที (กันไอโฟนจำไฟล์เก่า)
 fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json()).then((j) => {
   if (j.v && j.v !== VERSION && !sessionStorage.getItem('nf.reload.' + j.v)) {
@@ -13,13 +13,14 @@ fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json(
   }
 }).catch(() => {});
 
-const DEFAULTS = { apiKey: '', model: 'gemini-2.5-flash', voice: '', rate: 1.0, autoListen: true, hubUser: '', hubPass: '', staffPin: '' };
+const DEFAULTS = { apiKey: '', model: 'gemini-3.5-flash-lite', voice: '', rate: 1.0, autoListen: true, hubUser: '', hubPass: '', staffPin: '' };
 const cfg = { ...DEFAULTS, ...JSON.parse(localStorage.getItem('nongfai.cfg') || '{}') };
 const saveCfg = () => localStorage.setItem('nongfai.cfg', JSON.stringify(cfg));
 // ชื่อ/รหัสศูนย์รวมงาน: ถ้าเครื่องนี้เคยล็อกอินศูนย์รวมงานไว้ ใช้ชุดนั้นเลย (โดเมนเดียวกัน)
 if (!cfg.hubUser) cfg.hubUser = localStorage.getItem('pea_aoluek_username') || '';
 if (!cfg.hubPass) cfg.hubPass = localStorage.getItem('pea_aoluek_password') || '';
-if (cfg.model === 'gemini-flash-latest') { cfg.model = DEFAULTS.model; saveCfg(); } // รุ่นนี้ค้างบน free tier
+// 2.5 Flash ฟรีแค่ 20 ครั้ง/วัน · flash-latest ค้าง → ย้ายไปรุ่น Flash-Lite ที่เร็วและโควตาเยอะกว่า
+if (['gemini-flash-latest', 'gemini-2.5-flash'].includes(cfg.model)) { cfg.model = DEFAULTS.model; saveCfg(); }
 
 const SYSTEM_BASE = `คุณคือ "น้องไฟ" หุ่นยนต์ผู้ช่วยบริการลูกค้าของการไฟฟ้าส่วนภูมิภาคสาขาอ่าวลึก (กฟส.อ่าวลึก) จังหวัดกระบี่
 บุคลิก: ผู้หญิง สุภาพ อบอุ่น เป็นกันเอง ลงท้ายด้วย ค่ะ/คะ
@@ -207,12 +208,17 @@ const busy = () => listening || speakingNow || !!controller;
 function abortAsk() { if (controller) { controller.abort(); controller = null; } }
 function stopAll() { abortAsk(); stopSpeaking(); if (listening && rec) rec.abort(); wav.cancel(); }
 
+// ถ้าโควตาฟรีของรุ่นที่ใช้อยู่หมด (429) จะลองรุ่นถัดไปให้อัตโนมัติ
+const FALLBACK_MODELS = ['gemini-3.5-flash-lite', 'gemini-flash-lite-latest', 'gemini-3.1-flash-lite', 'gemini-2.5-flash'];
 async function callGemini(body, signal) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(cfg.model)}:streamGenerateContent?alt=sse`;
-  const post = (b) => fetch(url, { method: 'POST', signal, headers: { 'Content-Type': 'application/json', 'x-goog-api-key': cfg.apiKey }, body: JSON.stringify(b) });
-  // ลองปิดการ "คิดนาน" เพื่อให้ตอบไว ถ้าโมเดลไม่รองรับก็ส่งใหม่แบบปกติ
-  let res = await post({ ...body, generationConfig: { ...body.generationConfig, thinkingConfig: { thinkingBudget: 0 } } });
-  if (res.status === 400) res = await post(body);
+  const models = [cfg.model, ...FALLBACK_MODELS.filter((m) => m !== cfg.model)];
+  let res;
+  for (const m of models) {
+    const b = /2\.5/.test(m) ? { ...body, generationConfig: { ...body.generationConfig, thinkingConfig: { thinkingBudget: 0 } } } : body;
+    res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(m)}:streamGenerateContent?alt=sse`,
+      { method: 'POST', signal, headers: { 'Content-Type': 'application/json', 'x-goog-api-key': cfg.apiKey }, body: JSON.stringify(b) });
+    if (res.status !== 429 && res.status !== 404) return res;
+  }
   return res;
 }
 
