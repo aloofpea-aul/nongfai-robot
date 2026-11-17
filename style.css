@@ -8,7 +8,9 @@ body{background:var(--ground);color:var(--ink);font-family:Sarabun,sans-serif;di
 button{font-family:Prompt,sans-serif;cursor:pointer}
 
 .topbar{height:calc(64px + env(safe-area-inset-top));flex:none;padding:env(safe-area-inset-top) 24px 0;display:flex;align-items:center;justify-content:space-between;background:var(--purple);color:#fff}
-.brand{font-family:Prompt,sans-serif;font-size:20px;font-weight:500}
+.brand{font-family:Prompt,sans-serif;font-size:20px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.keyrow{display:flex;gap:8px}.keyrow input{flex:1;min-width:0}
+.abtn.small{min-height:48px;padding:0 16px;font-size:18px}
 .topright{display:flex;gap:18px;align-items:center;font-size:18px}
 .battery{border-radius:999px;padding:2px 12px;background:rgba(255,255,255,.18)}
 .battery.low{background:#FDE2E2;color:#8A1C1C}
@@ -64,5 +66,7 @@ body.mode-answer .bubble-title{font-size:clamp(20px,2.4vw,30px)}
   .main{flex-direction:column;padding:12px 16px 124px;gap:12px}
   .left{flex:0 0 38%}
   body.mode-answer .left{flex-basis:24%}
-  .brand{font-size:16px}
+  .brand{font-size:17px}
+  .brand-sub,#clock{display:none}
+  .topbar{padding-left:16px;padding-right:8px}
 }

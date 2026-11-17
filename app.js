@@ -61,7 +61,11 @@ function loadVoices() {
     Object.assign(document.createElement('option'), { value: v.name, textContent: v.name ? `${v.name} (${v.lang})` : 'ไม่พบเสียงภาษาไทย – ติดตั้ง Google TTS ภาษาไทย' })));
   sel.value = cfg.voice;
 }
-if ('speechSynthesis' in window) { loadVoices(); speechSynthesis.onvoiceschanged = loadVoices; }
+if ('speechSynthesis' in window) {
+  loadVoices(); speechSynthesis.onvoiceschanged = loadVoices;
+  // iPhone/iPad โหลดรายชื่อเสียงช้าและบางทีไม่แจ้ง ให้ลองซ้ำ
+  let tries = 0; const t = setInterval(() => { loadVoices(); if (voices.length || ++tries > 20) clearInterval(t); }, 500);
+}
 
 const speakQueue = [];
 let speakingNow = false, onQueueEmpty = null;
@@ -302,11 +306,16 @@ $('stage').addEventListener('click', () => { mascot.pulse(); speak('สวัส
 
 // ---------- ตั้งค่า ----------
 function openSettings() {
+  loadVoices();
   $('setKey').value = cfg.apiKey; $('setModel').value = cfg.model; $('setVoice').value = cfg.voice;
   $('setRate').value = cfg.rate; $('rateVal').textContent = cfg.rate + 'x'; $('setAuto').checked = cfg.autoListen;
   $('settings').showModal();
 }
 $('btnSettings').onclick = openSettings;
+$('btnPaste').onclick = async () => {
+  try { const t = (await navigator.clipboard.readText()).trim(); if (t) $('setKey').value = t; else toast('คลิปบอร์ดว่างค่ะ'); }
+  catch { toast('วางไม่ได้ ลองกดค้างที่ช่องแล้วเลือก "วาง" นะคะ'); }
+};
 $('setRate').oninput = (e) => ($('rateVal').textContent = e.target.value + 'x');
 $('btnTestVoice').onclick = () => { stopSpeaking(); cfg.voice = $('setVoice').value; cfg.rate = +$('setRate').value; speak('สวัสดีค่ะ น้องไฟยินดีให้บริการค่ะ'); };
 $('settings').addEventListener('close', () => {

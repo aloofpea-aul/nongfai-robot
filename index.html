@@ -22,7 +22,7 @@
 </head>
 <body class="mode-home">
 <header class="topbar">
-  <div class="brand">กฟส.อ่าวลึก · น้องไฟ ผู้ช่วยบริการ</div>
+  <div class="brand">กฟส.อ่าวลึก · น้องไฟ<span class="brand-sub"> ผู้ช่วยบริการ</span></div>
   <div class="topright">
     <span id="clock">--:--</span>
     <span id="battery" class="battery" hidden></span>
@@ -74,7 +74,7 @@
   <form method="dialog">
     <h2>ตั้งค่าน้องไฟ</h2>
     <label>Gemini API key
-      <input id="setKey" type="password" autocomplete="off" placeholder="วาง API key ที่นี่">
+      <span class="keyrow"><input id="setKey" type="password" autocomplete="off" placeholder="วาง API key ที่นี่"><button id="btnPaste" type="button" class="abtn outline small">วาง</button></span>
     </label>
     <label>โมเดล AI
       <input id="setModel" type="text" autocomplete="off">
