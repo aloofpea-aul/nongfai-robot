@@ -1,11 +1,11 @@
 // น้องไฟ — แอปหลัก: ฟังเสียงไทย → ถาม Gemini (สตรีม) → พูดตอบทีละประโยค + แสดงบนจอ
-import { Mascot } from './mascot.js?v=11180115';
-import { WavRecorder } from './recorder.js?v=11180115';
-import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary } from './tools.js?v=11180115';
-import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11180115';
+import { Mascot } from './mascot.js?v=11180120';
+import { WavRecorder } from './recorder.js?v=11180120';
+import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary } from './tools.js?v=11180120';
+import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11180120';
 
 const $ = (id) => document.getElementById(id);
-export const VERSION = '11180115';
+export const VERSION = '11180120';
 // อัปเดตตัวเอง: ถ้าบนเว็บมีเวอร์ชันใหม่กว่า ให้โหลดหน้าใหม่ทันที (กันไอโฟนจำไฟล์เก่า)
 fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json()).then((j) => {
   if (j.v && j.v !== VERSION && !sessionStorage.getItem('nf.reload.' + j.v)) {
@@ -664,7 +664,19 @@ $('settings').addEventListener('close', () => {
 });
 
 // รับ key ผ่านลิงก์ครั้งเดียว (#key=...) แล้วลบออกจากแถบที่อยู่ทันที
-const hp = new URLSearchParams(location.hash.slice(1)), hashKey = hp.get('key');
+const rawHash = location.hash, hp = new URLSearchParams(location.hash.slice(1)), hashKey = hp.get('key');
+// เปิดลิงก์ QR ใน Safari แต่ใช้งานจริงจากไอคอนหน้าจอโฮม (ข้อมูลแยกกัน) → ให้แตะคัดลอกไปวางในแอป
+const inApp = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+if (rawHash.length > 5 && !inApp && /iPhone|iPad|Macintosh/.test(navigator.userAgent) && 'ontouchend' in document) {
+  const link = location.origin + location.pathname + rawHash;
+  setTimeout(() => {
+    $('cpDlg').showModal();
+    $('cpBtn').onclick = async () => {
+      try { await navigator.clipboard.writeText(link); $('cpMsg').textContent = 'คัดลอกแล้ว ✓ ไปเปิดน้องไฟจากไอคอนหน้าจอโฮม → ตั้งค่า → กด "วาง" ข้างช่องลิงก์ระบบเรียนรู้ → บันทึก'; }
+      catch { $('cpMsg').textContent = 'คัดลอกไม่สำเร็จ ลองแตะอีกครั้งค่ะ'; }
+    };
+  }, 600);
+}
 if (hashKey) { cfg.apiKey = hashKey; saveCfg(); window.history.replaceState(null, "", location.pathname); toast('บันทึก API key แล้วค่ะ'); }
 // ลิงก์ตั้งค่าระบบเรียนรู้ครั้งเดียว (#lu=...&ls=...)
 if (hp.get('lu') && hp.get('ls')) {

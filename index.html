@@ -15,7 +15,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600&family=Sarabun:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=11180115">
+<link rel="stylesheet" href="style.css?v=11180120">
 <script type="importmap">
 { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js" } }
 </script>
@@ -189,6 +189,15 @@
   </div>
 </dialog>
 
+<dialog id="cpDlg" class="settings">
+  <form method="dialog">
+    <h2>ตั้งค่าแอปบนหน้าจอโฮม</h2>
+    <p class="hint" style="font-size:18px">ตอนนี้เปิดใน Safari ซึ่งเก็บข้อมูลแยกจากไอคอนน้องไฟบนหน้าจอโฮม แตะปุ่มด้านล่างเพื่อคัดลอกค่าไปใส่ในแอปค่ะ</p>
+    <button id="cpBtn" type="button" class="abtn">แตะเพื่อคัดลอก</button>
+    <p id="cpMsg" class="hint" style="font-size:18px"></p>
+    <div class="row"><button value="close" class="abtn outline">ปิด</button></div>
+  </form>
+</dialog>
 <dialog id="pinDlg" class="settings">
   <form id="pinForm">
     <h2>ยืนยันตัวตนเจ้าหน้าที่</h2>
@@ -204,6 +213,6 @@
 
 <div id="toast" class="toast" hidden></div>
 
-<script type="module" src="app.js?v=11180115"></script>
+<script type="module" src="app.js?v=11180120"></script>
 </body>
 </html>
