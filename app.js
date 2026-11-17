@@ -8,7 +8,7 @@ const cfg = { ...DEFAULTS, ...JSON.parse(localStorage.getItem('nongfai.cfg') || 
 const saveCfg = () => localStorage.setItem('nongfai.cfg', JSON.stringify(cfg));
 if (cfg.model === 'gemini-flash-latest') { cfg.model = DEFAULTS.model; saveCfg(); } // รุ่นนี้ค้างบน free tier
 
-const SYSTEM = `คุณคือ "น้องไฟ" หุ่นยนต์ผู้ช่วยบริการลูกค้าของการไฟฟ้าส่วนภูมิภาคสาขาย่อยอ่าวลึก (กฟส.อ่าวลึก) จังหวัดกระบี่
+const SYSTEM = `คุณคือ "น้องไฟ" หุ่นยนต์ผู้ช่วยบริการลูกค้าของการไฟฟ้าส่วนภูมิภาคสาขาอ่าวลึก (กฟส.อ่าวลึก) จังหวัดกระบี่
 บุคลิก: ผู้หญิง สุภาพ อบอุ่น เป็นกันเอง ลงท้ายด้วย ค่ะ/คะ
 กฎการตอบ:
 1. คำตอบจะถูกอ่านออกเสียง ตอบสั้น 1-3 ประโยค แต่ละประโยคขึ้นบรรทัดใหม่ ห้ามใช้ markdown อีโมจิ ดอกจัน หรือเลขข้อในส่วนที่พูด
@@ -36,7 +36,7 @@ function goHome() {
   setMode('home');
   $('userSaid').hidden = true;
   $('card').hidden = true;
-  $('bubbleTitle').innerHTML = 'สวัสดีค่ะ ยินดีต้อนรับสู่<br>การไฟฟ้าส่วนภูมิภาคสาขาย่อยอ่าวลึก';
+  $('bubbleTitle').innerHTML = 'สวัสดีค่ะ ยินดีต้อนรับสู่<br>การไฟฟ้าส่วนภูมิภาคสาขาอ่าวลึก';
   $('bubbleText').textContent = 'น้องไฟช่วยอะไรได้บ้างคะ พูดได้เลย หรือแตะเมนูด้านล่าง';
   mascot.setMood('normal');
   setStatus('แตะปุ่มไมค์แล้วพูดได้เลยค่ะ');
