@@ -109,7 +109,10 @@ function listen() {
     const shown = (finalText + interim).trim();
     if (shown) { $('userSaid').textContent = '“' + shown + '”'; $('userSaid').hidden = false; }
   };
-  rec.onerror = (e) => { if (e.error === 'not-allowed') toast('กรุณาอนุญาตให้ใช้ไมโครโฟน'); };
+  rec.onerror = (e) => {
+    if (e.error === 'not-allowed') toast('กรุณาอนุญาตให้ใช้ไมโครโฟน');
+    if (e.error === 'service-not-allowed') toast('iPad: เปิด ตั้งค่า > Siri และ การป้อนตามคำบอก (Dictation) ก่อนนะคะ', 7000);
+  };
   rec.onend = () => {
     listening = false; $('btnMic').classList.remove('listening'); mascot.setMood('normal');
     if (finalText.trim()) ask(finalText.trim());
@@ -236,7 +239,10 @@ async function ask(question) {
 let unlocked = false;
 async function unlockOnce() {
   if (unlocked) return; unlocked = true;
-  try { await document.documentElement.requestFullscreen?.(); } catch {}
+  // iPad/iPhone: ต้อง "ปลดล็อก" เสียงพูดด้วยการแตะครั้งแรก ไม่งั้นคำตอบแรกจะเงียบ
+  try { const u = new SpeechSynthesisUtterance(' '); u.volume = 0; speechSynthesis.speak(u); } catch {}
+  const el = document.documentElement;
+  try { await (el.requestFullscreen || el.webkitRequestFullscreen)?.call(el); } catch {}
   try { await navigator.wakeLock?.request('screen'); } catch {}
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') navigator.wakeLock?.request('screen').catch(() => {}); });
 }
