@@ -15,7 +15,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600&family=Sarabun:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=11171402">
+<link rel="stylesheet" href="style.css?v=11171411">
 <script type="importmap">
 { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js" } }
 </script>
@@ -36,6 +36,7 @@
   <section class="left">
     <div id="stage" class="stage" aria-label="มาสคอตน้องไฟ"></div>
     <div id="status" class="status">แตะปุ่มไมค์แล้วพูดได้เลยค่ะ</div>
+    <div class="strip-info"><span id="stripStatus">น้องไฟ</span><button id="btnHome2" type="button" class="linkbtn">หน้าแรก</button></div>
   </section>
 
   <section class="right">
@@ -70,9 +71,11 @@
   </section>
 </main>
 
+<footer class="bottombar"><span id="barStatus" class="barstatus">แตะไมค์แล้วพูดได้เลยค่ะ</span>
 <button id="btnMic" class="mic" aria-label="กดแล้วพูด">
   <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
 </button>
+</footer>
 
 <dialog id="settings" class="settings">
   <form method="dialog">
@@ -126,6 +129,6 @@
 
 <div id="toast" class="toast" hidden></div>
 
-<script type="module" src="app.js?v=11171402"></script>
+<script type="module" src="app.js?v=11171411"></script>
 </body>
 </html>

@@ -1,10 +1,10 @@
 // น้องไฟ — แอปหลัก: ฟังเสียงไทย → ถาม Gemini (สตรีม) → พูดตอบทีละประโยค + แสดงบนจอ
-import { Mascot } from './mascot.js?v=11171402';
-import { WavRecorder } from './recorder.js?v=11171402';
-import { TOOL_DECLS, runTool, bkkNow } from './tools.js?v=11171402';
+import { Mascot } from './mascot.js?v=11171411';
+import { WavRecorder } from './recorder.js?v=11171411';
+import { TOOL_DECLS, runTool, bkkNow } from './tools.js?v=11171411';
 
 const $ = (id) => document.getElementById(id);
-export const VERSION = '11171402';
+export const VERSION = '11171411';
 // อัปเดตตัวเอง: ถ้าบนเว็บมีเวอร์ชันใหม่กว่า ให้โหลดหน้าใหม่ทันที (กันไอโฟนจำไฟล์เก่า)
 fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json()).then((j) => {
   if (j.v && j.v !== VERSION && !sessionStorage.getItem('nf.reload.' + j.v)) {
@@ -20,6 +20,8 @@ const saveCfg = () => localStorage.setItem('nongfai.cfg', JSON.stringify(cfg));
 if (!cfg.hubUser) cfg.hubUser = localStorage.getItem('pea_aoluek_username') || '';
 if (!cfg.hubPass) cfg.hubPass = localStorage.getItem('pea_aoluek_password') || '';
 // 2.5 Flash ฟรีแค่ 20 ครั้ง/วัน · flash-latest ค้าง → ย้ายไปรุ่น Flash-Lite ที่เร็วและโควตาเยอะกว่า
+// มือถือ: ปิดการฟังต่ออัตโนมัติเป็นค่าเริ่มต้น (กันไมค์อัดเสียงรอบข้างตอนไม่มีคนพูด) — ตั้งครั้งเดียว เปิดเองได้ในตั้งค่า
+if (!cfg.alPhone && matchMedia('(max-width:820px)').matches) { cfg.autoListen = false; cfg.alPhone = 1; saveCfg(); }
 if (['gemini-flash-latest', 'gemini-2.5-flash'].includes(cfg.model)) { cfg.model = DEFAULTS.model; saveCfg(); }
 
 const SYSTEM_BASE = `คุณคือ "น้องไฟ" หุ่นยนต์ผู้ช่วยบริการลูกค้าของการไฟฟ้าส่วนภูมิภาคสาขาอ่าวลึก (กฟส.อ่าวลึก) จังหวัดกระบี่
@@ -54,7 +56,7 @@ const mascot = new Mascot($('stage'));
 
 // ---------- UI ----------
 function setMode(m) { document.body.className = 'mode-' + m + (OPS() ? ' ops' : ''); }
-function setStatus(text, cls = '') { const s = $('status'); s.textContent = text; s.className = 'status ' + cls; }
+function setStatus(text, cls = '') { const s = $('status'); s.textContent = text; s.className = 'status ' + cls; $('barStatus').textContent = text; $('stripStatus').textContent = text; }
 function toast(msg, ms = 3500) { const t = $('toast'); t.textContent = msg; t.hidden = false; clearTimeout(toast.h); toast.h = setTimeout(() => (t.hidden = true), ms); }
 function showCard(title, items) {
   if (!items.length) { $('card').hidden = true; return; }
@@ -373,6 +375,7 @@ document.addEventListener('pointerdown', bumpIdle);
 
 $('btnMic').onclick = listen;
 $('btnHome').onclick = goHome;
+$('btnHome2').onclick = goHome;
 document.querySelectorAll('.mbtn[data-q]').forEach((b) => (b.onclick = () => { stopSpeaking(); tapCue('ได้เลยค่ะ'); ask(b.dataset.q, null, true); }));
 $('btnInternal').onclick = () => { stopSpeaking(); tapCue('ขอรหัสยืนยันตัวตนเจ้าหน้าที่ค่ะ'); lastAsk = null; openPin(); };
 
