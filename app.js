@@ -1,10 +1,10 @@
 // น้องไฟ — แอปหลัก: ฟังเสียงไทย → ถาม Gemini (สตรีม) → พูดตอบทีละประโยค + แสดงบนจอ
-import { Mascot } from './mascot.js?v=11171411';
-import { WavRecorder } from './recorder.js?v=11171411';
-import { TOOL_DECLS, runTool, bkkNow } from './tools.js?v=11171411';
+import { Mascot } from './mascot.js?v=11171422';
+import { WavRecorder } from './recorder.js?v=11171422';
+import { TOOL_DECLS, runTool, bkkNow } from './tools.js?v=11171422';
 
 const $ = (id) => document.getElementById(id);
-export const VERSION = '11171411';
+export const VERSION = '11171422';
 // อัปเดตตัวเอง: ถ้าบนเว็บมีเวอร์ชันใหม่กว่า ให้โหลดหน้าใหม่ทันที (กันไอโฟนจำไฟล์เก่า)
 fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json()).then((j) => {
   if (j.v && j.v !== VERSION && !sessionStorage.getItem('nf.reload.' + j.v)) {
@@ -376,6 +376,16 @@ document.addEventListener('pointerdown', bumpIdle);
 $('btnMic').onclick = listen;
 $('btnHome').onclick = goHome;
 $('btnHome2').onclick = goHome;
+// ช่องพิมพ์คำถาม
+$('typeInput').addEventListener('input', () => { $('btnSend').hidden = !$('typeInput').value.trim(); });
+$('typeForm').onsubmit = (e) => {
+  e.preventDefault();
+  const q = $('typeInput').value.trim();
+  if (!q) return;
+  $('typeInput').value = ''; $('btnSend').hidden = true; $('typeInput').blur();
+  stopSpeaking(); tapCue('ค่ะ'); // ปลดล็อกเสียงพูดบนไอโฟนในจังหวะที่กดส่ง
+  ask(q, null, true);
+};
 document.querySelectorAll('.mbtn[data-q]').forEach((b) => (b.onclick = () => { stopSpeaking(); tapCue('ได้เลยค่ะ'); ask(b.dataset.q, null, true); }));
 $('btnInternal').onclick = () => { stopSpeaking(); tapCue('ขอรหัสยืนยันตัวตนเจ้าหน้าที่ค่ะ'); lastAsk = null; openPin(); };
 

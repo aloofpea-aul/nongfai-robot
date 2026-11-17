@@ -15,7 +15,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600&family=Sarabun:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=11171411">
+<link rel="stylesheet" href="style.css?v=11171422">
 <script type="importmap">
 { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js" } }
 </script>
@@ -71,7 +71,14 @@
   </section>
 </main>
 
-<footer class="bottombar"><span id="barStatus" class="barstatus">แตะไมค์แล้วพูดได้เลยค่ะ</span>
+<footer class="bottombar">
+<form id="typeForm" class="typeform" autocomplete="off">
+  <input id="typeInput" type="text" enterkeyhint="send" placeholder="พิมพ์คำถาม หรือแตะไมค์แล้วพูด" aria-label="พิมพ์คำถาม">
+  <button id="btnSend" type="submit" class="sendbtn" aria-label="ส่งคำถาม" hidden>
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+  </button>
+</form>
+<span id="barStatus" class="barstatus" hidden></span>
 <button id="btnMic" class="mic" aria-label="กดแล้วพูด">
   <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
 </button>
@@ -129,6 +136,6 @@
 
 <div id="toast" class="toast" hidden></div>
 
-<script type="module" src="app.js?v=11171411"></script>
+<script type="module" src="app.js?v=11171422"></script>
 </body>
 </html>
