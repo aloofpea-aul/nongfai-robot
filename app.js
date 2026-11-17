@@ -1,10 +1,10 @@
 // น้องไฟ — แอปหลัก: ฟังเสียงไทย → ถาม Gemini (สตรีม) → พูดตอบทีละประโยค + แสดงบนจอ
-import { Mascot } from './mascot.js?v=11172355';
-import { WavRecorder } from './recorder.js?v=11172355';
-import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary } from './tools.js?v=11172355';
+import { Mascot } from './mascot.js?v=11172356';
+import { WavRecorder } from './recorder.js?v=11172356';
+import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary } from './tools.js?v=11172356';
 
 const $ = (id) => document.getElementById(id);
-export const VERSION = '11172355';
+export const VERSION = '11172356';
 // อัปเดตตัวเอง: ถ้าบนเว็บมีเวอร์ชันใหม่กว่า ให้โหลดหน้าใหม่ทันที (กันไอโฟนจำไฟล์เก่า)
 fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json()).then((j) => {
   if (j.v && j.v !== VERSION && !sessionStorage.getItem('nf.reload.' + j.v)) {
@@ -32,7 +32,7 @@ const SYSTEM_BASE = `คุณคือ "น้องไฟ" หุ่นยน�
 3. ห้ามเดาตัวเลข ค่าธรรมเนียม อัตราค่าไฟ วันเวลานัดหมาย หรือข้อมูลเฉพาะของลูกค้ารายใด ถ้าไม่แน่ใจให้แนะนำติดต่อเจ้าหน้าที่ที่เคาน์เตอร์บริการ หรือโทร PEA Call Center 1129
 4. มีเครื่องมือดึงข้อมูลจริงจากศูนย์รวมงาน กฟส.อ่าวลึก หลายระบบ (อากาศ เตือนภัย เวรแก้ไฟ ไฟดับ รับแจ้งไฟดับ เบอร์โทรทีม SLD Patrol ตัดต้นไม้ ระเบียบ พัสดุ รถ จัดซื้อ ซื้อหม้อแปลง safety talk K04 KPI เช็กอิน SAIFI/SAIDI Load01 แบบมาตรฐาน ตัดงบ ออกเลขหนังสือ CCL Office Love ราคามาตรฐานพัสดุ) เมื่อคำถามเกี่ยวข้องให้เรียกเครื่องมือก่อนตอบเสมอ แล้วตอบจากผลที่ได้เท่านั้น ห้ามแต่งข้อมูลเอง
 5. ถ้าเครื่องมือตอบว่า need_verify ให้บอกสั้นๆ ว่าเป็นข้อมูลภายใน ขอให้เจ้าหน้าที่ใส่รหัสยืนยันตัวตนบนจอก่อน
-6. ตอบเรื่องวัน เวลา ให้เทียบกับวันเวลาปัจจุบันที่ให้ไว้ อ่านเวลาเป็นภาษาพูด เช่น สิบหกนาฬิกาสามสิบนาที
+6. ตอบเรื่องวัน เวลา ให้เทียบกับวันเวลาปัจจุบันที่ให้ไว้ ในส่วนที่พูดให้อ่านตัวเลขเป็นคำพูดได้ แต่ในการ์ด ###CARD ให้ใช้ตัวเลขเสมอ เช่น 2,048,517 บาท หรือ 16:30 น.
 7. ถ้าเป็นเรื่องที่ไม่เกี่ยวกับการไฟฟ้า ตอบสั้นๆ อย่างสุภาพ แล้วชวนกลับมาที่เรื่องบริการ`;
 
 const OPS_NOTE = `
@@ -315,7 +315,8 @@ async function transcribe(audio) {
       if (r.status === 429 || r.status === 404) continue;
       const j = await r.json();
       const t = (j.candidates?.[0]?.content?.parts || []).filter((p) => !p.thought).map((p) => p.text || '').join('').trim().replace(/^["“]|["”]$/g, '');
-      return /\[ไม่มีเสียง\]/.test(t) || t.length < 2 ? '' : t;
+      const clean = t.replace(/([\u0E00-\u0E7F])\s+(?=[\u0E00-\u0E7F])/g, '$1'); // ตัดช่องว่างที่แทรกระหว่างคำไทย
+      return /\[ไม่มีเสียง\]/.test(clean) || clean.length < 2 ? '' : clean;
     } catch (e) { console.warn('transcribe', e); }
   }
   return '';
