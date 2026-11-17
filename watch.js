@@ -41,10 +41,11 @@ async function checkTmd() {
   const first = !S.tmd; const prev = new Set(S.tmd || []);
   S.tmd = list.map(key).slice(0, 40);
   if (first) return [];
+  const no = (d) => String(d.issueNo || '').replace(/^ฉบับที่\s*/, '');
   return list.filter((d) => !prev.has(key(d))).slice(0, 3).map((d) => ({
-    topic: 'tmd', title: 'ประกาศเตือนภัยกรมอุตุ' + (d.issueNo ? ' ฉบับที่ ' + d.issueNo : ''), text: String(d.title || '').slice(0, 120),
+    topic: 'tmd', title: 'ประกาศเตือนภัยกรมอุตุ' + (no(d) ? ' ฉบับที่ ' + no(d) : ''), text: String(d.title || '').replace(/^ประกาศกรมอุตุนิยมวิทยา\s*เรื่อง\s*/, '').slice(0, 120),
     sub: [d.severity, d.krabiDetail ? 'เกี่ยวกับกระบี่' : 'ภาคใต้'].filter(Boolean).join(' · '),
-    say: 'ประกาศเตือนภัยกรมอุตุนิยมวิทยา' + (d.issueNo ? ' ฉบับที่ ' + d.issueNo : '') + ' เรื่อง ' + String(d.title || '').slice(0, 80) + (d.krabiDetail ? ' มีผลกับกระบี่ค่ะ' : ' ค่ะ'),
+    say: 'ประกาศเตือนภัยกรมอุตุนิยมวิทยา' + (no(d) ? ' ฉบับที่ ' + no(d).replace(/\s*\(.*\)/, '') : '') + ' เรื่อง ' + String(d.title || '').replace(/^ประกาศกรมอุตุนิยมวิทยา\s*เรื่อง\s*/, '').replace(/\s*\(.*$/, '').slice(0, 80) + (d.krabiDetail ? ' มีผลกับกระบี่ค่ะ' : ' ค่ะ'),
     q: 'ประกาศเตือนภัยกรมอุตุล่าสุดมีอะไรบ้าง',
   }));
 }
