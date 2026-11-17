@@ -1,11 +1,11 @@
 // น้องไฟ — แอปหลัก: ฟังเสียงไทย → ถาม Gemini (สตรีม) → พูดตอบทีละประโยค + แสดงบนจอ
-import { Mascot } from './mascot.js?v=11180120';
-import { WavRecorder } from './recorder.js?v=11180120';
-import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary } from './tools.js?v=11180120';
-import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11180120';
+import { Mascot } from './mascot.js?v=11180145';
+import { WavRecorder } from './recorder.js?v=11180145';
+import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary } from './tools.js?v=11180145';
+import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11180145';
 
 const $ = (id) => document.getElementById(id);
-export const VERSION = '11180120';
+export const VERSION = '11180145';
 // อัปเดตตัวเอง: ถ้าบนเว็บมีเวอร์ชันใหม่กว่า ให้โหลดหน้าใหม่ทันที (กันไอโฟนจำไฟล์เก่า)
 fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json()).then((j) => {
   if (j.v && j.v !== VERSION && !sessionStorage.getItem('nf.reload.' + j.v)) {
@@ -612,7 +612,7 @@ function openSettings() {
   $('setHubUser').value = cfg.hubUser; $('setHubPass').value = cfg.hubPass; $('setPin').value = cfg.staffPin;
   $('setLearnUrl').value = cfg.learnUrl; $('setLearnSecret').value = cfg.learnSecret; $('setConfirm').checked = cfg.confirm;
   const st = learnStats();
-  $('learnInfo').textContent = (st.online ? 'เชื่อม Sheet แล้ว · ' : 'ยังไม่เชื่อม Sheet (เก็บในเครื่องนี้) · ') + `จำคำ ${st.corr} · คำตอบยืนยัน ${st.verified} · ตัวอย่าง ${st.examples}`;
+  $('learnInfo').textContent = (st.online ? 'เชื่อม Sheet แล้ว ✓ · ' : st.configured ? 'ใส่ค่าแล้วแต่เชื่อม Sheet ไม่สำเร็จ · ' : 'ยังไม่เชื่อม Sheet (เก็บในเครื่องนี้) · ') + `จำคำ ${st.corr} · คำตอบยืนยัน ${st.verified} · ตัวอย่าง ${st.examples}`;
   $('verLabel').textContent = 'เวอร์ชัน ' + VERSION;
   $('settings').showModal();
 }
@@ -642,7 +642,7 @@ function fillLearn(v) {
   if (h.get('lu') && h.get('ls')) { $('setLearnUrl').value = h.get('lu'); $('setLearnSecret').value = h.get('ls'); toast('ใส่ลิงก์และรหัสลับให้แล้ว กดบันทึกได้เลยค่ะ', 5000); return true; }
   return false;
 }
-$('setLearnUrl').addEventListener('input', (e) => fillLearn(e.target.value));
+['input', 'change', 'paste'].forEach((ev) => $('setLearnUrl').addEventListener(ev, () => setTimeout(() => fillLearn($('setLearnUrl').value), 0)));
 $('btnPasteLearn').onclick = async () => {
   try { const t = (await navigator.clipboard.readText()).trim(); if (!t) return toast('คลิปบอร์ดว่างค่ะ'); if (!fillLearn(t)) $('setLearnUrl').value = t; }
   catch { toast('วางไม่ได้ ลองกดค้างที่ช่องแล้วเลือก "วาง" นะคะ'); }
@@ -657,7 +657,10 @@ $('settings').addEventListener('close', () => {
   cfg.budgetUser = $('set_budgetUser').value.trim(); cfg.budgetPass = $('set_budgetPass').value.trim(); cfg.officeCode = $('set_officeCode').value.trim(); cfg.cclUser = $('set_cclUser').value.trim(); cfg.cclPass = $('set_cclPass').value.trim(); cfg.olUser = $('set_olUser').value.trim(); cfg.olPass = $('set_olPass').value.trim();
   cfg.hubUser = $('setHubUser').value.trim(); cfg.hubPass = $('setHubPass').value; cfg.staffPin = $('setPin').value.trim();
   cfg.mode = $('setMode').value; cfg.stt = $('setStt').value;
-  const lu = $('setLearnUrl').value.trim(), ls = $('setLearnSecret').value.trim(), relearn = lu !== cfg.learnUrl || ls !== cfg.learnSecret;
+  fillLearn($('setLearnUrl').value.trim());
+  let lu = $('setLearnUrl').value.trim(), ls = $('setLearnSecret').value.trim();
+  if (lu && !/^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec$/.test(lu)) { toast('ลิงก์ระบบเรียนรู้ไม่ถูกต้อง ใช้ค่าเดิมไว้ก่อนค่ะ', 6000); lu = cfg.learnUrl; ls = cfg.learnSecret; }
+  const relearn = lu !== cfg.learnUrl || ls !== cfg.learnSecret;
   cfg.learnUrl = lu; cfg.learnSecret = ls; cfg.confirm = $('setConfirm').checked;
   if (relearn) initLearn(lu, ls).then((ok) => lu && toast(ok ? 'เชื่อมระบบเรียนรู้แล้วค่ะ' : 'เชื่อมระบบเรียนรู้ไม่สำเร็จ ตรวจลิงก์/รหัสลับค่ะ', 5000));
   saveCfg(); toast('บันทึกแล้วค่ะ'); if (document.body.classList.contains('mode-home')) goHome(); else setMode('answer');

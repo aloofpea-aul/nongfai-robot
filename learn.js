@@ -3,7 +3,7 @@
 const KEY = 'nongfai.learn';
 const S = JSON.parse(localStorage.getItem(KEY) || '{"corr":[],"verified":[],"examples":[]}');
 const save = () => localStorage.setItem(KEY, JSON.stringify(S));
-let conf = { url: '', secret: '' };
+let conf = { url: '', secret: '' }, lastOk = false;
 
 // ข้อมูลที่ไม่เปลี่ยนทุกวัน — ถ้ากดว่าถูก เก็บเป็นคำตอบทันทีได้
 export const STATIC_TOOLS = ['search_regulations', 'drawings_bom', 'material_price', 'contacts'];
@@ -16,16 +16,16 @@ async function post(body) {
 }
 
 export async function initLearn(url, secret) {
-  conf = { url: (url || '').trim(), secret: (secret || '').trim() };
+  conf = { url: (url || '').trim(), secret: (secret || '').trim() }; lastOk = false;
   if (!conf.url) return false;
   try {
     const j = await post({ action: 'load' });
-    if (j && j.ok) { S.corr = j.corr || []; S.verified = j.verified || []; S.examples = j.examples || []; S.sheetUrl = j.sheetUrl; save(); return true; }
+    if (j && j.ok) { S.corr = j.corr || []; S.verified = j.verified || []; S.examples = j.examples || []; S.sheetUrl = j.sheetUrl; save(); lastOk = true; return true; }
     console.warn('learn load', j);
   } catch (e) { console.warn('learn load', e); }
   return false;
 }
-export const learnStats = () => ({ corr: S.corr.length, verified: S.verified.length, examples: S.examples.length, sheetUrl: S.sheetUrl || '', online: !!(conf.url && conf.secret) });
+export const learnStats = () => ({ corr: S.corr.length, verified: S.verified.length, examples: S.examples.length, sheetUrl: S.sheetUrl || '', online: lastOk, configured: !!(conf.url && conf.secret) });
 
 // ---------- คำที่ฟังผิด ----------
 export function applyCorrections(t) {
