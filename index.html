@@ -15,7 +15,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600&family=Sarabun:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=11172356">
+<link rel="stylesheet" href="style.css?v=11181030">
 <script type="importmap">
 { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js" } }
 </script>
@@ -52,6 +52,19 @@
       <ol id="cardList" class="card-list"></ol>
     </div>
 
+    <div id="feedback" class="fb" hidden>
+      <div id="fbAsk" class="fb-row"><span class="fb-q">คำตอบนี้ถูกไหมคะ</span>
+        <button id="fbOk" class="fbtn ok">ถูกต้อง</button><button id="fbNo" class="fbtn no">ไม่ถูก</button></div>
+      <div id="fbWhy" class="fb-row wrap" hidden><span class="fb-q">ผิดตรงไหนคะ</span>
+        <button class="fbtn" data-r="ฟังผิด">ฟังผิด</button><button class="fbtn" data-r="ข้อมูลผิด">ข้อมูลผิด</button>
+        <button class="fbtn" data-r="ตอบไม่ตรงคำถาม">ตอบไม่ตรงคำถาม</button><button class="fbtn" data-r="fix">พิมพ์คำตอบที่ถูก</button></div>
+      <form id="fbFixForm" class="fb-fix" hidden>
+        <textarea id="fbFix" rows="3" placeholder="พิมพ์คำตอบที่ถูกต้อง น้องไฟจะใช้ตอบครั้งต่อไป"></textarea>
+        <button class="fbtn ok" type="submit">บันทึกคำตอบ</button>
+      </form>
+      <div id="fbDone" class="fb-done" hidden></div>
+    </div>
+
     <div id="menu" class="menu">
       <button class="mbtn" data-q="อยากตรวจสอบค่าไฟและช่องทางชำระค่าไฟ">ตรวจสอบ / ชำระค่าไฟ</button>
       <button class="mbtn" data-q="ขอติดตั้งมิเตอร์ใหม่ ต้องใช้เอกสารอะไรบ้าง">ขอติดตั้งมิเตอร์ใหม่</button>
@@ -79,6 +92,11 @@
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
   </button>
 </form>
+<div id="confirmBar" class="confirm" hidden>
+  <div class="cf-text" id="cfText"></div>
+  <button id="cfEdit" type="button" class="fbtn">แก้</button><button id="cfSend" type="button" class="fbtn ok">ส่งเลย</button>
+  <div class="cf-prog"><i id="cfProg"></i></div>
+</div>
 <span id="barStatus" class="barstatus" hidden></span>
 <button id="btnMic" class="mic" aria-label="กดแล้วพูด">
   <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
@@ -139,6 +157,15 @@
     <label>Office Love — รหัสผ่าน
       <input id="set_olPass" type="password" autocomplete="off">
     </label>
+    <h3 class="sub">ระบบเรียนรู้ (Google Sheet)</h3>
+    <label>ลิงก์ Apps Script ระบบเรียนรู้
+      <input id="setLearnUrl" type="url" autocomplete="off" placeholder="https://script.google.com/macros/s/…/exec">
+    </label>
+    <label>รหัสลับระบบเรียนรู้
+      <input id="setLearnSecret" type="password" autocomplete="off">
+    </label>
+    <label class="check"><input id="setConfirm" type="checkbox"> แสดงคำที่ได้ยิน 2 วินาทีก่อนส่ง (แก้ได้)</label>
+    <p class="hint" id="learnInfo"></p>
     <p class="hint">key เก็บไว้ในเครื่องนี้เท่านั้น ไม่ถูกส่งขึ้น GitHub · <span id="verLabel"></span></p>
     <div class="row">
       <button id="btnTestVoice" type="button" class="abtn outline">ทดสอบเสียง</button>
@@ -175,6 +202,6 @@
 
 <div id="toast" class="toast" hidden></div>
 
-<script type="module" src="app.js?v=11172356"></script>
+<script type="module" src="app.js?v=11181030"></script>
 </body>
 </html>

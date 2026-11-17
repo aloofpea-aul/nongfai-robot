@@ -1,10 +1,11 @@
 // น้องไฟ — แอปหลัก: ฟังเสียงไทย → ถาม Gemini (สตรีม) → พูดตอบทีละประโยค + แสดงบนจอ
-import { Mascot } from './mascot.js?v=11172356';
-import { WavRecorder } from './recorder.js?v=11172356';
-import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary } from './tools.js?v=11172356';
+import { Mascot } from './mascot.js?v=11181030';
+import { WavRecorder } from './recorder.js?v=11181030';
+import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary } from './tools.js?v=11181030';
+import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11181030';
 
 const $ = (id) => document.getElementById(id);
-export const VERSION = '11172356';
+export const VERSION = '11181030';
 // อัปเดตตัวเอง: ถ้าบนเว็บมีเวอร์ชันใหม่กว่า ให้โหลดหน้าใหม่ทันที (กันไอโฟนจำไฟล์เก่า)
 fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json()).then((j) => {
   if (j.v && j.v !== VERSION && !sessionStorage.getItem('nf.reload.' + j.v)) {
@@ -13,7 +14,7 @@ fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json(
   }
 }).catch(() => {});
 
-const DEFAULTS = { apiKey: '', model: 'gemini-3.5-flash-lite', voice: '', rate: 1.0, autoListen: true, hubUser: '', hubPass: '', staffPin: '', mode: 'ops', stt: 'gemini', budgetUser: '', budgetPass: '', officeCode: '', cclUser: '', cclPass: '', olUser: '', olPass: '' };
+const DEFAULTS = { apiKey: '', model: 'gemini-3.5-flash-lite', voice: '', rate: 1.0, autoListen: true, hubUser: '', hubPass: '', staffPin: '', mode: 'ops', stt: 'gemini', budgetUser: '', budgetPass: '', officeCode: '', cclUser: '', cclPass: '', olUser: '', olPass: '', learnUrl: '', learnSecret: '', confirm: true };
 const cfg = { ...DEFAULTS, ...JSON.parse(localStorage.getItem('nongfai.cfg') || '{}') };
 const saveCfg = () => localStorage.setItem('nongfai.cfg', JSON.stringify(cfg));
 // ชื่อ/รหัสศูนย์รวมงาน: ถ้าเครื่องนี้เคยล็อกอินศูนย์รวมงานไว้ ใช้ชุดนั้นเลย (โดเมนเดียวกัน)
@@ -42,7 +43,7 @@ const OPS_NOTE = `
 function systemText() {
   const n = bkkNow(), wd = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์'][n.getUTCDay()];
   return SYSTEM_BASE + (OPS() ? OPS_NOTE : '') + `\nวันเวลาปัจจุบัน: วัน${wd}ที่ ${n.toISOString().slice(0, 16).replace('T', ' ')} (เวลาไทย)` +
-    (staffOn() ? '\nตอนนี้เจ้าหน้าที่ยืนยันตัวตนแล้ว ใช้เครื่องมือข้อมูลภายในได้' : '');
+    (staffOn() ? '\nตอนนี้เจ้าหน้าที่ยืนยันตัวตนแล้ว ใช้เครื่องมือข้อมูลภายในได้' : '') + examplesText();
 }
 
 // ---------- โหมดเจ้าหน้าที่ (ยืนยันด้วย PIN) ----------
@@ -123,6 +124,7 @@ function goHome() {
   setMode('home');
   $('userSaid').hidden = true;
   $('card').hidden = true;
+  hideFeedback(); cancelConfirm();
   clearResults();
   if (OPS()) {
     $('bubbleTitle').innerHTML = 'สวัสดีค่ะ แผนกปฏิบัติการระบบไฟฟ้า<br>กฟส.อ่าวลึก';
@@ -235,7 +237,7 @@ async function listenAudio() {
     mascot.setMood('normal');
     if (!text) { setStatus('ฟังไม่ชัด แตะไมค์แล้วพูดใหม่อีกครั้งนะคะ'); speak('ขอโทษค่ะ ฟังไม่ชัด รบกวนพูดอีกครั้งนะคะ'); return; }
     if (voiceCommand(text)) return;
-    ask(text);
+    confirmSend(text);
   } catch (e) {
     micOff();
     console.error(e);
@@ -266,7 +268,7 @@ function listen() {
   };
   rec.onend = () => {
     listening = false; $('btnMic').classList.remove('listening'); mascot.setMood('normal');
-    if (finalText.trim()) ask(finalText.trim());
+    if (finalText.trim()) { const t = applyCorrections(finalText.trim()); if (!voiceCommand(t)) confirmSend(t); }
     else setStatus('แตะปุ่มไมค์แล้วพูดได้เลยค่ะ');
   };
   rec.start();
@@ -278,7 +280,7 @@ const chat = [];
 let controller = null;
 const busy = () => listening || speakingNow || !!controller;
 function abortAsk() { if (controller) { controller.abort(); controller = null; } }
-function stopAll() { abortAsk(); stopSpeaking(); if (listening && rec) rec.abort(); wav.cancel(); }
+function stopAll() { cancelConfirm(); abortAsk(); stopSpeaking(); if (listening && rec) rec.abort(); wav.cancel(); }
 
 // ถ้าโควตาฟรีของรุ่นที่ใช้อยู่หมด (429) จะลองรุ่นถัดไปให้อัตโนมัติ
 const FALLBACK_MODELS = ['gemini-3.5-flash-lite', 'gemini-flash-lite-latest', 'gemini-3.1-flash-lite', 'gemini-2.5-flash'];
@@ -305,7 +307,7 @@ async function transcribe(audio) {
 - ถ้าเสียงไม่ชัดให้เลือกคำที่ใกล้ที่สุดจากรายการคำศัพท์ด้านล่าง
 - ถ้าไม่มีเสียงพูดของคน ให้ตอบว่า [ไม่มีเสียง]
 ตอบเฉพาะข้อความที่ถอดได้ บรรทัดเดียว
-คำศัพท์ที่อาจได้ยิน (ชื่อคน ฟีดเดอร์ ชื่อระบบ): ${glossaryText || 'กฟส.อ่าวลึก, เวรแก้ไฟ, ฟีดเดอร์, หม้อแปลง, Patrol'}`;
+คำศัพท์ที่อาจได้ยิน (ชื่อคน ฟีดเดอร์ ชื่อระบบ): ${glossaryText || 'กฟส.อ่าวลึก, เวรแก้ไฟ, ฟีดเดอร์, หม้อแปลง, Patrol'}${glossaryExtra() ? ', ' + glossaryExtra() : ''}`;
   const body = { contents: [{ role: 'user', parts: [{ inlineData: { mimeType: audio.mime, data: audio.b64 } }, { text: prompt }] }], generationConfig: { temperature: 0, maxOutputTokens: 300 } };
   // ทดสอบแล้ว: ชื่อรุ่น flash-lite-latest ถอดเสียงเร็วสุด (~2 วิ) ส่วน 3.5/3.1 flash-lite ใช้ 7–10 วิ
   for (const m of ['gemini-flash-lite-latest', 'gemini-3.5-flash-lite', 'gemini-3.1-flash-lite', cfg.model]) {
@@ -316,7 +318,7 @@ async function transcribe(audio) {
       const j = await r.json();
       const t = (j.candidates?.[0]?.content?.parts || []).filter((p) => !p.thought).map((p) => p.text || '').join('').trim().replace(/^["“]|["”]$/g, '');
       const clean = t.replace(/([\u0E00-\u0E7F])\s+(?=[\u0E00-\u0E7F])/g, '$1'); // ตัดช่องว่างที่แทรกระหว่างคำไทย
-      return /\[ไม่มีเสียง\]/.test(clean) || clean.length < 2 ? '' : clean;
+      return /\[ไม่มีเสียง\]/.test(clean) || clean.length < 2 ? '' : applyCorrections(clean);
     } catch (e) { console.warn('transcribe', e); }
   }
   return '';
@@ -337,6 +339,8 @@ async function ask(question, audio, keepCue) {
   if (keepCue) { abortAsk(); if (listening && rec) rec.abort(); wav.cancel(); } else stopAll();
   bumpIdle();
   setMode('answer');
+  hideFeedback();
+  if (!audio && answerVerified(question)) return;
   $('userSaid').textContent = audio ? 'กำลังฟังที่พูด…' : '“' + question + '”'; $('userSaid').hidden = false;
   $('bubbleTitle').textContent = 'น้องไฟตอบ';
   $('bubbleText').textContent = '…';
@@ -355,6 +359,7 @@ async function ask(question, audio, keepCue) {
   let timedOut = false;
   const guard = setTimeout(() => { timedOut = true; myCtl.abort(); }, 45000);
   let full = '', spokenUpTo = 0, cardMode = false, gotFirst = false, heard = question || '';
+  const usedTools = new Set();
   wantVerify = false;
   const filler = setTimeout(() => { if (!gotFirst) speak('ขอเช็คข้อมูลสักครู่นะคะ'); }, 1500);
 
@@ -404,6 +409,7 @@ async function ask(question, audio, keepCue) {
           }
         }
       }
+      calls.forEach((c) => usedTools.add(c.name));
       if (!calls.length) break;
       // เรียกเครื่องมือแล้วส่งผลกลับให้ AI ตอบต่อ
       setStatus('กำลังดึงข้อมูล…');
@@ -419,6 +425,8 @@ async function ask(question, audio, keepCue) {
 
     // การ์ดแสดงบนจอ
     const cardPart = full.split(/^###CARD[ \t]*/m)[1];
+    lastAnswer = { q: heard || question, a: $('bubbleText').textContent, card: (cardPart || '').trim(), tools: [...usedTools] };
+    showFeedback();
     if (cardPart) {
       const ls = cardPart.split('\n').map((s) => s.trim()).filter((s) => s && !s.startsWith('###'));
       const title = ls.find((s) => !s.startsWith('-')) || '';
@@ -449,6 +457,86 @@ async function ask(question, audio, keepCue) {
   if (!speakingNow) { const f = onQueueEmpty; onQueueEmpty = null; f(); }
 }
 
+
+// ---------- ระบบเรียนรู้ ----------
+let lastAnswer = null, pendingHeard = '';
+const who = () => cfg.hubUser || 'ไม่ระบุ';
+initLearn(cfg.learnUrl, cfg.learnSecret);
+
+// ยืนยันก่อนส่ง: โชว์คำที่ได้ยิน 2 วินาที แก้ได้ ไม่แตะ = ส่งเอง
+let cfTimer = null, cfText = '';
+function confirmSend(text) {
+  if (!cfg.confirm) { ask(text); return; }
+  cfText = text; pendingHeard = text;
+  $('cfText').textContent = '“' + text + '”';
+  $('confirmBar').hidden = false; document.body.classList.add('confirming');
+  const bar = $('cfProg'); bar.classList.remove('run'); void bar.offsetWidth; bar.classList.add('run');
+  setStatus('ได้ยินว่า… แตะ "แก้" ถ้าไม่ตรง');
+  clearTimeout(cfTimer); cfTimer = setTimeout(() => { const t = cfText; cancelConfirm(); ask(t); }, 2000);
+}
+function cancelConfirm() { clearTimeout(cfTimer); cfTimer = null; const b = $('confirmBar'); if (b) b.hidden = true; document.body.classList.remove('confirming'); }
+$('cfSend').onclick = () => { const t = cfText; cancelConfirm(); stopSpeaking(); tapCue('ค่ะ'); ask(t, null, true); };
+$('cfEdit').onclick = () => { const t = cfText; cancelConfirm(); editHeard(t); };
+function editHeard(t) {
+  pendingHeard = t;
+  $('typeInput').value = t; $('btnSend').hidden = false; $('typeInput').focus();
+  setStatus('แก้คำให้ถูกแล้วกดส่ง น้องไฟจะจำไว้ค่ะ');
+}
+
+// ตอบทันทีจากคำตอบที่เจ้าหน้าที่ยืนยันแล้ว (ไม่ต้องเรียก AI)
+function answerVerified(q) {
+  const v = findVerified(q);
+  if (!v) return false;
+  stopSpeaking();
+  $('userSaid').textContent = '“' + q + '”'; $('userSaid').hidden = false;
+  $('bubbleTitle').innerHTML = 'น้องไฟตอบ<span class="badge-verified">ตอบทันที · คำตอบที่ยืนยันแล้ว</span>';
+  $('bubbleText').textContent = v.a;
+  clearResults();
+  const ls = String(v.card || '').split('\n').map((x) => x.trim()).filter(Boolean);
+  showCard(ls.find((x) => !x.startsWith('-')) || '', ls.filter((x) => x.startsWith('-')).map((x) => x.replace(/^-\s*/, '')));
+  v.a.split('\n').map((x) => x.trim()).filter(Boolean).forEach(speak);
+  chat.push({ role: 'user', parts: [{ text: q }] }, { role: 'model', parts: [{ text: v.a }] });
+  lastAsk = q;
+  lastAnswer = { q, a: v.a, card: v.card || '', tools: [], verified: true };
+  showFeedback();
+  setStatus('ถามต่อได้เลยค่ะ');
+  return true;
+}
+
+function hideFeedback() { const f = $('feedback'); if (f) f.hidden = true; }
+function showFeedback() {
+  if (!lastAnswer || !lastAnswer.a || lastAnswer.a === '…') return;
+  $('feedback').hidden = false; $('fbAsk').hidden = false; $('fbWhy').hidden = true; $('fbFixForm').hidden = true; $('fbDone').hidden = true;
+}
+function fbDone(msg) { $('fbAsk').hidden = true; $('fbWhy').hidden = true; $('fbFixForm').hidden = true; $('fbDone').textContent = msg; $('fbDone').hidden = false; }
+async function fbSend(extra) {
+  const L = lastAnswer; if (!L) return;
+  const cacheable = !L.verified && L.tools.every((t) => STATIC_TOOLS.includes(t));
+  const r = await sendFeedback({ q: L.q, a: L.a, card: L.card, tools: L.tools.join(', '), cacheable, by: who(), ...extra });
+  if (r === false) toast('บันทึกในเครื่องแล้ว แต่ส่งขึ้น Sheet ไม่สำเร็จค่ะ', 5000);
+  return cacheable;
+}
+$('fbOk').onclick = async () => {
+  fbDone('ขอบคุณค่ะ น้องไฟจำไว้แล้ว');
+  const cacheable = await fbSend({ ok: true });
+  if (cacheable) fbDone('ขอบคุณค่ะ ครั้งหน้าถามแบบนี้น้องไฟตอบได้ทันที');
+  else if (lastAnswer && lastAnswer.tools.length) fbDone('ขอบคุณค่ะ น้องไฟจำวิธีหาข้อมูลเรื่องนี้ไว้แล้ว');
+};
+$('fbNo').onclick = () => { $('fbAsk').hidden = true; $('fbWhy').hidden = false; };
+$('fbWhy').querySelectorAll('[data-r]').forEach((b) => (b.onclick = () => {
+  const r = b.dataset.r;
+  if (r === 'fix') { $('fbWhy').hidden = true; $('fbFixForm').hidden = false; $('fbFix').value = ''; $('fbFix').focus(); return; }
+  fbSend({ ok: false, reason: r });
+  if (r === 'ฟังผิด') { fbDone('แก้คำที่ช่องพิมพ์ด้านล่างแล้วกดส่งได้เลยค่ะ'); editHeard(lastAnswer.q); return; }
+  fbDone('ขอบคุณค่ะ ส่งให้ผู้ดูแลตรวจแล้ว');
+}));
+$('fbFixForm').onsubmit = (e) => {
+  e.preventDefault();
+  const fix = $('fbFix').value.trim(); if (!fix) return;
+  fbSend({ ok: false, reason: 'พิมพ์คำตอบที่ถูก', fix });
+  fbDone('บันทึกแล้วค่ะ ครั้งหน้าน้องไฟจะตอบตามนี้');
+};
+
 // ---------- ปุ่มต่างๆ ----------
 let unlocked = false;
 async function unlockOnce() {
@@ -470,7 +558,7 @@ $('btnHome2').onclick = goHome;
 $('userSaid').addEventListener('click', () => {
   const t = $('userSaid').textContent.replace(/^“|”$/g, '').trim();
   if (!t || t === 'กำลังฟังที่พูด…') return;
-  $('typeInput').value = t; $('btnSend').hidden = false; $('typeInput').focus();
+  editHeard(t);
   toast('แก้คำแล้วกดส่งได้เลยค่ะ');
 });
 // ช่องพิมพ์คำถาม
@@ -480,6 +568,10 @@ $('typeForm').onsubmit = (e) => {
   const q = $('typeInput').value.trim();
   if (!q) return;
   $('typeInput').value = ''; $('btnSend').hidden = true; $('typeInput').blur();
+  if (pendingHeard && pendingHeard !== q) {
+    addCorrection(pendingHeard, q, who()).then((d) => d && toast('จำแล้วค่ะ: ' + d.wrong + ' → ' + d.right, 4000));
+  }
+  pendingHeard = '';
   stopSpeaking(); tapCue('ค่ะ'); // ปลดล็อกเสียงพูดบนไอโฟนในจังหวะที่กดส่ง
   ask(q, null, true);
 };
@@ -518,6 +610,9 @@ function openSettings() {
   $('setMode').value = cfg.mode; $('setStt').value = cfg.stt;
   $('set_budgetUser').value = cfg.budgetUser; $('set_budgetPass').value = cfg.budgetPass; $('set_officeCode').value = cfg.officeCode; $('set_cclUser').value = cfg.cclUser; $('set_cclPass').value = cfg.cclPass; $('set_olUser').value = cfg.olUser; $('set_olPass').value = cfg.olPass;
   $('setHubUser').value = cfg.hubUser; $('setHubPass').value = cfg.hubPass; $('setPin').value = cfg.staffPin;
+  $('setLearnUrl').value = cfg.learnUrl; $('setLearnSecret').value = cfg.learnSecret; $('setConfirm').checked = cfg.confirm;
+  const st = learnStats();
+  $('learnInfo').textContent = (st.online ? 'เชื่อม Sheet แล้ว · ' : 'ยังไม่เชื่อม Sheet (เก็บในเครื่องนี้) · ') + `จำคำ ${st.corr} · คำตอบยืนยัน ${st.verified} · ตัวอย่าง ${st.examples}`;
   $('verLabel').textContent = 'เวอร์ชัน ' + VERSION;
   $('settings').showModal();
 }
@@ -535,12 +630,20 @@ $('settings').addEventListener('close', () => {
   cfg.budgetUser = $('set_budgetUser').value.trim(); cfg.budgetPass = $('set_budgetPass').value.trim(); cfg.officeCode = $('set_officeCode').value.trim(); cfg.cclUser = $('set_cclUser').value.trim(); cfg.cclPass = $('set_cclPass').value.trim(); cfg.olUser = $('set_olUser').value.trim(); cfg.olPass = $('set_olPass').value.trim();
   cfg.hubUser = $('setHubUser').value.trim(); cfg.hubPass = $('setHubPass').value; cfg.staffPin = $('setPin').value.trim();
   cfg.mode = $('setMode').value; cfg.stt = $('setStt').value;
+  const lu = $('setLearnUrl').value.trim(), ls = $('setLearnSecret').value.trim(), relearn = lu !== cfg.learnUrl || ls !== cfg.learnSecret;
+  cfg.learnUrl = lu; cfg.learnSecret = ls; cfg.confirm = $('setConfirm').checked;
+  if (relearn) initLearn(lu, ls).then((ok) => lu && toast(ok ? 'เชื่อมระบบเรียนรู้แล้วค่ะ' : 'เชื่อมระบบเรียนรู้ไม่สำเร็จ ตรวจลิงก์/รหัสลับค่ะ', 5000));
   saveCfg(); toast('บันทึกแล้วค่ะ'); if (document.body.classList.contains('mode-home')) goHome(); else setMode('answer');
 });
 
 // รับ key ผ่านลิงก์ครั้งเดียว (#key=...) แล้วลบออกจากแถบที่อยู่ทันที
-const hashKey = new URLSearchParams(location.hash.slice(1)).get('key');
+const hp = new URLSearchParams(location.hash.slice(1)), hashKey = hp.get('key');
 if (hashKey) { cfg.apiKey = hashKey; saveCfg(); window.history.replaceState(null, "", location.pathname); toast('บันทึก API key แล้วค่ะ'); }
+// ลิงก์ตั้งค่าระบบเรียนรู้ครั้งเดียว (#lu=...&ls=...)
+if (hp.get('lu') && hp.get('ls')) {
+  cfg.learnUrl = hp.get('lu'); cfg.learnSecret = hp.get('ls'); saveCfg(); window.history.replaceState(null, "", location.pathname);
+  initLearn(cfg.learnUrl, cfg.learnSecret).then((ok) => toast(ok ? 'เชื่อมระบบเรียนรู้แล้วค่ะ' : 'เชื่อมระบบเรียนรู้ไม่สำเร็จค่ะ', 5000));
+}
 
 if (!cfg.apiKey) setTimeout(() => toast('แตะไอคอนตั้งค่ามุมขวาบน เพื่อใส่ Gemini API key', 6000), 800);
 goHome();

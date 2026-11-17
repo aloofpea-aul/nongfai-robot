@@ -177,3 +177,22 @@ body.has-results #card{display:none}
   .main{overflow:visible;min-height:calc(100vh - 52px - env(safe-area-inset-top))}
   body.mode-answer .left{top:calc(52px + env(safe-area-inset-top))}
 }
+
+/* ระบบเรียนรู้ */
+.fb{background:#fff;border:1.5px solid var(--soft);border-radius:16px;padding:10px 14px}
+.fb-row{display:flex;align-items:center;gap:10px}
+.fb-row.wrap{flex-wrap:wrap;margin-top:8px}
+.fb-q{font-size:17px;color:var(--purple-dk);margin-right:auto}
+.fbtn{min-height:44px;padding:0 16px;border-radius:12px;border:2px solid var(--purple);background:#fff;color:var(--purple-dk);font-size:17px}
+.fbtn.ok{background:var(--purple);color:#fff}
+.fbtn.no{border-color:#c0392b;color:#c0392b}
+.fb-fix{display:flex;flex-direction:column;gap:8px;margin-top:8px}
+.fb-fix textarea{font:inherit;font-size:18px;padding:10px;border-radius:12px;border:1.5px solid var(--purple)}
+.fb-done{font-size:17px;color:#1e7d4f}
+.badge-verified{display:inline-block;margin-left:8px;padding:2px 10px;border-radius:999px;background:#e3f6ec;color:#1e7d4f;font-size:15px;vertical-align:middle}
+.confirm{flex:1;display:flex;align-items:center;gap:10px;flex-wrap:wrap;min-width:0;position:relative;padding-bottom:6px}
+.cf-text{flex:1;min-width:0;font-size:20px;color:var(--purple-dk);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cf-prog{position:absolute;left:0;right:0;bottom:0;height:4px;background:var(--soft);border-radius:2px;overflow:hidden}
+.cf-prog i{display:block;height:100%;width:0;background:var(--purple)}
+.cf-prog i.run{width:100%;transition:width 2s linear}
+body.confirming .typeform{display:none}
