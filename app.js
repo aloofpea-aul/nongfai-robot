@@ -1,6 +1,6 @@
 // น้องไฟ — แอปหลัก: ฟังเสียงไทย → ถาม Gemini (สตรีม) → พูดตอบทีละประโยค + แสดงบนจอ
-import { Mascot } from './mascot.js';
-import { WavRecorder } from './recorder.js';
+import { Mascot } from './mascot.js?v=11171216';
+import { WavRecorder } from './recorder.js?v=11171216';
 
 const $ = (id) => document.getElementById(id);
 const DEFAULTS = { apiKey: '', model: 'gemini-2.5-flash', voice: '', rate: 1.0, autoListen: true };
@@ -276,6 +276,8 @@ async function ask(question, audio) {
 let unlocked = false;
 async function unlockOnce() {
   if (unlocked) return; unlocked = true;
+  // iPhone: ให้เสียงออกลำโพงแม้เปิดโหมดเงียบ (Safari 16.4+)
+  try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch {}
   // iPad/iPhone: ต้อง "ปลดล็อก" เสียงพูดด้วยการแตะครั้งแรก ไม่งั้นคำตอบแรกจะเงียบ
   try { const u = new SpeechSynthesisUtterance(' '); u.volume = 0; speechSynthesis.speak(u); } catch {}
   const el = document.documentElement;
