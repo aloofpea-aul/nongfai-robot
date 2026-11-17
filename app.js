@@ -1,10 +1,10 @@
 // น้องไฟ — แอปหลัก: ฟังเสียงไทย → ถาม Gemini (สตรีม) → พูดตอบทีละประโยค + แสดงบนจอ
-import { Mascot } from './mascot.js?v=11171350';
-import { WavRecorder } from './recorder.js?v=11171350';
-import { TOOL_DECLS, runTool, bkkNow } from './tools.js?v=11171350';
+import { Mascot } from './mascot.js?v=11171352';
+import { WavRecorder } from './recorder.js?v=11171352';
+import { TOOL_DECLS, runTool, bkkNow } from './tools.js?v=11171352';
 
 const $ = (id) => document.getElementById(id);
-export const VERSION = '11171350';
+export const VERSION = '11171352';
 // อัปเดตตัวเอง: ถ้าบนเว็บมีเวอร์ชันใหม่กว่า ให้โหลดหน้าใหม่ทันที (กันไอโฟนจำไฟล์เก่า)
 fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json()).then((j) => {
   if (j.v && j.v !== VERSION && !sessionStorage.getItem('nf.reload.' + j.v)) {
@@ -26,7 +26,7 @@ const SYSTEM_BASE = `คุณคือ "น้องไฟ" หุ่นยน�
 บุคลิก: ผู้หญิง สุภาพ อบอุ่น เป็นกันเอง ลงท้ายด้วย ค่ะ/คะ
 กฎการตอบ:
 1. คำตอบจะถูกอ่านออกเสียง ตอบสั้น 1-3 ประโยค แต่ละประโยคขึ้นบรรทัดใหม่ ห้ามใช้ markdown อีโมจิ ดอกจัน หรือเลขข้อในส่วนที่พูด
-2. ถ้ามีรายการที่ควรแสดงบนจอ เช่น เอกสาร ขั้นตอน ช่องทาง ให้ต่อท้ายด้วยบรรทัด ###CARD ตามด้วยบรรทัดหัวข้อ แล้วแต่ละรายการขึ้นต้นด้วย "- " ไม่เกิน 6 รายการ
+2. ถ้ามีรายการที่ควรแสดงบนจอ เช่น เอกสาร ขั้นตอน ช่องทาง ให้ต่อท้ายด้วยบรรทัด ###CARD ตามด้วยบรรทัดหัวข้อ แล้วแต่ละรายการขึ้นต้นด้วย "- " ไม่เกิน 6 รายการ ลิงก์ให้ใส่ในการ์ดเท่านั้น ห้ามพูดหรือพิมพ์ลิงก์ในส่วนที่พูด
 3. ห้ามเดาตัวเลข ค่าธรรมเนียม อัตราค่าไฟ วันเวลานัดหมาย หรือข้อมูลเฉพาะของลูกค้ารายใด ถ้าไม่แน่ใจให้แนะนำติดต่อเจ้าหน้าที่ที่เคาน์เตอร์บริการ หรือโทร PEA Call Center 1129
 4. มีเครื่องมือดึงข้อมูลจริงของ กฟส.อ่าวลึก ได้แก่ สภาพอากาศ ประกาศเตือนภัย ตารางเวรแก้ไฟ ประวัติไฟดับ ระเบียบ กฟภ. คลังพัสดุ และยานพาหนะ เมื่อคำถามเกี่ยวข้องให้เรียกเครื่องมือก่อนตอบเสมอ แล้วตอบจากผลที่ได้เท่านั้น ห้ามแต่งข้อมูลเอง
 5. ถ้าเครื่องมือตอบว่า need_verify ให้บอกสั้นๆ ว่าเป็นข้อมูลภายใน ขอให้เจ้าหน้าที่ใส่รหัสยืนยันตัวตนบนจอก่อน
@@ -54,7 +54,14 @@ function toast(msg, ms = 3500) { const t = $('toast'); t.textContent = msg; t.hi
 function showCard(title, items) {
   if (!items.length) { $('card').hidden = true; return; }
   $('cardTitle').textContent = title || '';
-  $('cardList').replaceChildren(...items.map((x) => Object.assign(document.createElement('li'), { textContent: x })));
+  $('cardList').replaceChildren(...items.map((x) => {
+    const li = document.createElement('li'), m = x.match(/https?:\/\/\S+/);
+    if (!m) { li.textContent = x; return li; }
+    const label = x.replace(m[0], '').replace(/[:：\-–]\s*$/, '').trim();
+    if (label) li.append(label + ' ');
+    const a = Object.assign(document.createElement('a'), { href: m[0], target: '_blank', rel: 'noopener', textContent: 'เปิดเอกสาร' });
+    li.append(a); return li;
+  }));
   $('card').hidden = false;
 }
 function goHome() {
