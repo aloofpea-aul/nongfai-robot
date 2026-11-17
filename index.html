@@ -15,7 +15,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600&family=Sarabun:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=11171530">
+<link rel="stylesheet" href="style.css?v=11172125">
 <script type="importmap">
 { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js" } }
 </script>
@@ -100,6 +100,9 @@
     <label>ความเร็วเสียง <span id="rateVal"></span>
       <input id="setRate" type="range" min="0.7" max="1.4" step="0.05">
     </label>
+    <label>ระบบฟังเสียง
+      <select id="setStt"><option value="gemini">Gemini ถอดเสียง — แม่นกว่า รู้จักชื่อคนและฟีดเดอร์ (แนะนำ)</option><option value="device">ระบบฟังของเครื่อง — เร็วกว่า เห็นคำขณะพูด (เฉพาะ Android)</option></select>
+    </label>
     <label>โหมดใช้งาน
       <select id="setMode"><option value="ops">แผนกปฏิบัติการระบบไฟฟ้า (ผปร.) — ใช้ภายใน ไม่ต้องใส่ PIN</option><option value="customer">บริการลูกค้า — ข้อมูลภายในต้องใส่ PIN</option></select>
     </label>
@@ -172,6 +175,6 @@
 
 <div id="toast" class="toast" hidden></div>
 
-<script type="module" src="app.js?v=11171530"></script>
+<script type="module" src="app.js?v=11172125"></script>
 </body>
 </html>

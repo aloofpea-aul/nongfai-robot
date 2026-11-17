@@ -13,7 +13,7 @@ export class WavRecorder {
   stop() { if (this._stop) this._stop(true); }
   cancel() { if (this._stop) this._stop(false); }
 
-  async record({ maxMs = 12000, silenceMs = 1200, noSpeechMs = 7000, onSpeech } = {}) {
+  async record({ maxMs = 20000, silenceMs = 1500, noSpeechMs = 8000, onSpeech } = {}) {
     this.prime();
     const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
     const ctx = this.ctx;
@@ -34,7 +34,7 @@ export class WavRecorder {
         const rate = ctx.sampleRate; ctx.close().catch(() => {}); this.ctx = null;
         if (!ok || !speech) return resolve(null);
         // เก็บเสียงตั้งแต่ก่อนเริ่มพูดเล็กน้อย ตัดความเงียบช่วงต้นทิ้ง
-        resolve({ b64: encodeWav(chunks.slice(Math.max(0, speechChunk - 3)), rate), mime: 'audio/wav' });
+        resolve({ b64: encodeWav(chunks.slice(Math.max(0, speechChunk - 6)), rate), mime: 'audio/wav' });
       };
       this._stop = finish;
       proc.onaudioprocess = (e) => {
@@ -43,7 +43,7 @@ export class WavRecorder {
         let s = 0; for (let i = 0; i < d.length; i++) s += d[i] * d[i];
         const rms = Math.sqrt(s / d.length), now = performance.now() - t0;
         if (now < 300) { floor = Math.max(floor, rms); return; }
-        if (rms > Math.max(0.015, floor * 2.5)) {
+        if (rms > Math.max(0.012, floor * 2.2)) {
           if (!speech) { speech = true; speechChunk = chunks.length - 1; onSpeech?.(); }
           lastLoud = now;
         }

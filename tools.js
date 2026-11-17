@@ -457,6 +457,17 @@ export async function loadDetail(det, c) {
   return null;
 }
 
+// ---------- คำศัพท์ช่วยถอดเสียง (ชื่อคน ฟีดเดอร์ ชื่อระบบ) ----------
+const BASE_TERMS = ['กฟส.อ่าวลึก', 'ผปร.', 'เวรแก้ไฟ', 'ไฟดับ', 'ไฟตก', 'ฟีดเดอร์', 'หม้อแปลง', 'ฟิวส์ลิงก์', 'ฟิวส์แรงสูง', 'รีโคลสเซอร์', 'เซกชันไลเซอร์', 'ลูกถ้วย', 'ล่อฟ้า', 'คอนสาย', 'เสาคอนกรีต',
+  'Patrol', 'SLD', 'Load01', 'KPI', 'K04', 'SAIFI', 'SAIDI', 'Safety talk', 'Office Love', 'CCL', 'มิเตอร์', 'พัสดุ', 'คลังพัสดุ', 'จัดซื้อ', 'ตัดงบ', 'ออกเลขหนังสือ', 'ตัดต้นไม้', 'รปภ.', 'กฟจ.กระบี่', 'กฟต.2',
+  'ALA01', 'ALA02', 'ALA03', 'ALA04', 'ALA05', 'ALA06', 'ALA07', 'ALA08', 'ALA09', 'ALA10', 'อ่าวลึก', 'ปลายพระยา', 'เขาพนม', 'แหลมสัก', 'เกาะยอ', 'คลองหิน', 'นาเหนือ', 'บ้านกลาง', 'ทุ่งไทรทอง', 'คลองยา', 'แหลมสัก'];
+export async function glossary() {
+  const names = new Set();
+  try { const m = await cached('month' + monthOf(), 300e3, () => getJSON(DUTY_API + '?action=month&m=' + monthOf())); const d = m.month && m.month.data; ['emp', 'wk'].forEach((g) => Object.keys((d && d[g]) || {}).forEach((n) => names.add(n))); } catch {}
+  try { const c = await cached('checkin', 120e3, () => getJSON(CHECKIN_API + '?action=getTodayDashboard')); (c.records || []).forEach((r) => String(r.name || '').split(/\s+/).filter(Boolean).forEach((p) => names.add(p))); } catch {}
+  return [...BASE_TERMS, ...names].join(', ');
+}
+
 // ---------- ประกาศให้ Gemini รู้จักเครื่องมือ ----------
 export const TOOLS = {
   weather_now: { access: 'public', run: weatherNow, decl: { name: 'weather_now', description: 'สภาพอากาศตอนนี้ที่อ่าวลึก และระดับความเสี่ยงไฟดับจากฝน/ลม', parameters: { type: 'OBJECT', properties: {} } } },

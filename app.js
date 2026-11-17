@@ -1,10 +1,10 @@
 // น้องไฟ — แอปหลัก: ฟังเสียงไทย → ถาม Gemini (สตรีม) → พูดตอบทีละประโยค + แสดงบนจอ
-import { Mascot } from './mascot.js?v=11171530';
-import { WavRecorder } from './recorder.js?v=11171530';
-import { TOOL_DECLS, runTool, bkkNow, loadDetail } from './tools.js?v=11171530';
+import { Mascot } from './mascot.js?v=11172125';
+import { WavRecorder } from './recorder.js?v=11172125';
+import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary } from './tools.js?v=11172125';
 
 const $ = (id) => document.getElementById(id);
-export const VERSION = '11171530';
+export const VERSION = '11172125';
 // อัปเดตตัวเอง: ถ้าบนเว็บมีเวอร์ชันใหม่กว่า ให้โหลดหน้าใหม่ทันที (กันไอโฟนจำไฟล์เก่า)
 fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json()).then((j) => {
   if (j.v && j.v !== VERSION && !sessionStorage.getItem('nf.reload.' + j.v)) {
@@ -13,7 +13,7 @@ fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json(
   }
 }).catch(() => {});
 
-const DEFAULTS = { apiKey: '', model: 'gemini-3.5-flash-lite', voice: '', rate: 1.0, autoListen: true, hubUser: '', hubPass: '', staffPin: '', mode: 'ops', budgetUser: '', budgetPass: '', officeCode: '', cclUser: '', cclPass: '', olUser: '', olPass: '' };
+const DEFAULTS = { apiKey: '', model: 'gemini-3.5-flash-lite', voice: '', rate: 1.0, autoListen: true, hubUser: '', hubPass: '', staffPin: '', mode: 'ops', stt: 'gemini', budgetUser: '', budgetPass: '', officeCode: '', cclUser: '', cclPass: '', olUser: '', olPass: '' };
 const cfg = { ...DEFAULTS, ...JSON.parse(localStorage.getItem('nongfai.cfg') || '{}') };
 const saveCfg = () => localStorage.setItem('nongfai.cfg', JSON.stringify(cfg));
 // ชื่อ/รหัสศูนย์รวมงาน: ถ้าเครื่องนี้เคยล็อกอินศูนย์รวมงานไว้ ใช้ชุดนั้นเลย (โดเมนเดียวกัน)
@@ -209,7 +209,7 @@ function tapCue(text) {
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 let rec = null, listening = false;
 const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-const USE_AUDIO_AI = IS_IOS || !SR; // iPad: ให้ Gemini ฟังเสียงเอง ไม่พึ่ง Siri
+const useAudioAI = () => IS_IOS || !SR || cfg.stt !== 'device'; // ค่าเริ่มต้น: ให้ Gemini ถอดเสียง (แม่นกว่า + รู้จักชื่อคน/ฟีดเดอร์)
 const wav = new WavRecorder();
 // iPhone/iPad (Safari 16.4+): 'playback' = เสียงพูดดังแม้เปิดโหมดเงียบ แต่ต้องสลับเป็น 'play-and-record' ก่อนเปิดไมค์
 // ไม่บังคับโหมดเสียงอีกแล้ว (โหมด playback ทำให้ไอโฟนเปิดไมค์ไม่ได้) ตั้งกลับเป็น auto ก่อนอัดทุกครั้ง
@@ -229,7 +229,13 @@ async function listenAudio() {
   try {
     const audio = await wav.record({ onSpeech: () => setStatus('ฟังอยู่ พูดจบแล้วรอสักครู่นะคะ', 'listening') });
     micOff();
-    if (audio) ask(null, audio); else setStatus('ไม่ได้ยินเสียง แตะไมค์แล้วพูดใหม่นะคะ');
+    if (!audio) { setStatus('ไม่ได้ยินเสียง แตะไมค์แล้วพูดใหม่นะคะ'); return; }
+    setStatus('กำลังแปลงเสียงเป็นข้อความ…'); mascot.setMood('thinking');
+    const text = await transcribe(audio);
+    mascot.setMood('normal');
+    if (!text) { setStatus('ฟังไม่ชัด แตะไมค์แล้วพูดใหม่อีกครั้งนะคะ'); speak('ขอโทษค่ะ ฟังไม่ชัด รบกวนพูดอีกครั้งนะคะ'); return; }
+    if (voiceCommand(text)) return;
+    ask(text);
   } catch (e) {
     micOff();
     console.error(e);
@@ -239,7 +245,7 @@ async function listenAudio() {
 }
 
 function listen() {
-  if (USE_AUDIO_AI) return listenAudio();
+  if (useAudioAI()) return listenAudio();
   if (listening) { rec.stop(); return; }
   stopSpeaking(); abortAsk();
   rec = new SR();
@@ -286,6 +292,40 @@ async function callGemini(body, signal) {
     if (res.status !== 429 && res.status !== 404) return res;
   }
   return res;
+}
+
+// ---------- ถอดเสียงเป็นข้อความก่อน (แยกจากการตอบ) ให้ตรงกับที่พูดมากที่สุด ----------
+let glossaryText = '';
+glossary().then((g) => { glossaryText = g; }).catch(() => {});
+async function transcribe(audio) {
+  if (!cfg.apiKey) { openSettings(); toast('ใส่ Gemini API key ก่อนนะคะ'); return ''; }
+  const prompt = `ถอดเสียงพูดในไฟล์นี้ออกมาเป็นข้อความตามที่ผู้พูดพูดจริงทุกคำ
+- ภาษาไทยเป็นหลัก อาจมีคำภาษาอังกฤษ ตัวเลข หรือรหัส ให้เขียนตามที่ได้ยิน เช่น ALA06, KPI 2.11
+- ห้ามตอบคำถาม ห้ามสรุป ห้ามแก้ใจความ ห้ามเติมคำที่ไม่ได้พูด ตัดเฉพาะคำซ้ำ เอ่อ อ่า
+- ถ้าเสียงไม่ชัดให้เลือกคำที่ใกล้ที่สุดจากรายการคำศัพท์ด้านล่าง
+- ถ้าไม่มีเสียงพูดของคน ให้ตอบว่า [ไม่มีเสียง]
+ตอบเฉพาะข้อความที่ถอดได้ บรรทัดเดียว
+คำศัพท์ที่อาจได้ยิน (ชื่อคน ฟีดเดอร์ ชื่อระบบ): ${glossaryText || 'กฟส.อ่าวลึก, เวรแก้ไฟ, ฟีดเดอร์, หม้อแปลง, Patrol'}`;
+  const body = { contents: [{ role: 'user', parts: [{ inlineData: { mimeType: audio.mime, data: audio.b64 } }, { text: prompt }] }], generationConfig: { temperature: 0, maxOutputTokens: 300 } };
+  for (const m of [cfg.model, ...FALLBACK_MODELS.filter((x) => x !== cfg.model)]) {
+    try {
+      const b = /2\.5/.test(m) ? { ...body, generationConfig: { ...body.generationConfig, thinkingConfig: { thinkingBudget: 0 } } } : body;
+      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(m)}:generateContent`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': cfg.apiKey }, body: JSON.stringify(b) });
+      if (r.status === 429 || r.status === 404) continue;
+      const j = await r.json();
+      const t = (j.candidates?.[0]?.content?.parts || []).filter((p) => !p.thought).map((p) => p.text || '').join('').trim().replace(/^["“]|["”]$/g, '');
+      return /\[ไม่มีเสียง\]/.test(t) || t.length < 2 ? '' : t;
+    } catch (e) { console.warn('transcribe', e); }
+  }
+  return '';
+}
+
+// คำสั่งเสียงที่ทำได้ทันที ไม่ต้องถาม AI
+function voiceCommand(t) {
+  const x = t.replace(/\s+/g, '').replace(/ค่ะ|ครับ|คะ|นะ/g, '');
+  if (/^(กลับ)?หน้าแรก$|^กลับหน้าหลัก$|^เริ่มใหม่$/.test(x)) { goHome(); speak('กลับหน้าแรกแล้วค่ะ'); return true; }
+  if (/^(หยุด|พอแล้ว|เงียบ|ยกเลิก)$/.test(x)) { stopAll(); setStatus('หยุดแล้วค่ะ'); return true; }
+  return false;
 }
 
 const AUDIO_NOTE = 'ไฟล์เสียงนี้คือคำพูดของลูกค้า บรรทัดแรกให้ขึ้นต้นด้วย ###USER: ตามด้วยคำที่ลูกค้าพูดเป็นข้อความภาษาไทย แล้วขึ้นบรรทัดใหม่ตอบตามกฎปกติ ถ้าฟังไม่ออกให้ขอให้พูดอีกครั้งอย่างสุภาพ';
@@ -424,6 +464,13 @@ document.addEventListener('pointerdown', bumpIdle);
 $('btnMic').onclick = listen;
 $('btnHome').onclick = goHome;
 $('btnHome2').onclick = goHome;
+// แตะคำพูดที่ถอดได้ เพื่อแก้แล้วส่งใหม่
+$('userSaid').addEventListener('click', () => {
+  const t = $('userSaid').textContent.replace(/^“|”$/g, '').trim();
+  if (!t || t === 'กำลังฟังที่พูด…') return;
+  $('typeInput').value = t; $('btnSend').hidden = false; $('typeInput').focus();
+  toast('แก้คำแล้วกดส่งได้เลยค่ะ');
+});
 // ช่องพิมพ์คำถาม
 $('typeInput').addEventListener('input', () => { $('btnSend').hidden = !$('typeInput').value.trim(); });
 $('typeForm').onsubmit = (e) => {
@@ -466,7 +513,7 @@ function openSettings() {
   loadVoices();
   $('setKey').value = cfg.apiKey; $('setModel').value = cfg.model; $('setVoice').value = cfg.voice;
   $('setRate').value = cfg.rate; $('rateVal').textContent = cfg.rate + 'x'; $('setAuto').checked = cfg.autoListen;
-  $('setMode').value = cfg.mode;
+  $('setMode').value = cfg.mode; $('setStt').value = cfg.stt;
   $('set_budgetUser').value = cfg.budgetUser; $('set_budgetPass').value = cfg.budgetPass; $('set_officeCode').value = cfg.officeCode; $('set_cclUser').value = cfg.cclUser; $('set_cclPass').value = cfg.cclPass; $('set_olUser').value = cfg.olUser; $('set_olPass').value = cfg.olPass;
   $('setHubUser').value = cfg.hubUser; $('setHubPass').value = cfg.hubPass; $('setPin').value = cfg.staffPin;
   $('verLabel').textContent = 'เวอร์ชัน ' + VERSION;
@@ -485,7 +532,7 @@ $('settings').addEventListener('close', () => {
   cfg.voice = $('setVoice').value; cfg.rate = +$('setRate').value; cfg.autoListen = $('setAuto').checked;
   cfg.budgetUser = $('set_budgetUser').value.trim(); cfg.budgetPass = $('set_budgetPass').value.trim(); cfg.officeCode = $('set_officeCode').value.trim(); cfg.cclUser = $('set_cclUser').value.trim(); cfg.cclPass = $('set_cclPass').value.trim(); cfg.olUser = $('set_olUser').value.trim(); cfg.olPass = $('set_olPass').value.trim();
   cfg.hubUser = $('setHubUser').value.trim(); cfg.hubPass = $('setHubPass').value; cfg.staffPin = $('setPin').value.trim();
-  cfg.mode = $('setMode').value;
+  cfg.mode = $('setMode').value; cfg.stt = $('setStt').value;
   saveCfg(); toast('บันทึกแล้วค่ะ'); if (document.body.classList.contains('mode-home')) goHome(); else setMode('answer');
 });
 
