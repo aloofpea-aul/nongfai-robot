@@ -216,7 +216,7 @@ function cap(obj, n = 14000) { const s = JSON.stringify(obj); return s.length > 
 const match = (x, kw) => !kw || words(kw).every((w) => JSON.stringify(x).toLowerCase().includes(w));
 // ---------- ข้อมูลสำหรับแสดงบนจอ (ไม่ส่งให้ AI) ----------
 const withD = (ai, d) => Object.assign(typeof ai === 'string' ? { ข้อมูล: ai } : ai, { __display: d });
-const F = (o) => Object.entries(o || {}).filter(([k, v]) => v !== '' && v != null && typeof v !== 'object' && !SKIP_KEY.test(k)).map(([k, v]) => [k, String(v)]);
+const F = (o) => Object.entries(o || {}).filter(([k, v]) => v !== '' && v != null && typeof v !== 'object' && !k.startsWith('_') && !SKIP_KEY.test(k)).map(([k, v]) => [k, String(v).replace(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}).*$/, '$1 $2')]);
 const toneOf = (s) => /ร้ายแรง|สูง|^3$|ใหม่|ค้าง|ยังไม่|ใช้งานอยู่|นอกพื้นที่|รุนแรง/.test(String(s)) ? 'red' : /กลาง|^2$|รับงาน|กำลัง|รอ/.test(String(s)) ? 'amber' : /เสร็จ|ว่าง|ปกติ|ในพื้นที่|แล้ว/.test(String(s)) ? 'green' : '';
 const driveImg = (id) => id ? 'https://lh3.googleusercontent.com/d/' + id + '=w800' : '';
 const needCreds = (c) => { if (!c.user || !c.pass) throw new Error('ยังไม่ได้ตั้งชื่อ/รหัสศูนย์รวมงานในหน้าตั้งค่าของน้องไฟ'); };

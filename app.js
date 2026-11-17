@@ -1,10 +1,10 @@
 // น้องไฟ — แอปหลัก: ฟังเสียงไทย → ถาม Gemini (สตรีม) → พูดตอบทีละประโยค + แสดงบนจอ
-import { Mascot } from './mascot.js?v=11171528';
-import { WavRecorder } from './recorder.js?v=11171528';
-import { TOOL_DECLS, runTool, bkkNow, loadDetail } from './tools.js?v=11171528';
+import { Mascot } from './mascot.js?v=11171530';
+import { WavRecorder } from './recorder.js?v=11171530';
+import { TOOL_DECLS, runTool, bkkNow, loadDetail } from './tools.js?v=11171530';
 
 const $ = (id) => document.getElementById(id);
-export const VERSION = '11171528';
+export const VERSION = '11171530';
 // อัปเดตตัวเอง: ถ้าบนเว็บมีเวอร์ชันใหม่กว่า ให้โหลดหน้าใหม่ทันที (กันไอโฟนจำไฟล์เก่า)
 fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json()).then((j) => {
   if (j.v && j.v !== VERSION && !sessionStorage.getItem('nf.reload.' + j.v)) {
