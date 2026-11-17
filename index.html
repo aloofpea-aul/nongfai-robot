@@ -15,7 +15,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600&family=Sarabun:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=11171447">
+<link rel="stylesheet" href="style.css?v=11171528">
 <script type="importmap">
 { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js" } }
 </script>
@@ -46,6 +46,7 @@
       <div id="bubbleText" class="bubble-text">น้องไฟช่วยอะไรได้บ้างคะ พูดได้เลย หรือแตะเมนูด้านล่าง</div>
     </div>
 
+    <div id="results" class="results"></div>
     <div id="card" class="card" hidden>
       <div id="cardTitle" class="card-title"></div>
       <ol id="cardList" class="card-list"></ol>
@@ -143,6 +144,19 @@
   </form>
 </dialog>
 
+<dialog id="detailDlg" class="detail">
+  <div class="dt-head"><button id="dtBack" type="button" class="iconbtn" aria-label="ปิด"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg></button><span>รายละเอียด</span></div>
+  <div id="dtImgs" class="dt-imgs"></div>
+  <div class="dt-body">
+    <div id="dtTitle" class="dt-title"></div>
+    <div id="dtBadge"></div>
+    <div id="dtText" class="dt-text"></div>
+    <div id="dtFields" class="dt-fields"></div>
+    <div id="dtLoading" class="dt-loading" hidden>กำลังโหลดรูปและรายละเอียด…</div>
+    <div class="dt-actions"><a id="dtMap" class="abtn outline" target="_blank" rel="noopener">นำทางไปจุดนี้</a><a id="dtOpen" class="abtn" target="_blank" rel="noopener">เปิดในแอป</a></div>
+  </div>
+</dialog>
+
 <dialog id="pinDlg" class="settings">
   <form id="pinForm">
     <h2>ยืนยันตัวตนเจ้าหน้าที่</h2>
@@ -158,6 +172,6 @@
 
 <div id="toast" class="toast" hidden></div>
 
-<script type="module" src="app.js?v=11171447"></script>
+<script type="module" src="app.js?v=11171528"></script>
 </body>
 </html>

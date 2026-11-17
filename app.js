@@ -1,10 +1,10 @@
 // น้องไฟ — แอปหลัก: ฟังเสียงไทย → ถาม Gemini (สตรีม) → พูดตอบทีละประโยค + แสดงบนจอ
-import { Mascot } from './mascot.js?v=11171447';
-import { WavRecorder } from './recorder.js?v=11171447';
-import { TOOL_DECLS, runTool, bkkNow } from './tools.js?v=11171447';
+import { Mascot } from './mascot.js?v=11171528';
+import { WavRecorder } from './recorder.js?v=11171528';
+import { TOOL_DECLS, runTool, bkkNow, loadDetail } from './tools.js?v=11171528';
 
 const $ = (id) => document.getElementById(id);
-export const VERSION = '11171447';
+export const VERSION = '11171528';
 // อัปเดตตัวเอง: ถ้าบนเว็บมีเวอร์ชันใหม่กว่า ให้โหลดหน้าใหม่ทันที (กันไอโฟนจำไฟล์เก่า)
 fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json()).then((j) => {
   if (j.v && j.v !== VERSION && !sessionStorage.getItem('nf.reload.' + j.v)) {
@@ -49,7 +49,53 @@ function systemText() {
 let staffUntil = 0, wantVerify = false, lastAsk = null;
 const OPS = () => cfg.mode !== 'customer';   // ช่วงทดสอบใช้ในแผนก ผปร. = ถือว่าเป็นเจ้าหน้าที่ทุกคน
 const staffOn = () => OPS() || Date.now() < staffUntil;
-const toolCtx = { staff: staffOn, needVerify: () => { wantVerify = true; }, creds: () => ({ user: cfg.hubUser, pass: cfg.hubPass, budgetUser: cfg.budgetUser, budgetPass: cfg.budgetPass, officeCode: cfg.officeCode, cclUser: cfg.cclUser, cclPass: cfg.cclPass, olUser: cfg.olUser, olPass: cfg.olPass }) };
+const toolCtx = { staff: staffOn, show: (d) => showResults(d), needVerify: () => { wantVerify = true; }, creds: () => ({ user: cfg.hubUser, pass: cfg.hubPass, budgetUser: cfg.budgetUser, budgetPass: cfg.budgetPass, officeCode: cfg.officeCode, cclUser: cfg.cclUser, cclPass: cfg.cclPass, olUser: cfg.olUser, olPass: cfg.olPass }) };
+
+// ---------- ผลค้นหา: สรุปตัวเลข + รายการพร้อมรูป + หน้ารายละเอียด ----------
+const el = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
+function clearResults() { document.getElementById('results').replaceChildren(); document.body.classList.remove('has-results'); }
+function showResults(d) {
+  if (!d || (!(d.items || []).length && !(d.stats || []).length)) return;
+  const box = el('section', 'rs');
+  const head = el('div', 'rs-head'); head.append(el('span', null, 'ข้อมูลจาก ' + (d.source || '')));
+  if (d.app) { const a = el('a', null, 'เปิดแอป'); a.href = d.app; a.target = '_blank'; a.rel = 'noopener'; head.append(a); }
+  box.append(head);
+  if ((d.stats || []).length) { const g = el('div', 'rs-stats'); d.stats.forEach((s) => { const c = el('div', 'st' + (s.t ? ' ' + s.t : '')); c.append(el('b', null, s.v == null ? '-' : String(s.v)), el('span', null, s.l)); g.append(c); }); box.append(g); }
+  const items = d.items || [], list = el('div', 'rs');
+  const renderItems = (n) => { list.replaceChildren(...items.slice(0, n).map((it) => itemRow(it, d))); };
+  renderItems(8); box.append(list);
+  if (items.length > 8) { const more = el('button', 'rs-more', 'ดูทั้งหมด ' + items.length + ' รายการ'); more.type = 'button'; more.onclick = () => { renderItems(items.length); more.remove(); }; box.append(more); }
+  const r = document.getElementById('results'); r.append(box); document.body.classList.add('has-results');
+}
+function itemRow(it, d) {
+  const b = el('button', 'ri'); b.type = 'button';
+  if (it.thumb) { const im = el('img', 'th'); im.src = it.thumb; im.alt = ''; im.loading = 'lazy'; im.onerror = () => im.replaceWith(thumbIcon(it)); b.append(im); } else b.append(thumbIcon(it));
+  const tx = el('div', 'tx'); tx.append(el('div', 't1', it.title || '-')); if (it.sub) tx.append(el('div', 't2', it.sub)); b.append(tx);
+  if (it.badge) b.append(el('span', 'bd' + (it.tone || toneGuess(it.badge) ? ' ' + (it.tone || toneGuess(it.badge)) : ''), String(it.badge)));
+  b.onclick = () => openDetail(it, d);
+  return b;
+}
+function thumbIcon(it) { const s = el('span', 'th', it.lat ? '⌖' : it.link ? '▤' : '•'); s.setAttribute('aria-hidden', 'true'); return s; }
+function toneGuess(t) { t = String(t); return /ร้ายแรง|ระดับ 3|ใหม่|ยังไม่|ใช้งานอยู่|นอกพื้นที่/.test(t) ? 'red' : /ระดับ 2|รับงาน|กำลัง|รอ|กลาง/.test(t) ? 'amber' : /เสร็จ|ว่าง|ในพื้นที่|ปกติ/.test(t) ? 'green' : ''; }
+async function openDetail(it, d) {
+  $('dtTitle').textContent = it.title || '';
+  $('dtBadge').replaceChildren(...(it.badge ? [el('span', 'bd' + ((it.tone || toneGuess(it.badge)) ? ' ' + (it.tone || toneGuess(it.badge)) : ''), String(it.badge))] : []));
+  $('dtText').textContent = [it.sub, it.text].filter(Boolean).join('\n\n');
+  const setImgs = (arr) => $('dtImgs').replaceChildren(...(arr || []).map((u) => { const im = el('img'); im.src = u; im.alt = it.title || ''; im.onerror = () => im.remove(); return im; }));
+  const setFields = (f) => $('dtFields').replaceChildren(...(f || []).map(([k, v]) => { const r = el('div'); r.append(el('span', null, k), el('span', null, v)); return r; }));
+  setImgs(it.images); setFields(it.fields);
+  const lat = Number(it.lat), lon = Number(it.lon);
+  $('dtMap').hidden = !(lat && lon); if (lat && lon) $('dtMap').href = 'https://www.google.com/maps/search/?api=1&query=' + lat + ',' + lon;
+  const app = it.link || d.app; $('dtOpen').hidden = !app; if (app) { $('dtOpen').href = app; $('dtOpen').textContent = it.link ? 'เปิดเอกสาร' : 'เปิดในแอป'; }
+  $('detailDlg').showModal();
+  if (it.detail) {
+    $('dtLoading').hidden = false;
+    try { const x = await loadDetail(it.detail, toolCtx.creds()); if (x) { if (x.images && x.images.length) setImgs(x.images); if (x.fields && x.fields.length) setFields(x.fields); } }
+    catch (e) { toast('โหลดรายละเอียดไม่สำเร็จ: ' + String(e.message || e).slice(0, 80)); }
+    $('dtLoading').hidden = true;
+  }
+}
+document.getElementById('dtBack').onclick = () => $('detailDlg').close();
 
 // ---------- มาสคอต ----------
 const mascot = new Mascot($('stage'));
@@ -77,6 +123,7 @@ function goHome() {
   setMode('home');
   $('userSaid').hidden = true;
   $('card').hidden = true;
+  clearResults();
   if (OPS()) {
     $('bubbleTitle').innerHTML = 'สวัสดีค่ะ แผนกปฏิบัติการระบบไฟฟ้า<br>กฟส.อ่าวลึก';
     $('bubbleText').textContent = 'ถามเรื่องเวรแก้ไฟ ไฟดับ อากาศ พัสดุ รถ หรือระเบียบ กฟภ. ได้เลยค่ะ';
@@ -252,6 +299,7 @@ async function ask(question, audio, keepCue) {
   $('bubbleTitle').textContent = 'น้องไฟตอบ';
   $('bubbleText').textContent = '…';
   $('card').hidden = true;
+  clearResults();
   mascot.setMood('thinking');
   setStatus('กำลังหาคำตอบ…');
 

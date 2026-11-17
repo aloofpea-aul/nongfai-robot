@@ -55,33 +55,43 @@ async function dutyRoster({ date }) {
     if (!code || code === '0') return null;
     return { name, เวร: code.split(',').map((c) => SEG[g][c] || c).join(' + ') };
   }).filter(Boolean);
-  return {
+  const pe = list('emp'), wk = list('wk');
+  const D = { source: 'ตารางเวรแก้ไฟ ' + date, app: '/duty-roster/', stats: [{ l: 'พนักงาน', v: pe.length }, { l: 'คนงาน', v: wk.length }, { l: 'โทรห้องเวร', v: boot.config && boot.config.roomPhone }],
+    items: [...pe.map((p) => ({ title: p.name, sub: p.เวร, badge: 'พนักงาน' })), ...wk.map((p) => ({ title: p.name, sub: p.เวร, badge: 'คนงาน' }))] };
+  return withD({
     date, วัน: WD[new Date(date + 'T00:00:00Z').getUTCDay()], วันหยุด: !!(day.off || day.hol), สถานะตาราง: mo.month.status,
     พนักงาน: list('emp'), คนงาน: list('wk'),
     โทรห้องเวร: boot.config && boot.config.roomPhone,
     หมายเหตุ: 'ตามตารางที่อนุมัติ อาจมีการแลกเวรภายหลัง ดูให้แน่ใจได้ที่แอปงานเวรแก้ไฟ',
-  };
+  }, D);
 }
 
 // ---------- 2) ประวัติไฟดับ ----------
 async function outageHistory({ month, keyword }) {
   const m = /^\d{4}-\d{2}$/.test(month || '') ? month : monthOf();
   const j = await cached('out' + m, 300e3, () => getJSON(DUTY_API + '?action=outages&m=' + m));
-  let rows = (j.outages || []).map((o) => ({
+  const raw = j.outages || [];
+  let rows = raw.map((o) => ({ _lat: (o.dev && o.dev.lat) || o.lat, _lon: (o.dev && o.dev.lon) || o.lon,
     ดับ: o.off, จ่ายไฟคืน: o.on, ระดับ: o.lvl === 'hv' ? 'แรงสูง' : o.lvl === 'lv' ? 'แรงต่ำ' : o.lvl,
     ฟีดเดอร์: o.feeder, อุปกรณ์: o.dev ? [o.dev.id, o.dev.type, o.dev.rating, o.dev.desc].filter(Boolean).join(' ') : '',
     ผู้ใช้ไฟได้รับผลกระทบ: o.cust, สาเหตุ: [o.cType, o.cData].filter(Boolean).join(' - '), สภาพอากาศ: o.weather,
     การแก้ไข: o.detail, สถานที่: o.place,
   }));
   if (keyword) rows = rows.filter((r) => words(keyword).every((w) => JSON.stringify(r).toLowerCase().includes(w)));
-  return { เดือน: m, จำนวน: rows.length, รายการ: rows.slice(-25) };
+  const causes = {}; rows.forEach((r) => { const c = r.สาเหตุ || 'ไม่ระบุ'; causes[c] = (causes[c] || 0) + 1; });
+  const topCause = Object.entries(causes).sort((a, b) => b[1] - a[1])[0];
+  const D = { source: 'ประวัติไฟดับ ' + m, app: '/duty-roster/', stats: [{ l: 'ครั้ง', v: rows.length }, { l: 'ผู้ใช้ไฟได้รับผล', v: rows.reduce((a, r) => a + (Number(r.ผู้ใช้ไฟได้รับผลกระทบ) || 0), 0) }, { l: 'สาเหตุหลัก', v: topCause ? topCause[0] + ' (' + topCause[1] + ')' : '-' }],
+    items: rows.slice(-30).reverse().map((r) => ({ title: r.สาเหตุ || r.อุปกรณ์ || 'ไฟดับ', sub: [r.ฟีดเดอร์, String(r.ดับ || '').replace('T', ' ')].filter(Boolean).join(' · '), badge: r.ระดับ, fields: F(r), lat: r._lat, lon: r._lon })) };
+  rows.forEach((r) => { delete r._lat; delete r._lon; });
+  return withD({ เดือน: m, จำนวน: rows.length, รายการ: rows.slice(-25) }, D);
 }
 
 // ---------- 3) สภาพอากาศ / ประกาศกรมอุตุฯ ----------
 async function weatherNow() {
   const j = await cached('wx', 300e3, () => getJSON(DUTY_API + '?action=wx'));
   const w = j.wx || {};
-  return { สรุป: w.label, รายละเอียด: w.detail, เงื่อนไข: (w.ck || []).map((c) => c.t) };
+  return withD({ สรุป: w.label, รายละเอียด: w.detail, เงื่อนไข: (w.ck || []).map((c) => c.t) },
+    { source: 'สภาพอากาศอ่าวลึกตอนนี้', app: '/duty-roster/', stats: [{ l: 'สภาพ', v: w.label, t: w.lv >= 3 ? 'red' : '' }], items: [{ title: w.detail || '' }, ...(w.ck || []).map((c) => ({ title: c.t, badge: c.ok ? 'เข้าเงื่อนไข' : 'ไม่เข้า', tone: c.ok ? 'red' : 'green' }))] });
 }
 async function weatherWarnings({ month }) {
   const m = /^\d{4}-\d{2}$/.test(month || '') ? month : monthOf();
@@ -91,7 +101,8 @@ async function weatherWarnings({ month }) {
     เกี่ยวกับกระบี่: v.k ? { เรื่อง: v.k.w, ระดับ: v.k.sev, ฉบับ: v.k.no } : null,
     ทั่วไป: v.s ? { เรื่อง: v.s.w, ระดับ: v.s.sev, ฉบับ: v.s.no } : null,
   }));
-  return { เดือน: m, ประกาศ: out.slice(-10) };
+  return withD({ เดือน: m, ประกาศ: out.slice(-10) }, { source: 'ประกาศเตือนภัยกรมอุตุฯ ' + m, app: '/tmd/',
+    items: out.slice(-10).reverse().map((x) => { const v = x.เกี่ยวกับกระบี่ || x.ทั่วไป || {}; return { title: v.เรื่อง || '-', sub: x.วันที่ + ' · ' + (v.ฉบับ || ''), badge: x.เกี่ยวกับกระบี่ ? 'กระบี่ · ' + v.ระดับ : v.ระดับ, tone: x.เกี่ยวกับกระบี่ ? 'red' : 'amber' }; }) });
 }
 
 // ---------- 4) ระเบียบ กฟภ. ----------
@@ -144,7 +155,7 @@ async function searchRegulations({ query }) {
   if (!text) loadRegsText().catch(() => {});
   if (text) scored.forEach((x) => { const t = thaiNorm(text[x.r[0]]).toLowerCase(); ws.forEach((w) => { if (t.includes(w)) x.s += 1; }); });
   const top = scored.filter((x) => x.s > 0).sort((a, b) => b.s - a.s || b.r[4] - a.r[4]).slice(0, 5);
-  return {
+  const res = {
     ค้นในเนื้อหา: text ? 'ค้นแล้ว' : 'กำลังดาวน์โหลดเนื้อหาครั้งแรก ตอนนี้ค้นจากชื่อเรื่องเท่านั้น',
     ผลลัพธ์: top.map(({ r }) => {
       let ตัวอย่าง = '';
@@ -154,7 +165,8 @@ async function searchRegulations({ query }) {
       }
       return { ชื่อ: r[2], ประเภท: r[3], ปี: r[4], หมวด: meta.cats[r[6]], ลิงก์: r[7] ? 'https://drive.google.com/file/d/' + r[7] + '/view' : '', ตัวอย่าง };
     }),
-  };
+  };  return withD(res, { source: 'ระเบียบ กฟภ.', app: '/regulations/', items: res.ผลลัพธ์.map((r) => ({ title: r.ชื่อ, sub: [r.ประเภท, r.ปี, r.หมวด].filter(Boolean).join(' · '), link: r.ลิงก์, text: r.ตัวอย่าง })) });
+
 }
 
 // ---------- 5) คลังพัสดุ ----------
@@ -173,18 +185,23 @@ async function stockSearch({ keyword }, creds) {
     agg[k].ตามคลัง[sn] = (agg[k].ตามคลัง[sn] || 0) + qty;
   });
   const items = Object.values(agg).sort((a, b) => b.รวม - a.รวม);
-  return { พบ: items.length, รายการ: items.slice(0, 15) };
+  return withD({ พบ: items.length, รายการ: items.slice(0, 15) }, { source: 'คลังพัสดุ', app: '/stock/', stats: [{ l: 'รายการที่พบ', v: items.length }],
+    items: items.slice(0, 30).map((x) => ({ title: x.รายการ, sub: x.รหัส, badge: x.รวม + ' ' + (x.หน่วย || ''), tone: x.รวม > 0 ? 'green' : 'red', fields: Object.entries(x.ตามคลัง).map(([k, v]) => [k, v + ' ' + (x.หน่วย || '')]) })) });
 }
 
 // ---------- 6) ยานพาหนะ ----------
 async function vehicles({ keyword }, creds) {
   const j = await cached('veh', 120e3, () => postJSON(VEH_API, { action: 'bootstrap', user: creds.user, pass: creds.pass }));
   const today = bkkToday();
+  const img = {}; (j.vehicles || []).forEach((v) => { img[v.plate] = v.image || driveImg(v.imageId); });
   let cars = (j.vehicles || []).map((v) => ({ ทะเบียน: v.plate, รุ่น: v.model, สถานะ: v.status === 'in-use' ? 'ใช้งานอยู่' : 'ว่าง', ผู้ใช้: v.user, ภารกิจ: v.mission, ตั้งแต่: v.since, เลขไมล์: v.mile }));
   let books = (j.bookings || []).filter((b) => String(b.end || b.start).slice(0, 10) >= today)
     .map((b) => ({ เริ่ม: b.start, ถึง: b.end, ทะเบียน: b.plate, ผู้จอง: b.user, ภารกิจ: b.mission, สถานะ: b.status }));
   if (keyword) { const f = (x) => words(keyword).every((w) => JSON.stringify(x).toLowerCase().includes(w)); cars = cars.filter(f); books = books.filter(f); }
-  return { รถ: cars, การจองที่จะถึง: books.slice(0, 15) };
+  return withD({ รถ: cars, การจองที่จะถึง: books.slice(0, 15) }, { source: 'ระบบยานพาหนะ', app: '/vehicle/',
+    stats: [{ l: 'ว่าง', v: cars.filter((c) => c.สถานะ === 'ว่าง').length, t: 'green' }, { l: 'ใช้งานอยู่', v: cars.filter((c) => c.สถานะ !== 'ว่าง').length }, { l: 'การจองที่จะถึง', v: books.length }],
+    items: [...cars.map((c) => ({ title: c.ทะเบียน, sub: [c.รุ่น, c.ผู้ใช้, c.ภารกิจ].filter(Boolean).join(' · '), badge: c.สถานะ, thumb: img[c.ทะเบียน], images: img[c.ทะเบียน] ? [img[c.ทะเบียน]] : [], fields: F(c) })),
+      ...books.slice(0, 15).map((b) => ({ title: 'จอง ' + (b.ทะเบียน || ''), sub: [String(b.เริ่ม).slice(0, 16).replace('T', ' '), b.ผู้จอง, b.ภารกิจ].filter(Boolean).join(' · '), badge: b.สถานะ, fields: F(b) }))] });
 }
 
 // ---------- ตัวช่วยย่อข้อมูลให้พอดีกับ AI ----------
@@ -197,6 +214,11 @@ function slim(x, d = 0) {
 }
 function cap(obj, n = 14000) { const s = JSON.stringify(obj); return s.length > n ? s.slice(0, n) + ' …(ข้อมูลยาวเกิน ตัดไว้แค่นี้ ถามให้แคบลงได้)' : obj; }
 const match = (x, kw) => !kw || words(kw).every((w) => JSON.stringify(x).toLowerCase().includes(w));
+// ---------- ข้อมูลสำหรับแสดงบนจอ (ไม่ส่งให้ AI) ----------
+const withD = (ai, d) => Object.assign(typeof ai === 'string' ? { ข้อมูล: ai } : ai, { __display: d });
+const F = (o) => Object.entries(o || {}).filter(([k, v]) => v !== '' && v != null && typeof v !== 'object' && !SKIP_KEY.test(k)).map(([k, v]) => [k, String(v)]);
+const toneOf = (s) => /ร้ายแรง|สูง|^3$|ใหม่|ค้าง|ยังไม่|ใช้งานอยู่|นอกพื้นที่|รุนแรง/.test(String(s)) ? 'red' : /กลาง|^2$|รับงาน|กำลัง|รอ/.test(String(s)) ? 'amber' : /เสร็จ|ว่าง|ปกติ|ในพื้นที่|แล้ว/.test(String(s)) ? 'green' : '';
+const driveImg = (id) => id ? 'https://lh3.googleusercontent.com/d/' + id + '=w800' : '';
 const needCreds = (c) => { if (!c.user || !c.pass) throw new Error('ยังไม่ได้ตั้งชื่อ/รหัสศูนย์รวมงานในหน้าตั้งค่าของน้องไฟ'); };
 
 // ---------- 7) SLD อุปกรณ์ในระบบจำหน่าย (สาธารณะ) ----------
@@ -205,10 +227,13 @@ async function sldDevices({ keyword, feeder }) {
   const j = await cached('sld', 3600e3, () => getJSON(HUB_GAS));
   const feeders = (j.feeders || []).map((f) => ({ ฟีดเดอร์: f.id, ชื่อ: f.name, เชื่อมกับ: f.tieTo, จำนวนอุปกรณ์: (f.devices || []).length }));
   let devs = [];
-  (j.feeders || []).forEach((f) => (f.devices || []).forEach((d) => devs.push({ ฟีดเดอร์: f.id, รหัส: d.id, ชนิด: d.type, พิกัด: d.rating, ที่ตั้ง: d.desc, มิเตอร์: d.meterCount, ตรวจสอบแล้ว: d.verifiedStatus || d.sequenceVerified })));
+  (j.feeders || []).forEach((f) => (f.devices || []).forEach((d) => devs.push({ _lat: d.lat, _lon: d.lon, ฟีดเดอร์: f.id, รหัส: d.id, ชนิด: d.type, พิกัด: d.rating, ที่ตั้ง: d.desc, มิเตอร์: d.meterCount, ตรวจสอบแล้ว: d.verifiedStatus || d.sequenceVerified })));
   if (feeder) devs = devs.filter((d) => String(d.ฟีดเดอร์).toUpperCase() === String(feeder).toUpperCase());
   if (keyword) devs = devs.filter((d) => match(d, keyword));
-  return { สถานี: j.substation && j.substation.name, ฟีดเดอร์ทั้งหมด: feeders, พบอุปกรณ์: devs.length, อุปกรณ์: devs.slice(0, 40) };
+  const D = { source: 'SLD สถานีไฟฟ้าอ่าวลึก', app: '/sld-ala/', stats: [{ l: 'ฟีดเดอร์', v: feeders.length }, { l: 'อุปกรณ์ที่พบ', v: devs.length }],
+    items: devs.slice(0, 40).map((d) => ({ title: d.รหัส + (d.ชนิด ? ' (' + d.ชนิด + ')' : ''), sub: [d.ที่ตั้ง, d.พิกัด].filter(Boolean).join(' · '), badge: d.ฟีดเดอร์, fields: F(d), lat: d._lat, lon: d._lon })) };
+  const ai = devs.slice(0, 40).map(({ _lat, _lon, ...x }) => x);
+  return withD({ สถานี: j.substation && j.substation.name, ฟีดเดอร์ทั้งหมด: feeders, พบอุปกรณ์: devs.length, อุปกรณ์: ai }, D);
 }
 
 // ---------- 8) Patrol ระบบจำหน่าย (จุดบกพร่อง) ----------
@@ -216,7 +241,10 @@ async function patrolFindings({ status, feeder, keyword }, c) {
   needCreds(c);
   const j = await cached('patrol' + (status || '') + (feeder || ''), 300e3, () => postJSON(HUB_GAS, { action: 'patrolList', changedBy: c.user, changedByPassword: c.pass, limit: 400, status: status || '', feederId: feeder || '' }));
   let rows = (j.findings || []).filter((r) => match(r, keyword));
-  return { ทั้งหมดในระบบ: j.total, พบ: rows.length, รายการ: slim(rows.slice(0, 30)) };
+  const sev = (r) => Number(r.Severity) || 0;
+  const D = { source: 'Patrol ระบบจำหน่าย', app: '/sld-ala/patrol-index.html', stats: [{ l: 'พบ', v: rows.length }, { l: 'ร้ายแรง', v: rows.filter((r) => sev(r) >= 3).length, t: 'red' }, { l: 'ทั้งหมดในระบบ', v: j.total }],
+    items: rows.slice(0, 30).map((r) => ({ title: r.ProblemType || r.Detail || r.FindingID, sub: [r.AnchorRef, r.FeederID, r.NearPlace || r.Address].filter(Boolean).join(' · '), badge: [r.Status, sev(r) ? 'ระดับ ' + sev(r) : ''].filter(Boolean).join(' · '), tone: sev(r) >= 3 ? 'red' : sev(r) === 2 ? 'amber' : '', fields: F(r), lat: r.Lat, lon: r.Lon, detail: { kind: 'patrol', id: r.FindingID } })) };
+  return withD({ ทั้งหมดในระบบ: j.total, พบ: rows.length, รายการ: slim(rows.slice(0, 30)) }, D);
 }
 
 // ---------- 9) งานตัดต้นไม้ ----------
@@ -240,7 +268,8 @@ function jobsTool(api, key) {
     const j = await cached(key, 300e3, () => postJSON(api, { action: 'bootstrap', user: c.user, pass: c.pass }));
     const jobs = (j.jobs || []).filter((x) => match(x, keyword))
       .map((x) => ({ ปี: x.year, ประเภท: x.kind, แผนก: x.dept, เรื่อง: x.title, ผู้ขาย: x.vendor, ยอดเงิน: x.total, ขั้นตอน: x.step, เลขที่: x.nums, ผู้สร้าง: x.createdBy, แก้ล่าสุด: x.updatedAt }));
-    return { ทั้งหมด: (j.jobs || []).length, พบ: jobs.length, งาน: jobs.slice(0, 30) };
+    return withD({ ทั้งหมด: (j.jobs || []).length, พบ: jobs.length, งาน: jobs.slice(0, 30) }, { source: key === 'tfbuy' ? 'งานซื้อหม้อแปลง' : 'งานจัดซื้อ', app: key === 'tfbuy' ? '/tfbuy/' : '/procure/', stats: [{ l: 'พบ', v: jobs.length }],
+      items: jobs.slice(0, 30).map((x) => ({ title: x.เรื่อง, sub: [x.ผู้ขาย, x.ยอดเงิน ? Number(x.ยอดเงิน).toLocaleString('th-TH') + ' บาท' : ''].filter(Boolean).join(' · '), badge: x.ขั้นตอน, fields: F(x) })) });
   };
 }
 
@@ -264,7 +293,8 @@ async function k04Plan({ keyword }) {
   (j.sheets || []).forEach((sh) => (sh.activities || []).forEach((a) => acts.push({ หมวด: sh.name, รหัส: a.code, กิจกรรม: a.title, แผนงาน: a.plan, เป้าหมาย: a.desc, ผู้รับผิดชอบ: a.resp, ผู้ดำเนินการ: a.doer,
     รายไตรมาส: (a.rows || []).map((r) => ({ หน่วย: r.unit, ไตรมาส: (r.q || []).map((q) => ({ เป้า: q.t, ผล: q.r, คะแนน: q.score })) })) })));
   const hit = acts.filter((a) => match(a, keyword));
-  return { กิจกรรมทั้งหมด: acts.length, พบ: hit.length, กิจกรรม: cap(hit.slice(0, 12), 12000) };
+  return withD({ กิจกรรมทั้งหมด: acts.length, พบ: hit.length, กิจกรรม: cap(hit.slice(0, 12), 12000) }, { source: 'แผนปฏิบัติการ K04', app: '/k04/', stats: [{ l: 'พบ', v: hit.length }],
+    items: hit.slice(0, 20).map((a) => ({ title: a.รหัส + ' ' + a.กิจกรรม, sub: [a.ผู้รับผิดชอบ, a.ผู้ดำเนินการ].filter(Boolean).join(' · '), fields: [['แผนงาน', a.แผนงาน || ''], ['เป้าหมาย', (a.เป้าหมาย || []).join(' ')], ...(a.รายไตรมาส || []).flatMap((r) => (r.ไตรมาส || []).map((q, i) => ['ไตรมาส ' + (i + 1) + ' (' + (r.หน่วย || '') + ')', 'เป้า ' + (q.เป้า || '-') + ' · ผล ' + (q.ผล || '-')]))] })) });
 }
 
 // ---------- 14) KPI กฟต.2 ปี 2569 (สาธารณะ) ----------
@@ -282,7 +312,9 @@ async function kpiRegion2({ keyword }) {
   let list = (all.FB || []).map((r) => ({ รหัส: r[0], ตัวชี้วัด: r[1], เจ้าของ: r[2], ประเภท: r[3], ผู้รับผิดชอบ: r[4], ผลงานล่าสุด: r[5], ข้อมูลเดือน: r[6], คะแนนล่าสุด: r[7],
     เกณฑ์คะแนน_ระดับ1ถึง5: all.TARGETS && all.TARGETS[r[0]], คะแนนรายเดือน: all.MONTHLY_SCORES && all.MONTHLY_SCORES[r[0]], วัดผลที่กฟส_อ่าวลึกด้วย: aol.has(r[0]) }));
   if (keyword) list = list.filter((x) => match(x, keyword));
-  return { หมายเหตุ: 'เป็นผลระดับ กฟต.2 ตามแดชบอร์ด KPI', จำนวน: list.length, ตัวชี้วัด: list.slice(0, 25) };
+  return withD({ หมายเหตุ: 'เป็นผลระดับ กฟต.2 ตามแดชบอร์ด KPI', จำนวน: list.length, ตัวชี้วัด: list.slice(0, 25) }, { source: 'KPI กฟต.2 ปี 2569', app: '/kpi-pea-region2-2569/kpi/',
+    items: list.slice(0, 30).map((k) => ({ title: k.รหัส + ' ' + k.ตัวชี้วัด, sub: [k.ผู้รับผิดชอบ, k.ข้อมูลเดือน ? 'ข้อมูล ' + k.ข้อมูลเดือน : ''].filter(Boolean).join(' · '), badge: k.คะแนนล่าสุด != null ? 'คะแนน ' + k.คะแนนล่าสุด : 'ยังไม่รายงาน', tone: k.คะแนนล่าสุด >= 4 ? 'green' : k.คะแนนล่าสุด != null && k.คะแนนล่าสุด < 3 ? 'red' : '',
+      fields: [['ผลงานล่าสุด', k.ผลงานล่าสุด], ['เจ้าของ', k.เจ้าของ], ['ประเภท', k.ประเภท], ...Object.entries(k.เกณฑ์คะแนน_ระดับ1ถึง5 || {}).map(([a, b]) => ['เกณฑ์ระดับ ' + a, b]), ...Object.entries(k.คะแนนรายเดือน || {}).map(([a, b]) => ['คะแนน ' + a, b])].filter((x) => x[1] != null).map(([a, b]) => [a, String(b)]) })) });
 }
 
 // ---------- 15) เช็กอินวันนี้ (สาธารณะในแดชบอร์ด) ----------
@@ -290,7 +322,9 @@ const CHECKIN_API = 'https://script.google.com/macros/s/AKfycbxY0vjjr3MAl6e_OSTT
 async function checkinToday({ keyword }) {
   const j = await cached('checkin', 120e3, () => getJSON(CHECKIN_API + '?action=getTodayDashboard'));
   const recs = (j.records || []).map((r) => ({ ชื่อ: String(r.name || '').replace(/\s+/g, ' '), เข้างาน: r.checkIn, ออกงาน: r.checkOut, พื้นที่: r.area, หมายเหตุ: r.note })).filter((r) => match(r, keyword));
-  return { วันที่: bkkToday(), เช็กอินแล้ว: recs.length, รายชื่อ: recs, อื่นๆ: cap(slim(Object.fromEntries(Object.entries(j).filter(([k]) => k !== 'records'))), 2000) };
+  const raw = {}; (j.records || []).forEach((r) => { raw[String(r.name || '').replace(/\s+/g, ' ')] = r.picUrl; });
+  return withD({ วันที่: bkkToday(), เช็กอินแล้ว: recs.length, รายชื่อ: recs, อื่นๆ: cap(slim(Object.fromEntries(Object.entries(j).filter(([k]) => k !== 'records'))), 2000) }, { source: 'เช็กอินวันนี้ ' + bkkToday(), app: '/pea-checkin/dashboard_mobile.html', stats: [{ l: 'เช็กอินแล้ว', v: recs.length }, { l: 'นอกพื้นที่', v: recs.filter((r) => /นอก/.test(r.พื้นที่ || '')).length }],
+    items: recs.map((r) => ({ title: r.ชื่อ, sub: ['เข้า ' + (r.เข้างาน || '-'), r.ออกงาน ? 'ออก ' + r.ออกงาน : '', r.หมายเหตุ].filter(Boolean).join(' · '), badge: r.พื้นที่, thumb: raw[r.ชื่อ], images: raw[r.ชื่อ] ? [raw[r.ชื่อ]] : [] })) });
 }
 
 // ---------- 16) รับแจ้งไฟดับ (เรื่องค้าง/ล่าสุด 36 ชม.) ----------
@@ -299,7 +333,8 @@ async function outageTickets({ keyword }, c) {
   const j = await cached('tickets', 60e3, () => postJSON(DUTY_API, { action: 'tickets', hubUser: c.user, hubPass: c.pass }));
   const ST = { new: 'ใหม่ ยังไม่มีคนรับ', acc: 'รับงานแล้ว กำลังแก้', done: 'แก้เสร็จ', cancel: 'ยกเลิก' };
   const rows = (j.tickets || []).map((t) => Object.assign(slim(t), { สถานะ: ST[t.st] || t.st })).filter((t) => match(t, keyword));
-  return { จำนวน: rows.length, รายการ: rows.slice(0, 30) };
+  return withD({ จำนวน: rows.length, รายการ: rows.slice(0, 30) }, { source: 'รับแจ้งไฟดับ', app: '/duty-roster/', stats: [{ l: 'ยังไม่มีคนรับ', v: rows.filter((r) => /ใหม่/.test(r.สถานะ)).length, t: 'red' }, { l: 'กำลังแก้', v: rows.filter((r) => /รับงาน/.test(r.สถานะ)).length }],
+    items: rows.slice(0, 30).map((r) => ({ title: r.place || r.addr || r.detail || r.id || 'แจ้งไฟดับ', sub: [r.name, r.phone, r.accBy ? 'รับโดย ' + r.accBy : ''].filter(Boolean).join(' · '), badge: r.สถานะ, fields: F(r), lat: r.lat, lon: r.lon })) });
 }
 // ---------- 17) สมุดโทรศัพท์ทีมแก้ไฟ ----------
 async function contacts({ keyword }, c) {
@@ -314,7 +349,7 @@ async function reliability({ keyword }) {
   const a = await cached('area', 3600e3, async () => (await fetch('/pea-analytics-data/data/area.json')).json());
   const kw = keyword || 'อ่าวลึก';
   const rows = (a.rows || []).filter((r) => match(r, kw)).slice(0, 10).map((r) => Object.fromEntries(a.headers.map((h, i) => [h, r[i]]).filter(([, v]) => v !== '' && v != null)));
-  return { หมายเหตุ: 'SAIFI/SAIDI แยกตามพื้นที่ ตัวเลข 1–5 คือระดับเหตุ/ประเภทตามรายงานต้นทาง', พบ: rows.length, ข้อมูล: rows };
+  return withD({ หมายเหตุ: 'SAIFI/SAIDI แยกตามพื้นที่ ตัวเลข 1–5 คือระดับเหตุ/ประเภทตามรายงานต้นทาง', พบ: rows.length, ข้อมูล: rows }, { source: 'SAIFI / SAIDI รายพื้นที่', app: '/pea-analytics-data/', items: rows.map((r) => ({ title: r['กฟฟ.'] || r['กฟส.'] || '', sub: [r['กฟส.'], r['กฟฟ.จุดรวมงาน']].filter(Boolean).join(' · '), badge: r['SAIFI รวม'] ? 'SAIFI ' + Number(r['SAIFI รวม']).toFixed(2) : '', fields: F(r) })) });
 }
 
 // ---------- 19) Load01 โหลดฟีดเดอร์ (สาธารณะ) ----------
@@ -330,7 +365,8 @@ async function load01({ feeder, months }) {
     const rows = (d.rows || []).filter((r) => r[1] === fi && r[0] > lastM - n).map((r) => Object.assign({ เดือน: d.months[r[0]] }, Object.fromEntries((d.cols || []).slice(2).map((c, k) => [L[c] || c, r[k + 2]]))));
     return { ฟีดเดอร์: f[3], สถานี: f[1], พื้นที่: f[4], ข้อมูล: rows };
   });
-  return { ข้อมูลล่าสุดถึงเดือน: d.months && d.months[lastM], ชื่อคอลัมน์: d.cols, ฟีดเดอร์: out };
+  return withD({ ข้อมูลล่าสุดถึงเดือน: d.months && d.months[lastM], ฟีดเดอร์: out }, { source: 'Load01 ถึงเดือน ' + (d.months && d.months[lastM]), app: '/load01/',
+    items: out.map((f) => { const last = f.ข้อมูล[f.ข้อมูล.length - 1] || {}; return { title: f.ฟีดเดอร์, sub: f.พื้นที่, badge: last['Peak MW'] != null ? last['Peak MW'] + ' MW' : '', fields: f.ข้อมูล.flatMap((r) => Object.entries(r).filter(([k, v]) => k !== 'เดือน' && v != null).map(([k, v]) => [r.เดือน + ' · ' + k, String(v)])) }; }) });
 }
 
 // ---------- 20) แบบมาตรฐาน / รายการวัสดุ (สาธารณะ) ----------
@@ -338,7 +374,7 @@ async function drawingsBom({ keyword }) {
   const list = await cached('bom', 6 * 3600e3, async () => (await fetch('/pea-drawings/bom-index.json')).json());
   const hit = list.filter((x) => match({ t: x.t, i: (x.items || []).map((y) => y.th).join(' ') }, keyword)).slice(0, 5)
     .map((x) => ({ แบบ: x.t, หน้า: '/pea-drawings/' + x.f, วัสดุ: (x.items || []).slice(0, 25).map((y) => [y.n, y.th, (y.q || []).join(' ')].join(' · ')) }));
-  return { พบ: hit.length, แบบ: hit };
+  return withD({ พบ: hit.length, แบบ: hit }, { source: 'แบบมาตรฐาน กฟภ.', app: '/pea-drawings/', items: hit.map((x) => ({ title: x.แบบ, sub: (x.วัสดุ || []).length + ' รายการวัสดุ', link: x.หน้า, fields: (x.วัสดุ || []).map((m) => { const p = m.split(' · '); return [p[0] + '. ' + (p[1] || ''), p.slice(2).join(' ')]; }) })) });
 }
 
 // ---------- 21) ระบบตัดงบ / เบิกค่ารักษา (รหัสของระบบตัดงบ) ----------
@@ -399,7 +435,26 @@ async function materialPrice({ keyword }) {
   const [items, sp] = await cached('matdb', 6 * 3600e3, () => Promise.all([fetch('/construction/data/items.json').then((r) => r.json()), fetch('/construction/data/stdprice.json').then((r) => r.json())]));
   const hit = Object.entries(items).filter(([code, v]) => match([code, v[0]], keyword)).slice(0, 20)
     .map(([code, v]) => ({ รหัสพัสดุ: code, รายการ: v[0], หน่วย: v[1], ราคามาตรฐาน_บาท: sp.p && sp.p[code] }));
-  return { แหล่งราคา: sp.src, พบ: hit.length, รายการ: hit };
+  return withD({ แหล่งราคา: sp.src, พบ: hit.length, รายการ: hit }, { source: sp.src, app: '/construction/', items: hit.map((x) => ({ title: x.รายการ, sub: x.รหัสพัสดุ + ' · ' + x.หน่วย, badge: x.ราคามาตรฐาน_บาท != null ? Number(x.ราคามาตรฐาน_บาท).toLocaleString('th-TH') + ' บาท' : 'ไม่มีราคา' })) });
+}
+
+// ---------- แสดงผลอัตโนมัติสำหรับระบบที่ไม่ได้ทำการ์ดเฉพาะ ----------
+const NAMES = { tree_cutting: 'งานตัดต้นไม้', safety_talk: 'Safety talk', contacts: 'สมุดโทรศัพท์ทีมแก้ไฟ', budget: 'ระบบตัดงบ', book_numbers: 'ออกเลขหนังสือ', ccl: 'CCL งานก่อสร้าง', office_love: 'Office Love' };
+const APPS = { tree_cutting: '/tree-ala/', safety_talk: '/safety-talk/', contacts: '/duty-roster/', budget: '/budget/', book_numbers: '/booknum/', ccl: '/ccl/', office_love: '/office-love/' };
+function autoDisplay(name, r) {
+  let data = r; if (typeof data === 'string') { try { data = JSON.parse(data.replace(/ …\(ข้อมูลยาวเกิน.*$/, '')); } catch { return null; } }
+  let best = null;
+  (function walk(x, d) { if (d > 3 || !x || typeof x !== 'object') return; if (Array.isArray(x)) { if (x.length && typeof x[0] === 'object' && (!best || x.length > best.length)) best = x; x.slice(0, 3).forEach((y) => walk(y, d + 1)); } else Object.values(x).forEach((y) => walk(y, d + 1)); })(data, 0);
+  if (!best) return null;
+  return { source: NAMES[name] || name, app: APPS[name], stats: [{ l: 'รายการ', v: best.length }],
+    items: best.slice(0, 30).map((o) => { const f = F(o); return { title: f[0] ? f[0][1] : '-', sub: f.slice(1, 3).map((x) => x[1]).join(' · '), fields: f }; }) };
+}
+export async function loadDetail(det, c) {
+  if (det.kind === 'patrol') {
+    const j = await postJSON(HUB_GAS, { action: 'patrolDetail', changedBy: c.user, changedByPassword: c.pass, findingId: det.id });
+    return { fields: F(j.finding), images: (j.photos || []).map((p) => driveImg(p.DriveFileId)).filter(Boolean) };
+  }
+  return null;
 }
 
 // ---------- ประกาศให้ Gemini รู้จักเครื่องมือ ----------
@@ -442,6 +497,11 @@ export async function runTool(name, args, ctx) {
   }
   const creds = ctx.creds();
   if ((name === 'stock_search' || name === 'vehicles') && (!creds.user || !creds.pass)) return { error: 'ยังไม่ได้ตั้งชื่อ/รหัสศูนย์รวมงานในหน้าตั้งค่าของน้องไฟ' };
-  try { return await t.run(args || {}, creds); }
+  try {
+    const r = await t.run(args || {}, creds);
+    if (r && typeof r === 'object' && r.__display) { const { __display, ...ai } = r; if (ctx.show) ctx.show(__display); return ai; }
+    if (ctx.show) ctx.show(autoDisplay(name, r));
+    return r;
+  }
   catch (e) { return { error: 'ดึงข้อมูลไม่สำเร็จ: ' + String(e.message || e).slice(0, 120) }; }
 }
