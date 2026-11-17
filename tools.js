@@ -326,7 +326,8 @@ async function load01({ feeder, months }) {
   const n = Math.min(Number(months) || 3, 12), lastM = (d.months || []).length - 1;
   const out = fidx.slice(0, 12).map((fi) => {
     const f = d.feeders[fi];
-    const rows = (d.rows || []).filter((r) => r[1] === fi && r[0] > lastM - n).map((r) => Object.assign({ เดือน: d.months[r[0]] }, Object.fromEntries((d.cols || []).slice(2).map((c, k) => [c, r[k + 2]]))));
+    const L = { mw: 'Peak MW', mvar: 'MVar', kv: 'kV', ia: 'กระแสเฟส A (A)', ib: 'กระแสเฟส B (A)', ic: 'กระแสเฟส C (A)', lmw: 'Light MW', ph: 'เวลา Peak (ชม.)', lh: 'เวลา Light (ชม.)', ub: 'ไม่สมดุล UB %', pf: 'PF', lf: 'Load factor', q: 'คุณภาพข้อมูล' };
+    const rows = (d.rows || []).filter((r) => r[1] === fi && r[0] > lastM - n).map((r) => Object.assign({ เดือน: d.months[r[0]] }, Object.fromEntries((d.cols || []).slice(2).map((c, k) => [L[c] || c, r[k + 2]]))));
     return { ฟีดเดอร์: f[3], สถานี: f[1], พื้นที่: f[4], ข้อมูล: rows };
   });
   return { ข้อมูลล่าสุดถึงเดือน: d.months && d.months[lastM], ชื่อคอลัมน์: d.cols, ฟีดเดอร์: out };
