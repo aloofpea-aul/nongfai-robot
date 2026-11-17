@@ -1,6 +1,6 @@
 // น้องไฟ — แอปหลัก: ฟังเสียงไทย → ถาม Gemini (สตรีม) → พูดตอบทีละประโยค + แสดงบนจอ
-import { Mascot } from './mascot.js?v=11171216';
-import { WavRecorder } from './recorder.js?v=11171216';
+import { Mascot } from './mascot.js?v=11171231';
+import { WavRecorder } from './recorder.js?v=11171231';
 
 const $ = (id) => document.getElementById(id);
 const DEFAULTS = { apiKey: '', model: 'gemini-2.5-flash', voice: '', rate: 1.0, autoListen: true };
@@ -101,6 +101,8 @@ let rec = null, listening = false;
 const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 const USE_AUDIO_AI = IS_IOS || !SR; // iPad: ให้ Gemini ฟังเสียงเอง ไม่พึ่ง Siri
 const wav = new WavRecorder();
+// iPhone/iPad (Safari 16.4+): 'playback' = เสียงพูดดังแม้เปิดโหมดเงียบ แต่ต้องสลับเป็น 'play-and-record' ก่อนเปิดไมค์
+function setAudioMode(type) { try { if (navigator.audioSession) navigator.audioSession.type = type; } catch {} }
 
 function micOn() { listening = true; $('btnMic').classList.add('listening'); mascot.setMood('listening'); setStatus('กำลังฟังอยู่ค่ะ…', 'listening'); }
 function micOff() { listening = false; $('btnMic').classList.remove('listening'); mascot.setMood('normal'); }
@@ -108,15 +110,16 @@ function micOff() { listening = false; $('btnMic').classList.remove('listening')
 async function listenAudio() {
   if (wav.active) { wav.stop(); return; }
   stopSpeaking(); abortAsk();
+  setAudioMode('play-and-record');
   wav.prime();
   micOn();
   bumpIdle();
   try {
     const audio = await wav.record({ onSpeech: () => setStatus('ฟังอยู่ พูดจบแล้วรอสักครู่นะคะ', 'listening') });
-    micOff();
+    micOff(); setAudioMode('playback');
     if (audio) ask(null, audio); else setStatus('ไม่ได้ยินเสียง แตะไมค์แล้วพูดใหม่นะคะ');
   } catch (e) {
-    micOff();
+    micOff(); setAudioMode('playback');
     console.error(e);
     toast(e.name === 'NotAllowedError' ? 'กรุณาอนุญาตให้ใช้ไมโครโฟน' : 'เปิดไมค์ไม่ได้: ' + e.message, 6000);
     setStatus('แตะปุ่มไมค์แล้วพูดได้เลยค่ะ');
@@ -276,8 +279,7 @@ async function ask(question, audio) {
 let unlocked = false;
 async function unlockOnce() {
   if (unlocked) return; unlocked = true;
-  // iPhone: ให้เสียงออกลำโพงแม้เปิดโหมดเงียบ (Safari 16.4+)
-  try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch {}
+  setAudioMode('playback');
   // iPad/iPhone: ต้อง "ปลดล็อก" เสียงพูดด้วยการแตะครั้งแรก ไม่งั้นคำตอบแรกจะเงียบ
   try { const u = new SpeechSynthesisUtterance(' '); u.volume = 0; speechSynthesis.speak(u); } catch {}
   const el = document.documentElement;

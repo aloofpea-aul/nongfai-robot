@@ -68,5 +68,9 @@ body.mode-answer .bubble-title{font-size:clamp(20px,2.4vw,30px)}
   body.mode-answer .left{flex-basis:24%}
   .brand{font-size:17px}
   .brand-sub,#clock{display:none}
+  .main{padding-bottom:104px}
+  .mbtn{min-height:60px;font-size:18px}
+  .mic{width:76px;height:76px;bottom:calc(14px + env(safe-area-inset-bottom))}
+  .bubble{padding:18px 20px}
   .topbar{padding-left:16px;padding-right:8px}
 }
