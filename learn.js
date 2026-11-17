@@ -38,11 +38,13 @@ export const glossaryExtra = () => [...new Set(S.corr.map((c) => c.right))].slic
 
 // หาเฉพาะส่วนที่ต่างกันระหว่างคำที่ฟังได้กับคำที่แก้ (เติมบริบทข้างละ 1-2 ตัวอักษรถ้าสั้นเกิน)
 export function diffPair(a, b) {
-  a = a.trim(); b = b.trim();
+  const tail = /(\s|ครับ|ค่ะ|คะ|คับ|นะ|หน่อย|จ้า)+$/;
+  a = a.trim().replace(tail, ''); b = b.trim().replace(tail, '');
   if (!a || !b || a === b) return null;
   let p = 0; while (p < a.length && p < b.length && a[p] === b[p]) p++;
   let s = 0; while (s < a.length - p && s < b.length - p && a[a.length - 1 - s] === b[b.length - 1 - s]) s++;
   let wa = a.slice(p, a.length - s), wb = b.slice(p, b.length - s);
+  if (!wa || !wb) return null; // แค่เติมหรือลบคำ ไม่ใช่ฟังผิด — ไม่จำ
   // ขยายให้ไม่ตัดกลางสระ/วรรณยุกต์ไทย และให้ยาวอย่างน้อย 3 ตัว
   const mark = /[ัิ-ฺ็-๎]/;
   // ขยายซ้าย-ขวาสลับกันจนยาวอย่างน้อย 4 ตัว (กันไปแก้คำอื่นที่บังเอิญมีตัวอักษรเหมือนกัน)
@@ -51,7 +53,7 @@ export function diffPair(a, b) {
     else if (s > 0) { wa += a[a.length - s]; wb += b[b.length - s]; s--; }
   }
   while (mark.test(a[a.length - s] || '') && s > 0) { wa += a[a.length - s]; wb += b[b.length - s]; s--; }
-  if (wa.length > 30 || wb.length > 30 || !wa) return { wrong: a, right: b };
+  if (wa.length > 30 || wb.length > 30) return null; // แก้ทั้งประโยค = เปลี่ยนคำถาม ไม่ใช่ฟังผิด
   return { wrong: wa, right: wb };
 }
 export async function addCorrection(heard, fixed, by) {
