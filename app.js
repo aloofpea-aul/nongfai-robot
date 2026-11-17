@@ -1,11 +1,11 @@
 // น้องไฟ — แอปหลัก: ฟังเสียงไทย → ถาม Gemini (สตรีม) → พูดตอบทีละประโยค + แสดงบนจอ
-import { Mascot } from './mascot.js?v=11181105';
-import { WavRecorder } from './recorder.js?v=11181105';
-import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary } from './tools.js?v=11181105';
-import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11181105';
+import { Mascot } from './mascot.js?v=11180100';
+import { WavRecorder } from './recorder.js?v=11180100';
+import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary } from './tools.js?v=11180100';
+import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11180100';
 
 const $ = (id) => document.getElementById(id);
-export const VERSION = '11181105';
+export const VERSION = '11180100';
 // อัปเดตตัวเอง: ถ้าบนเว็บมีเวอร์ชันใหม่กว่า ให้โหลดหน้าใหม่ทันที (กันไอโฟนจำไฟล์เก่า)
 fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json()).then((j) => {
   if (j.v && j.v !== VERSION && !sessionStorage.getItem('nf.reload.' + j.v)) {
@@ -617,6 +617,21 @@ function openSettings() {
   $('settings').showModal();
 }
 $('btnSettings').onclick = openSettings;
+// QR สำหรับตั้งค่าเครื่องอื่นครั้งเดียว: มี API key + ระบบเรียนรู้ (สแกนด้วยกล้องแล้วเปิดในแอปที่ติดตั้งไว้)
+$('btnQr').onclick = async () => {
+  const box = $('qrBox');
+  if (!box.hidden) { box.hidden = true; box.replaceChildren(); return; }
+  const h = new URLSearchParams();
+  if (cfg.apiKey) h.set('key', cfg.apiKey);
+  if (cfg.learnUrl && cfg.learnSecret) { h.set('lu', cfg.learnUrl); h.set('ls', cfg.learnSecret); }
+  if (![...h.keys()].length) { toast('ยังไม่มีค่าที่จะส่งต่อค่ะ'); return; }
+  const url = location.origin + location.pathname + '#' + h.toString();
+  if (!window.qrcode) await new Promise((ok, no) => { const sc = document.createElement('script'); sc.src = 'https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js'; sc.onload = ok; sc.onerror = no; document.head.append(sc); });
+  const q = window.qrcode(0, 'M'); q.addData(url); q.make();
+  const img = new Image(); img.src = q.createDataURL(6, 2); img.alt = 'QR ตั้งค่า';
+  box.replaceChildren(img, el('p', null, 'สแกนด้วยกล้องไอแพด/ไอโฟน · QR นี้มีรหัสลับ อย่าถ่ายรูปส่งต่อ'));
+  box.hidden = false;
+};
 $('btnPaste').onclick = async () => {
   try { const t = (await navigator.clipboard.readText()).trim(); if (t) $('setKey').value = t; else toast('คลิปบอร์ดว่างค่ะ'); }
   catch { toast('วางไม่ได้ ลองกดค้างที่ช่องแล้วเลือก "วาง" นะคะ'); }
@@ -624,6 +639,7 @@ $('btnPaste').onclick = async () => {
 $('setRate').oninput = (e) => ($('rateVal').textContent = e.target.value + 'x');
 $('btnTestVoice').onclick = () => { stopSpeaking(); cfg.voice = $('setVoice').value; cfg.rate = +$('setRate').value; speak('สวัสดีค่ะ น้องไฟยินดีให้บริการค่ะ'); };
 $('settings').addEventListener('close', () => {
+  $('qrBox').hidden = true; $('qrBox').replaceChildren();
   if ($('settings').returnValue !== 'save') return;
   cfg.apiKey = $('setKey').value.trim(); cfg.model = $('setModel').value.trim() || DEFAULTS.model;
   cfg.voice = $('setVoice').value; cfg.rate = +$('setRate').value; cfg.autoListen = $('setAuto').checked;

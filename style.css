@@ -196,3 +196,4 @@ body.has-results #card{display:none}
 .cf-prog i{display:block;height:100%;width:0;background:var(--purple)}
 .cf-prog i.run{width:100%;transition:width 2s linear}
 body.confirming .typeform{display:none}
+.qrbox{text-align:center;padding:12px;background:#fff;border-radius:12px;margin-top:8px}.qrbox img{width:260px;height:260px;image-rendering:pixelated}.qrbox p{font-size:15px;color:var(--purple-dk);margin:6px 0 0}

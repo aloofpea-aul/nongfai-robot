@@ -15,7 +15,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600&family=Sarabun:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=11181105">
+<link rel="stylesheet" href="style.css?v=11180100">
 <script type="importmap">
 { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js" } }
 </script>
@@ -166,6 +166,8 @@
     </label>
     <label class="check"><input id="setConfirm" type="checkbox"> แสดงคำที่ได้ยิน 2 วินาทีก่อนส่ง (แก้ได้)</label>
     <p class="hint" id="learnInfo"></p>
+    <button id="btnQr" type="button" class="abtn outline small">QR ตั้งค่าเครื่องอื่น (ไอแพด/ไอโฟน)</button>
+    <div id="qrBox" class="qrbox" hidden></div>
     <p class="hint">key เก็บไว้ในเครื่องนี้เท่านั้น ไม่ถูกส่งขึ้น GitHub · <span id="verLabel"></span></p>
     <div class="row">
       <button id="btnTestVoice" type="button" class="abtn outline">ทดสอบเสียง</button>
@@ -202,6 +204,6 @@
 
 <div id="toast" class="toast" hidden></div>
 
-<script type="module" src="app.js?v=11181105"></script>
+<script type="module" src="app.js?v=11180100"></script>
 </body>
 </html>
