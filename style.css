@@ -171,8 +171,8 @@ body.has-results #card{display:none}
 
 /* มือถือ: ให้ทั้งหน้าเลื่อนด้วยนิ้ว (เลื่อนในกล่องย่อยบน iPhone บางรุ่นไม่ทำงาน) */
 @media (max-width:820px){
-  html,body{height:auto;min-height:100%;overflow-x:hidden;overflow-y:auto;-webkit-overflow-scrolling:touch}
-  body{display:block}
+  html{height:auto;overflow-x:hidden;overflow-y:auto;-webkit-overflow-scrolling:touch}
+  body{display:block;height:auto;min-height:100%;overflow:visible}
   .topbar{position:sticky;top:0;z-index:6}
   .main{overflow:visible;min-height:calc(100vh - 52px - env(safe-area-inset-top))}
   body.mode-answer .left{top:calc(52px + env(safe-area-inset-top))}
