@@ -15,7 +15,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600&family=Sarabun:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=11180110">
+<link rel="stylesheet" href="style.css?v=11180115">
 <script type="importmap">
 { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js" } }
 </script>
@@ -159,7 +159,7 @@
     </label>
     <h3 class="sub">ระบบเรียนรู้ (Google Sheet)</h3>
     <label>ลิงก์ Apps Script ระบบเรียนรู้
-      <input id="setLearnUrl" type="url" autocomplete="off" placeholder="https://script.google.com/macros/s/…/exec">
+      <span class="keyrow"><input id="setLearnUrl" type="url" autocomplete="off" placeholder="วางลิงก์จาก QR หรือลิงก์ …/exec"><button id="btnPasteLearn" type="button" class="abtn outline small">วาง</button></span>
     </label>
     <label>รหัสลับระบบเรียนรู้
       <input id="setLearnSecret" type="password" autocomplete="off">
@@ -204,6 +204,6 @@
 
 <div id="toast" class="toast" hidden></div>
 
-<script type="module" src="app.js?v=11180110"></script>
+<script type="module" src="app.js?v=11180115"></script>
 </body>
 </html>

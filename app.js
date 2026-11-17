@@ -1,11 +1,11 @@
 // น้องไฟ — แอปหลัก: ฟังเสียงไทย → ถาม Gemini (สตรีม) → พูดตอบทีละประโยค + แสดงบนจอ
-import { Mascot } from './mascot.js?v=11180110';
-import { WavRecorder } from './recorder.js?v=11180110';
-import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary } from './tools.js?v=11180110';
-import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11180110';
+import { Mascot } from './mascot.js?v=11180115';
+import { WavRecorder } from './recorder.js?v=11180115';
+import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary } from './tools.js?v=11180115';
+import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11180115';
 
 const $ = (id) => document.getElementById(id);
-export const VERSION = '11180110';
+export const VERSION = '11180115';
 // อัปเดตตัวเอง: ถ้าบนเว็บมีเวอร์ชันใหม่กว่า ให้โหลดหน้าใหม่ทันที (กันไอโฟนจำไฟล์เก่า)
 fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json()).then((j) => {
   if (j.v && j.v !== VERSION && !sessionStorage.getItem('nf.reload.' + j.v)) {
@@ -634,6 +634,17 @@ $('btnQr').onclick = async () => {
 };
 $('btnPaste').onclick = async () => {
   try { const t = (await navigator.clipboard.readText()).trim(); if (t) $('setKey').value = t; else toast('คลิปบอร์ดว่างค่ะ'); }
+  catch { toast('วางไม่ได้ ลองกดค้างที่ช่องแล้วเลือก "วาง" นะคะ'); }
+};
+// วางลิงก์จาก QR (มี #lu=…&ls=…) แล้วแยกลิงก์กับรหัสลับให้เอง
+function fillLearn(v) {
+  const i = v.indexOf('#'), h = new URLSearchParams(i >= 0 ? v.slice(i + 1) : '');
+  if (h.get('lu') && h.get('ls')) { $('setLearnUrl').value = h.get('lu'); $('setLearnSecret').value = h.get('ls'); toast('ใส่ลิงก์และรหัสลับให้แล้ว กดบันทึกได้เลยค่ะ', 5000); return true; }
+  return false;
+}
+$('setLearnUrl').addEventListener('input', (e) => fillLearn(e.target.value));
+$('btnPasteLearn').onclick = async () => {
+  try { const t = (await navigator.clipboard.readText()).trim(); if (!t) return toast('คลิปบอร์ดว่างค่ะ'); if (!fillLearn(t)) $('setLearnUrl').value = t; }
   catch { toast('วางไม่ได้ ลองกดค้างที่ช่องแล้วเลือก "วาง" นะคะ'); }
 };
 $('setRate').oninput = (e) => ($('rateVal').textContent = e.target.value + 'x');
