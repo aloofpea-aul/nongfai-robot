@@ -1,5 +1,6 @@
 // น้องไฟ — แอปหลัก: ฟังเสียงไทย → ถาม Gemini (สตรีม) → พูดตอบทีละประโยค + แสดงบนจอ
 import { Mascot } from './mascot.js';
+import { WavRecorder } from './recorder.js';
 
 const $ = (id) => document.getElementById(id);
 const DEFAULTS = { apiKey: '', model: 'gemini-2.5-flash', voice: '', rate: 1.0, autoListen: true };
@@ -93,8 +94,33 @@ function stopSpeaking() { speakQueue.length = 0; onQueueEmpty = null; speechSynt
 // ---------- ฟังเสียง (STT) ----------
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 let rec = null, listening = false;
+const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const USE_AUDIO_AI = IS_IOS || !SR; // iPad: ให้ Gemini ฟังเสียงเอง ไม่พึ่ง Siri
+const wav = new WavRecorder();
+
+function micOn() { listening = true; $('btnMic').classList.add('listening'); mascot.setMood('listening'); setStatus('กำลังฟังอยู่ค่ะ…', 'listening'); }
+function micOff() { listening = false; $('btnMic').classList.remove('listening'); mascot.setMood('normal'); }
+
+async function listenAudio() {
+  if (wav.active) { wav.stop(); return; }
+  stopSpeaking(); abortAsk();
+  wav.prime();
+  micOn();
+  bumpIdle();
+  try {
+    const audio = await wav.record({ onSpeech: () => setStatus('ฟังอยู่ พูดจบแล้วรอสักครู่นะคะ', 'listening') });
+    micOff();
+    if (audio) ask(null, audio); else setStatus('ไม่ได้ยินเสียง แตะไมค์แล้วพูดใหม่นะคะ');
+  } catch (e) {
+    micOff();
+    console.error(e);
+    toast(e.name === 'NotAllowedError' ? 'กรุณาอนุญาตให้ใช้ไมโครโฟน' : 'เปิดไมค์ไม่ได้: ' + e.message, 6000);
+    setStatus('แตะปุ่มไมค์แล้วพูดได้เลยค่ะ');
+  }
+}
+
 function listen() {
-  if (!SR) { toast('เครื่องนี้ฟังเสียงไม่ได้ กรุณาเปิดด้วย Google Chrome'); return; }
+  if (USE_AUDIO_AI) return listenAudio();
   if (listening) { rec.stop(); return; }
   stopSpeaking(); abortAsk();
   rec = new SR();
@@ -127,7 +153,7 @@ const chat = [];
 let controller = null;
 const busy = () => listening || speakingNow || !!controller;
 function abortAsk() { if (controller) { controller.abort(); controller = null; } }
-function stopAll() { abortAsk(); stopSpeaking(); if (listening && rec) rec.abort(); }
+function stopAll() { abortAsk(); stopSpeaking(); if (listening && rec) rec.abort(); wav.cancel(); }
 
 async function callGemini(body, signal) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(cfg.model)}:streamGenerateContent?alt=sse`;
@@ -138,26 +164,30 @@ async function callGemini(body, signal) {
   return res;
 }
 
-async function ask(question) {
+const AUDIO_NOTE = 'ไฟล์เสียงนี้คือคำพูดของลูกค้า บรรทัดแรกให้ขึ้นต้นด้วย ###USER: ตามด้วยคำที่ลูกค้าพูดเป็นข้อความภาษาไทย แล้วขึ้นบรรทัดใหม่ตอบตามกฎปกติ ถ้าฟังไม่ออกให้ขอให้พูดอีกครั้งอย่างสุภาพ';
+
+async function ask(question, audio) {
   if (!cfg.apiKey) { openSettings(); toast('ใส่ Gemini API key ก่อนนะคะ'); return; }
   stopAll();
   bumpIdle();
   setMode('answer');
-  $('userSaid').textContent = '“' + question + '”'; $('userSaid').hidden = false;
+  $('userSaid').textContent = audio ? 'กำลังฟังที่พูด…' : '“' + question + '”'; $('userSaid').hidden = false;
   $('bubbleTitle').textContent = 'น้องไฟตอบ';
   $('bubbleText').textContent = '…';
   $('card').hidden = true;
   mascot.setMood('thinking');
   setStatus('กำลังหาคำตอบ…');
 
-  chat.push({ role: 'user', parts: [{ text: question }] });
+  chat.push(audio
+    ? { role: 'user', parts: [{ inlineData: { mimeType: audio.mime, data: audio.b64 } }, { text: AUDIO_NOTE }] }
+    : { role: 'user', parts: [{ text: question }] });
   while (chat.length > 12) chat.shift();
 
   controller = new AbortController();
   const myCtl = controller;
   let timedOut = false;
   const guard = setTimeout(() => { timedOut = true; myCtl.abort(); }, 20000);
-  let full = '', spokenUpTo = 0, cardMode = false, gotFirst = false;
+  let full = '', spokenUpTo = 0, cardMode = false, gotFirst = false, heard = question || '';
   const filler = setTimeout(() => { if (!gotFirst) speak('ขอเช็คข้อมูลสักครู่นะคะ'); }, 1500);
 
   const flushLines = (final) => {
@@ -165,11 +195,12 @@ async function ask(question) {
     const upto = final ? lines.length : lines.length - 1; // บรรทัดสุดท้ายอาจยังไม่จบ
     for (let i = spokenUpTo; i < upto; i++) {
       const line = lines[i].trim();
+      if (line.startsWith('###USER:')) { const said = line.slice(8).trim(); if (said) { heard = said; $('userSaid').textContent = '“' + said + '”'; } continue; }
       if (line.startsWith('###')) { cardMode = true; continue; }
       if (!cardMode && line) speak(line);
     }
     spokenUpTo = Math.max(spokenUpTo, upto);
-    const [talk] = full.split(/^###/m);
+    const [talk] = full.replace(/^###USER:.*$/m, '').split(/^###/m);
     $('bubbleText').textContent = talk.trim() || '…';
   };
 
@@ -203,7 +234,9 @@ async function ask(question) {
       }
     }
     flushLines(true);
-    chat.push({ role: 'model', parts: [{ text: full }] });
+    // เก็บประวัติเป็นข้อความแทนไฟล์เสียง ให้คำถามถัดไปส่งข้อมูลน้อยลง
+    if (audio) chat[chat.length - 1] = { role: 'user', parts: [{ text: heard || '(ลูกค้าพูดด้วยเสียง)' }] };
+    chat.push({ role: 'model', parts: [{ text: full.replace(/^###USER:.*\n?/m, '') }] });
 
     // การ์ดแสดงบนจอ
     const cardPart = full.split(/^###CARD[ \t]*/m)[1];
