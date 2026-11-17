@@ -194,13 +194,13 @@ async function ask(question, audio) {
     const lines = full.split('\n');
     const upto = final ? lines.length : lines.length - 1; // บรรทัดสุดท้ายอาจยังไม่จบ
     for (let i = spokenUpTo; i < upto; i++) {
-      const line = lines[i].trim();
+      let line = lines[i].trim().replace(/^###(?!USER|CARD|VERIFY)[^:\n]*:\s*/, '');
       if (line.startsWith('###USER:')) { const said = line.slice(8).trim(); if (said) { heard = said; $('userSaid').textContent = '“' + said + '”'; } continue; }
       if (line.startsWith('###')) { cardMode = true; continue; }
       if (!cardMode && line) speak(line);
     }
     spokenUpTo = Math.max(spokenUpTo, upto);
-    const [talk] = full.replace(/^###USER:.*$/m, '').split(/^###/m);
+    const [talk] = full.replace(/^###USER:.*$/m, '').replace(/^###(?!USER|CARD|VERIFY)[^:\n]*:\s*/gm, '').split(/^###/m);
     $('bubbleText').textContent = talk.trim() || '…';
   };
 
