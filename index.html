@@ -15,7 +15,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600&family=Sarabun:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=11171438">
+<link rel="stylesheet" href="style.css?v=11171444">
 <script type="importmap">
 { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js" } }
 </script>
@@ -113,6 +113,28 @@
     <label>PIN เจ้าหน้าที่ (ใช้ปลดล็อกข้อมูลภายใน 5 นาที)
       <input id="setPin" type="password" inputmode="numeric" autocomplete="off" placeholder="เช่น 4 หลัก">
     </label>
+    <h3 class="sub">ระบบที่ใช้รหัสแยก</h3>
+    <label>ระบบตัดงบ / เบิกค่ารักษา — ชื่อผู้ใช้
+      <input id="set_budgetUser" type="text" autocomplete="off">
+    </label>
+    <label>ระบบตัดงบ — รหัสผ่าน
+      <input id="set_budgetPass" type="password" autocomplete="off">
+    </label>
+    <label>ออกเลขหนังสือ — รหัสสำนักงาน
+      <input id="set_officeCode" type="password" autocomplete="off">
+    </label>
+    <label>CCL — ชื่อผู้ใช้
+      <input id="set_cclUser" type="text" autocomplete="off">
+    </label>
+    <label>CCL — รหัสผ่าน
+      <input id="set_cclPass" type="password" autocomplete="off">
+    </label>
+    <label>Office Love — ชื่อผู้ใช้ (ว่าง = ใช้ชื่อศูนย์รวมงาน)
+      <input id="set_olUser" type="text" autocomplete="off">
+    </label>
+    <label>Office Love — รหัสผ่าน
+      <input id="set_olPass" type="password" autocomplete="off">
+    </label>
     <p class="hint">key เก็บไว้ในเครื่องนี้เท่านั้น ไม่ถูกส่งขึ้น GitHub · <span id="verLabel"></span></p>
     <div class="row">
       <button id="btnTestVoice" type="button" class="abtn outline">ทดสอบเสียง</button>
@@ -136,6 +158,6 @@
 
 <div id="toast" class="toast" hidden></div>
 
-<script type="module" src="app.js?v=11171438"></script>
+<script type="module" src="app.js?v=11171444"></script>
 </body>
 </html>

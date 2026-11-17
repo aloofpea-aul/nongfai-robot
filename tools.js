@@ -269,22 +269,20 @@ async function k04Plan({ keyword }) {
 
 // ---------- 14) KPI กฟต.2 ปี 2569 (สาธารณะ) ----------
 async function kpiRegion2({ keyword }) {
-  const files = ['kpi_data', 'kpi_meta', 'ranking_data', 'org_data', 'kpi211_data'];
   const all = await cached('kpi', 3600e3, async () => {
     const out = {};
-    for (const f of files) {
+    for (const f of ['kpi_data', 'org_data']) {
       const txt = await (await fetch('/kpi-pea-region2-2569/data/' + f + '.js')).text();
       const names = [...txt.matchAll(/^(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=/gm)].map((m) => m[1]);
       try { Object.assign(out, new Function(txt + ';return {' + names.join(',') + '};')()); } catch {}
     }
     return out;
   });
-  if (!keyword) return { ชุดข้อมูล: Object.keys(all), ตัวอย่าง: cap(slim(all), 8000) };
-  const out = {};
-  for (const [k, v] of Object.entries(all)) {
-    if (v && typeof v === 'object') { const sub = Object.fromEntries(Object.entries(v).filter(([kk, vv]) => match([kk, vv], keyword))); if (Object.keys(sub).length) out[k] = sub; }
-  }
-  return cap(slim(out), 12000);
+  const aol = new Set(all.KPI_AOL || []);
+  let list = (all.FB || []).map((r) => ({ รหัส: r[0], ตัวชี้วัด: r[1], เจ้าของ: r[2], ประเภท: r[3], ผู้รับผิดชอบ: r[4], ผลงานล่าสุด: r[5], ข้อมูลเดือน: r[6], คะแนนล่าสุด: r[7],
+    เกณฑ์คะแนน_ระดับ1ถึง5: all.TARGETS && all.TARGETS[r[0]], คะแนนรายเดือน: all.MONTHLY_SCORES && all.MONTHLY_SCORES[r[0]], วัดผลที่กฟส_อ่าวลึกด้วย: aol.has(r[0]) }));
+  if (keyword) list = list.filter((x) => match(x, keyword));
+  return { หมายเหตุ: 'เป็นผลระดับ กฟต.2 ตามแดชบอร์ด KPI', จำนวน: list.length, ตัวชี้วัด: list.slice(0, 25) };
 }
 
 // ---------- 15) เช็กอินวันนี้ (สาธารณะในแดชบอร์ด) ----------
@@ -311,6 +309,90 @@ async function contacts({ keyword }, c) {
   return cap(slim(Array.isArray(list) ? list.filter((x) => match(x, keyword)) : list), 8000);
 }
 
+// ---------- 18) SAIFI / SAIDI รายพื้นที่ (สาธารณะ) ----------
+async function reliability({ keyword }) {
+  const a = await cached('area', 3600e3, async () => (await fetch('/pea-analytics-data/data/area.json')).json());
+  const kw = keyword || 'อ่าวลึก';
+  const rows = (a.rows || []).filter((r) => match(r, kw)).slice(0, 10).map((r) => Object.fromEntries(a.headers.map((h, i) => [h, r[i]]).filter(([, v]) => v !== '' && v != null)));
+  return { หมายเหตุ: 'SAIFI/SAIDI แยกตามพื้นที่ ตัวเลข 1–5 คือระดับเหตุ/ประเภทตามรายงานต้นทาง', พบ: rows.length, ข้อมูล: rows };
+}
+
+// ---------- 19) Load01 โหลดฟีดเดอร์ (สาธารณะ) ----------
+const LOAD01_API = 'https://script.google.com/macros/s/AKfycbxL9UA6FHRLeemR_1xHu5WDih4POHR0lKkZQOhJlywuXhUtgkVHoyNs_18mteoGf1Yu/exec';
+async function load01({ feeder, months }) {
+  const d = await cached('load01', 3600e3, async () => { const j = await postJSON(LOAD01_API, { fn: 'getDashboardData', args: [] }); return typeof j.result === 'string' ? JSON.parse(j.result) : j.result; });
+  const want = String(feeder || 'ALA').toUpperCase();
+  const fidx = []; (d.feeders || []).forEach((f, i) => { if (String(f[3] || '').toUpperCase().startsWith(want) || match(f, feeder)) fidx.push(i); });
+  const n = Math.min(Number(months) || 3, 12), lastM = (d.months || []).length - 1;
+  const out = fidx.slice(0, 12).map((fi) => {
+    const f = d.feeders[fi];
+    const rows = (d.rows || []).filter((r) => r[1] === fi && r[0] > lastM - n).map((r) => Object.assign({ เดือน: d.months[r[0]] }, Object.fromEntries((d.cols || []).slice(2).map((c, k) => [c, r[k + 2]]))));
+    return { ฟีดเดอร์: f[3], สถานี: f[1], พื้นที่: f[4], ข้อมูล: rows };
+  });
+  return { ข้อมูลล่าสุดถึงเดือน: d.months && d.months[lastM], ชื่อคอลัมน์: d.cols, ฟีดเดอร์: out };
+}
+
+// ---------- 20) แบบมาตรฐาน / รายการวัสดุ (สาธารณะ) ----------
+async function drawingsBom({ keyword }) {
+  const list = await cached('bom', 6 * 3600e3, async () => (await fetch('/pea-drawings/bom-index.json')).json());
+  const hit = list.filter((x) => match({ t: x.t, i: (x.items || []).map((y) => y.th).join(' ') }, keyword)).slice(0, 5)
+    .map((x) => ({ แบบ: x.t, หน้า: '/pea-drawings/' + x.f, วัสดุ: (x.items || []).slice(0, 25).map((y) => [y.n, y.th, (y.q || []).join(' ')].join(' · ')) }));
+  return { พบ: hit.length, แบบ: hit };
+}
+
+// ---------- 21) ระบบตัดงบ / เบิกค่ารักษา (รหัสของระบบตัดงบ) ----------
+const BUDGET_API = 'https://script.google.com/macros/s/AKfycbygECo4LkNmO4KLt2CXCrX25vwXE0armUUsdajOWF1CL3djNXaELZX8gwb8zU1GFdsWwQ/exec';
+async function fnCall(api, fn, args, token) {
+  const j = await postJSON(api, { fn, args: args || [], token });
+  return j.data !== undefined ? j.data : j.result !== undefined ? j.result : j;
+}
+async function budget({ keyword }, c) {
+  if (!c.budgetUser || !c.budgetPass) throw new Error('ยังไม่ได้ตั้งชื่อผู้ใช้/รหัสของระบบตัดงบในหน้าตั้งค่าของน้องไฟ');
+  const login = await cached('budgetLogin', 6 * 3600e3, async () => { const r = await fnCall(BUDGET_API, 'apiLogin', [c.budgetUser, c.budgetPass]); if (!r || r.status !== 'success') throw new Error((r && r.message) || 'เข้าระบบตัดงบไม่สำเร็จ'); return r; });
+  const [boot, dash] = await Promise.all([
+    cached('budgetBoot', 600e3, () => fnCall(BUDGET_API, 'getBootData', [], login.token)),
+    cached('budgetDash', 600e3, () => fnCall(BUDGET_API, 'getEnhancedDashboardData', [{ periodType: 'all', dateFrom: null, dateTo: null, dept: '', searchQuery: keyword || '' }], login.token)),
+  ]);
+  return { ภาพรวม: cap(slim(dash), 8000), ข้อมูลตั้งต้น: cap(slim(boot), 5000) };
+}
+
+// ---------- 22) ออกเลขหนังสือ (รหัสสำนักงาน) ----------
+const BOOKNUM_API = 'https://script.google.com/macros/s/AKfycbxNSVvzUdqQC-_8ZKLJM1GFliAM4zWyJI8z8VzU0vhhSSBqq0JcxrUr_UyBkWol7ko1Rw/exec';
+async function bookNumbers({ category, keyword }, c) {
+  if (!c.officeCode) throw new Error('ยังไม่ได้ตั้งรหัสสำนักงานของระบบออกเลขหนังสือในหน้าตั้งค่าของน้องไฟ');
+  const login = await cached('bookLogin', 12 * 3600e3, async () => { const r = await fnCall(BOOKNUM_API, 'login', [c.officeCode]); if (!r || !r.ok) throw new Error('รหัสสำนักงานไม่ถูกต้อง'); return r; });
+  const cats = category ? [category] : ['หนังสือทั่วไป', 'หนังสือสัญญาจ้าง', 'คำสั่ง (พ.)', 'ใบสำคัญจ่าย'];
+  const out = {};
+  for (const cat of cats) out[cat] = slim(keyword ? await fnCall(BOOKNUM_API, 'searchData', [login.token, cat, keyword]) : await cached('book' + cat, 300e3, () => fnCall(BOOKNUM_API, 'getRecentData', [login.token, cat])));
+  return cap(out, 12000);
+}
+
+// ---------- 23) CCL งานก่อสร้าง (รหัสของระบบ CCL) ----------
+const CCL_API = 'https://script.google.com/macros/s/AKfycby4f-2rofhzok_cg9-YLftco1XuC-MCrKn72TTakoPhQfz-qGqjX9WTzZkY5Ye_BxejNQ/exec';
+async function ccl({ keyword }, c) {
+  if (!c.cclUser || !c.cclPass) throw new Error('ยังไม่ได้ตั้งชื่อผู้ใช้/รหัสของระบบ CCL ในหน้าตั้งค่าของน้องไฟ');
+  const login = await cached('cclLogin', 6 * 3600e3, async () => { const r = await fnCall(CCL_API, 'loginUser', [c.cclUser, c.cclPass]); if (!r || !r.success) throw new Error((r && r.error) || 'เข้าระบบ CCL ไม่สำเร็จ'); return r; });
+  const [stats, jobs] = await Promise.all([
+    cached('cclStats', 600e3, () => fnCall(CCL_API, 'getDashboardStats', [], login.token)),
+    cached('cclJobs', 600e3, () => fnCall(CCL_API, 'getConstructionData', [], login.token)),
+  ]);
+  const list = Array.isArray(jobs) ? jobs : (jobs && (jobs.data || jobs.rows)) || [];
+  return { สรุป: cap(slim(stats), 4000), พบงาน: list.filter((x) => match(x, keyword)).length, งาน: slim(list.filter((x) => match(x, keyword)).slice(0, 25)) };
+}
+
+// ---------- 24) Office Love เดินตรวจ รปภ. (รหัสของระบบ Office Love) ----------
+const OL_API = 'https://script.google.com/macros/s/AKfycbzDx_LY4rc3KSqC3PH1XUe--LqJPppD1q1lB1YvTRi0BCm3Z6i0luBKiyxcoGfkqpIbRw/exec';
+async function officeLove({ keyword }, c) {
+  const u = c.olUser || c.user, pw = c.olPass || c.pass;
+  if (!u || !pw) throw new Error('ยังไม่ได้ตั้งชื่อผู้ใช้/รหัสของระบบ Office Love ในหน้าตั้งค่าของน้องไฟ');
+  const login = await cached('olLogin', 6 * 3600e3, () => postJSON(OL_API, { action: 'login', username: u, password: pw }));
+  const tk = login.token || (login.data && login.data.token);
+  let board;
+  try { board = await cached('olBoard', 300e3, () => postJSON(OL_API, { action: 'supervisorBoard', token: tk })); }
+  catch { board = await cached('olBoot', 300e3, () => postJSON(OL_API, { action: 'bootstrap', token: tk })); }
+  return cap(slim(keyword ? JSON.parse(JSON.stringify(board), (k, v) => (Array.isArray(v) ? v.filter((x) => match(x, keyword)) : v)) : board), 10000);
+}
+
 // ---------- ประกาศให้ Gemini รู้จักเครื่องมือ ----------
 export const TOOLS = {
   weather_now: { access: 'public', run: weatherNow, decl: { name: 'weather_now', description: 'สภาพอากาศตอนนี้ที่อ่าวลึก และระดับความเสี่ยงไฟดับจากฝน/ลม', parameters: { type: 'OBJECT', properties: {} } } },
@@ -331,6 +413,13 @@ export const TOOLS = {
   checkin_today: { access: 'internal', run: checkinToday, decl: { name: 'checkin_today', description: 'การเช็กอินเข้า-ออกงานของพนักงานวันนี้ ใครมาแล้ว กี่โมง อยู่ในหรือนอกพื้นที่', parameters: { type: 'OBJECT', properties: { keyword: { type: 'STRING', description: 'ชื่อคน ว่างได้' } } } } },
   outage_tickets: { access: 'internal', run: outageTickets, decl: { name: 'outage_tickets', description: 'งานรับแจ้งไฟดับจากผู้ใช้ไฟ: เรื่องที่ยังค้าง ใครรับงาน และรายการล่าสุดใน 36 ชั่วโมง', parameters: { type: 'OBJECT', properties: { keyword: { type: 'STRING' } } } } },
   contacts: { access: 'internal', run: contacts, decl: { name: 'contacts', description: 'สมุดโทรศัพท์/ผู้ติดต่อของทีมแก้ไฟ กฟส.อ่าวลึก', parameters: { type: 'OBJECT', properties: { keyword: { type: 'STRING', description: 'ชื่อคนหรือหน่วยงาน' } } } } },
+  reliability: { access: 'internal', run: reliability, decl: { name: 'reliability', description: 'ดัชนีความเชื่อถือได้ SAIFI / SAIDI และจำนวนผู้ใช้ไฟ แยกตามพื้นที่ กฟส./กฟจ.', parameters: { type: 'OBJECT', properties: { keyword: { type: 'STRING', description: 'ชื่อพื้นที่ ค่าเริ่มต้น อ่าวลึก' } } } } },
+  load01: { access: 'internal', run: load01, decl: { name: 'load01', description: 'Load01 (SCADA กฟต.2): โหลดรายเดือนของฟีดเดอร์ เช่น กระแส MW Load factor', parameters: { type: 'OBJECT', properties: { feeder: { type: 'STRING', description: 'เช่น ALA06 หรือ ALA = ทุกฟีดเดอร์สถานีอ่าวลึก' }, months: { type: 'NUMBER', description: 'ย้อนหลังกี่เดือน (1-12)' } } } } },
+  drawings_bom: { access: 'internal', run: drawingsBom, decl: { name: 'drawings_bom', description: 'แบบมาตรฐาน กฟภ. และรายการวัสดุต่อชุด (BOM) เช่น ฐานรากเสา คอนสาย ติดตั้งหม้อแปลง', parameters: { type: 'OBJECT', properties: { keyword: { type: 'STRING', description: 'ชื่อแบบหรือวัสดุ' } }, required: ['keyword'] } } },
+  budget: { access: 'internal', run: budget, decl: { name: 'budget', description: 'ระบบตัดงบทำการ: งบคงเหลือ ยอดใช้ ตามแผนก รายการขอใช้งบ (รวมเบิกค่ารักษา)', parameters: { type: 'OBJECT', properties: { keyword: { type: 'STRING', description: 'คำค้น เช่น ชื่อแผนก รายการ' } } } } },
+  book_numbers: { access: 'internal', run: bookNumbers, decl: { name: 'book_numbers', description: 'ระบบออกเลขหนังสือ: เลขหนังสือล่าสุด ค้นเรื่อง หนังสือทั่วไป สัญญาจ้าง คำสั่ง ใบสำคัญจ่าย', parameters: { type: 'OBJECT', properties: { category: { type: 'STRING', description: 'หนังสือทั่วไป | หนังสือสัญญาจ้าง | คำสั่ง (พ.) | ใบสำคัญจ่าย' }, keyword: { type: 'STRING' } } } } },
+  ccl: { access: 'internal', run: ccl, decl: { name: 'ccl', description: 'CCL ติดตามงานก่อสร้าง: งานก่อสร้าง สถานะ ผู้รับผิดชอบ สรุปภาพรวม', parameters: { type: 'OBJECT', properties: { keyword: { type: 'STRING' } } } } },
+  office_love: { access: 'internal', run: officeLove, decl: { name: 'office_love', description: 'Office Love ระบบเดินตรวจความปลอดภัยสำนักงานของ รปภ.: การเข้าเวร จุดตรวจ เหตุผิดปกติ', parameters: { type: 'OBJECT', properties: { keyword: { type: 'STRING' } } } } },
 };
 export const TOOL_DECLS = [{ functionDeclarations: Object.values(TOOLS).map((t) => t.decl) }];
 
