@@ -187,6 +187,114 @@ async function vehicles({ keyword }, creds) {
   return { รถ: cars, การจองที่จะถึง: books.slice(0, 15) };
 }
 
+// ---------- ตัวช่วยย่อข้อมูลให้พอดีกับ AI ----------
+const SKIP_KEY = /photo|image|img|pic|base64|thumb|^lat$|^lon$|^lng$|url|token|pass|signature|hist$/i;
+function slim(x, d = 0) {
+  if (typeof x === 'string') return x.length > 300 ? x.slice(0, 300) + '…' : x;
+  if (Array.isArray(x)) return x.slice(0, d ? 40 : 120).map((v) => slim(v, d + 1));
+  if (x && typeof x === 'object') { const o = {}; for (const [k, v] of Object.entries(x)) { if (!SKIP_KEY.test(k) && v !== '' && v != null) o[k] = slim(v, d + 1); } return o; }
+  return x;
+}
+function cap(obj, n = 14000) { const s = JSON.stringify(obj); return s.length > n ? s.slice(0, n) + ' …(ข้อมูลยาวเกิน ตัดไว้แค่นี้ ถามให้แคบลงได้)' : obj; }
+const match = (x, kw) => !kw || words(kw).every((w) => JSON.stringify(x).toLowerCase().includes(w));
+const needCreds = (c) => { if (!c.user || !c.pass) throw new Error('ยังไม่ได้ตั้งชื่อ/รหัสศูนย์รวมงานในหน้าตั้งค่าของน้องไฟ'); };
+
+// ---------- 7) SLD อุปกรณ์ในระบบจำหน่าย (สาธารณะ) ----------
+const HUB_GAS = 'https://script.google.com/macros/s/AKfycbzqsOqJJQlF4SS1UX_YM6hmhd3lUXCVocAJiK7l28Tzddms9SQ9Z7p-iYgrrgd2B2meWw/exec';
+async function sldDevices({ keyword, feeder }) {
+  const j = await cached('sld', 3600e3, () => getJSON(HUB_GAS));
+  const feeders = (j.feeders || []).map((f) => ({ ฟีดเดอร์: f.id, ชื่อ: f.name, เชื่อมกับ: f.tieTo, จำนวนอุปกรณ์: (f.devices || []).length }));
+  let devs = [];
+  (j.feeders || []).forEach((f) => (f.devices || []).forEach((d) => devs.push({ ฟีดเดอร์: f.id, รหัส: d.id, ชนิด: d.type, พิกัด: d.rating, ที่ตั้ง: d.desc, มิเตอร์: d.meterCount, ตรวจสอบแล้ว: d.verifiedStatus || d.sequenceVerified })));
+  if (feeder) devs = devs.filter((d) => String(d.ฟีดเดอร์).toUpperCase() === String(feeder).toUpperCase());
+  if (keyword) devs = devs.filter((d) => match(d, keyword));
+  return { สถานี: j.substation && j.substation.name, ฟีดเดอร์ทั้งหมด: feeders, พบอุปกรณ์: devs.length, อุปกรณ์: devs.slice(0, 40) };
+}
+
+// ---------- 8) Patrol ระบบจำหน่าย (จุดบกพร่อง) ----------
+async function patrolFindings({ status, feeder, keyword }, c) {
+  needCreds(c);
+  const j = await cached('patrol' + (status || '') + (feeder || ''), 300e3, () => postJSON(HUB_GAS, { action: 'patrolList', changedBy: c.user, changedByPassword: c.pass, limit: 400, status: status || '', feederId: feeder || '' }));
+  let rows = (j.findings || []).filter((r) => match(r, keyword));
+  return { ทั้งหมดในระบบ: j.total, พบ: rows.length, รายการ: slim(rows.slice(0, 30)) };
+}
+
+// ---------- 9) งานตัดต้นไม้ ----------
+const TREE_API = 'https://script.google.com/macros/s/AKfycbx3pSMOKIPC0ZKUWzx4tJk-m-cmK0ACxxrGhy7kbs2-D24Rs_pnlMp2Lp3CXi-lSrpq/exec';
+async function treeCutting({ year, keyword }, c) {
+  needCreds(c);
+  const y = String(year || (bkkNow().getUTCFullYear() + 543));
+  const login = await cached('treeLogin', 6 * 3600e3, () => postJSON(TREE_API, { action: 'login', user: c.user, password: c.pass }));
+  const j = await cached('tree' + y, 600e3, () => postJSON(TREE_API, { action: 'bootstrap', user: login.user && login.user.name, token: login.token, year: y }));
+  const data = j.data || j;
+  const jobs = (data.jobs || []).filter((x) => match(x, keyword));
+  return { ปี: y, จำนวนงาน: (data.jobs || []).length, พบ: jobs.length, งาน: slim(jobs.slice(0, 30)), อื่นๆ: cap(slim(Object.fromEntries(Object.entries(data).filter(([k]) => k !== 'jobs'))), 3000) };
+}
+
+// ---------- 10–11) งานจัดซื้อ / ซื้อหม้อแปลง (TF) ----------
+const PROCURE_API = 'https://script.google.com/macros/s/AKfycbwJEHg7z1xtXk4xWntweZ1MBzdz34l0KuPLyQ7iCe5Bm5isvWENHwnGn4MmVJ_MIyqZjQ/exec';
+const TFBUY_API = 'https://script.google.com/macros/s/AKfycbyeZSYM_uYyC1ZD2q3SdjVPWClHNFRsc_yfUclwPD9mnvw70hU_TG75CXsvmQjsQAAu/exec';
+function jobsTool(api, key) {
+  return async ({ keyword }, c) => {
+    needCreds(c);
+    const j = await cached(key, 300e3, () => postJSON(api, { action: 'bootstrap', user: c.user, pass: c.pass }));
+    const jobs = (j.jobs || []).filter((x) => match(x, keyword))
+      .map((x) => ({ ปี: x.year, ประเภท: x.kind, แผนก: x.dept, เรื่อง: x.title, ผู้ขาย: x.vendor, ยอดเงิน: x.total, ขั้นตอน: x.step, เลขที่: x.nums, ผู้สร้าง: x.createdBy, แก้ล่าสุด: x.updatedAt }));
+    return { ทั้งหมด: (j.jobs || []).length, พบ: jobs.length, งาน: jobs.slice(0, 30) };
+  };
+}
+
+// ---------- 12) Safety talk ----------
+const ST_API = 'https://script.google.com/macros/s/AKfycbyfGC_-vovohq24RWL91hUEYWXxdiL8UkvJ5VOabKe2dGt9vERuCKocEieny86rhOBJXw/exec';
+async function safetyTalk({ keyword }, c) {
+  needCreds(c);
+  const j = await cached('st', 600e3, () => postJSON(ST_API, { fn: 'st', args: [{ action: 'boot', auth: { name: c.user, pass: c.pass } }] }));
+  const data = j.data || j;
+  if (!keyword) return cap(slim(data));
+  const out = {};
+  for (const [k, v] of Object.entries(data)) out[k] = Array.isArray(v) ? v.filter((x) => match(x, keyword)).slice(0, 30) : v;
+  return cap(slim(out));
+}
+
+// ---------- 13) แผนปฏิบัติการ K04 (สาธารณะ) ----------
+const K04_API = 'https://script.google.com/macros/s/AKfycbzPHT_oHJEDbCXQAIswkwOeSEWtSYuMb1xtG3KdgVYIJuzFJ_9qbVHqw8myYG9rtbpHiQ/exec';
+async function k04Plan({ keyword }) {
+  const j = await cached('k04', 1800e3, () => getJSON(K04_API + '?action=data'));
+  const acts = [];
+  (j.sheets || []).forEach((sh) => (sh.activities || []).forEach((a) => acts.push({ หมวด: sh.name, รหัส: a.code, กิจกรรม: a.title, แผนงาน: a.plan, เป้าหมาย: a.desc, ผู้รับผิดชอบ: a.resp, ผู้ดำเนินการ: a.doer,
+    รายไตรมาส: (a.rows || []).map((r) => ({ หน่วย: r.unit, ไตรมาส: (r.q || []).map((q) => ({ เป้า: q.t, ผล: q.r, คะแนน: q.score })) })) })));
+  const hit = acts.filter((a) => match(a, keyword));
+  return { กิจกรรมทั้งหมด: acts.length, พบ: hit.length, กิจกรรม: cap(hit.slice(0, 12), 12000) };
+}
+
+// ---------- 14) KPI กฟต.2 ปี 2569 (สาธารณะ) ----------
+async function kpiRegion2({ keyword }) {
+  const files = ['kpi_data', 'kpi_meta', 'ranking_data', 'org_data', 'kpi211_data'];
+  const all = await cached('kpi', 3600e3, async () => {
+    const out = {};
+    for (const f of files) {
+      const txt = await (await fetch('/kpi-pea-region2-2569/data/' + f + '.js')).text();
+      const names = [...txt.matchAll(/^(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=/gm)].map((m) => m[1]);
+      try { Object.assign(out, new Function(txt + ';return {' + names.join(',') + '};')()); } catch {}
+    }
+    return out;
+  });
+  if (!keyword) return { ชุดข้อมูล: Object.keys(all), ตัวอย่าง: cap(slim(all), 8000) };
+  const out = {};
+  for (const [k, v] of Object.entries(all)) {
+    if (v && typeof v === 'object') { const sub = Object.fromEntries(Object.entries(v).filter(([kk, vv]) => match([kk, vv], keyword))); if (Object.keys(sub).length) out[k] = sub; }
+  }
+  return cap(slim(out), 12000);
+}
+
+// ---------- 15) เช็กอินวันนี้ (สาธารณะในแดชบอร์ด) ----------
+const CHECKIN_API = 'https://script.google.com/macros/s/AKfycbxY0vjjr3MAl6e_OSTTbubrK-cVTrsx3o38xQGLJkJMro8rS8H-LaWl2J3oeE_I31FR/exec';
+async function checkinToday({ keyword }) {
+  const j = await cached('checkin', 120e3, () => getJSON(CHECKIN_API + '?action=getTodayDashboard'));
+  const recs = (j.records || []).map((r) => ({ ชื่อ: String(r.name || '').replace(/\s+/g, ' '), เข้างาน: r.checkIn, ออกงาน: r.checkOut, พื้นที่: r.area, หมายเหตุ: r.note })).filter((r) => match(r, keyword));
+  return { วันที่: bkkToday(), เช็กอินแล้ว: recs.length, รายชื่อ: recs, อื่นๆ: cap(slim(Object.fromEntries(Object.entries(j).filter(([k]) => k !== 'records'))), 2000) };
+}
+
 // ---------- ประกาศให้ Gemini รู้จักเครื่องมือ ----------
 export const TOOLS = {
   weather_now: { access: 'public', run: weatherNow, decl: { name: 'weather_now', description: 'สภาพอากาศตอนนี้ที่อ่าวลึก และระดับความเสี่ยงไฟดับจากฝน/ลม', parameters: { type: 'OBJECT', properties: {} } } },
@@ -196,6 +304,15 @@ export const TOOLS = {
   search_regulations: { access: 'internal', run: searchRegulations, decl: { name: 'search_regulations', description: 'ค้นกฎหมาย ระเบียบ คำสั่ง หลักเกณฑ์ ของ กฟภ. และหน่วยงานรัฐ (ประมาณ 800 ฉบับ) คืนชื่อเรื่อง ลิงก์ และข้อความที่เกี่ยวข้อง', parameters: { type: 'OBJECT', properties: { query: { type: 'STRING', description: 'คำค้นสั้นๆ เช่น ค่าเช่าบ้าน, ลาพักผ่อน, จัดซื้อจัดจ้าง' } }, required: ['query'] } } },
   stock_search: { access: 'internal', run: stockSearch, decl: { name: 'stock_search', description: 'ค้นจำนวนพัสดุคงคลังของ กฟส.อ่าวลึก ตามชื่อหรือรหัสพัสดุ แยกตามคลัง', parameters: { type: 'OBJECT', properties: { keyword: { type: 'STRING', description: 'ชื่อหรือรหัสพัสดุ เช่น มิเตอร์ 15(45), ฟิวส์ลิงก์ 10K' } }, required: ['keyword'] } } },
   vehicles: { access: 'internal', run: vehicles, decl: { name: 'vehicles', description: 'สถานะรถยนต์ของ กฟส.อ่าวลึก (ว่าง/ใช้งานอยู่ ใครใช้ ภารกิจ) และการจองรถที่จะถึง', parameters: { type: 'OBJECT', properties: { keyword: { type: 'STRING', description: 'กรองด้วยทะเบียน ชื่อคน หรือภารกิจ ว่างได้' } } } } },
+  sld_devices: { access: 'internal', run: sldDevices, decl: { name: 'sld_devices', description: 'Single Line Diagram สถานีไฟฟ้าอ่าวลึก: รายชื่อฟีดเดอร์ และอุปกรณ์ในระบบจำหน่าย (หม้อแปลง ฟิวส์ สวิตช์ รีโคลสเซอร์) รหัส พิกัด ที่ตั้ง จำนวนมิเตอร์', parameters: { type: 'OBJECT', properties: { feeder: { type: 'STRING', description: 'เช่น ALA06' }, keyword: { type: 'STRING', description: 'รหัสอุปกรณ์ ชื่อหมู่บ้าน หรือชนิด เช่น TR, WF, หม้อแปลง' } } } } },
+  patrol_findings: { access: 'internal', run: patrolFindings, decl: { name: 'patrol_findings', description: 'Patrol ระบบจำหน่าย: จุดบกพร่อง/จุดเสี่ยงที่ตรวจพบ สถานะการแก้ไข ฟีดเดอร์ ระดับความรุนแรง', parameters: { type: 'OBJECT', properties: { status: { type: 'STRING', description: 'สถานะ ว่างได้' }, feeder: { type: 'STRING' }, keyword: { type: 'STRING' } } } } },
+  tree_cutting: { access: 'internal', run: treeCutting, decl: { name: 'tree_cutting', description: 'งานตัดต้นไม้ กฟส.อ่าวลึก: แผนงาน ผลงาน ผู้รับจ้าง พื้นที่ ตามปีงบประมาณ', parameters: { type: 'OBJECT', properties: { year: { type: 'STRING', description: 'ปี พ.ศ. เช่น 2569' }, keyword: { type: 'STRING' } } } } },
+  procure_jobs: { access: 'internal', run: jobsTool(PROCURE_API, 'procure'), decl: { name: 'procure_jobs', description: 'ระบบงานจัดซื้อ (วิธีเฉพาะเจาะจง): รายการงานจัดซื้อ เรื่อง ผู้ขาย ยอดเงิน ขั้นตอน เลขที่เอกสาร', parameters: { type: 'OBJECT', properties: { keyword: { type: 'STRING' } } } } },
+  tf_purchase_jobs: { access: 'internal', run: jobsTool(TFBUY_API, 'tfbuy'), decl: { name: 'tf_purchase_jobs', description: 'ระบบงานซื้อหม้อแปลง/ขายหม้อแปลงให้ผู้ใช้ไฟ (tfbuy): รายการงาน ผู้ซื้อ ยอดเงิน ขั้นตอน', parameters: { type: 'OBJECT', properties: { keyword: { type: 'STRING' } } } } },
+  safety_talk: { access: 'internal', run: safetyTalk, decl: { name: 'safety_talk', description: 'กิจกรรม Safety Talk: รอบประชุม ผู้เข้าร่วม ขาด/ลา หัวข้อ', parameters: { type: 'OBJECT', properties: { keyword: { type: 'STRING' } } } } },
+  k04_plan: { access: 'internal', run: k04Plan, decl: { name: 'k04_plan', description: 'K04 แผนปฏิบัติการ กฟจ.กระบี่ และ กฟฟ.ในสังกัด ปี 2569: กิจกรรม เป้าหมาย ผลรายไตรมาส ผู้รับผิดชอบ', parameters: { type: 'OBJECT', properties: { keyword: { type: 'STRING', description: 'รหัสหรือชื่อกิจกรรม เช่น 1.1, ต้นทุน, SAIFI' } } } } },
+  kpi_region2: { access: 'internal', run: kpiRegion2, decl: { name: 'kpi_region2', description: 'KPI Dashboard กฟต.2 ปี 2569: เป้าหมาย ผลงาน คะแนน อันดับของแต่ละการไฟฟ้า', parameters: { type: 'OBJECT', properties: { keyword: { type: 'STRING', description: 'เช่น อ่าวลึก, 1.3.1, SAIFI' } } } } },
+  checkin_today: { access: 'internal', run: checkinToday, decl: { name: 'checkin_today', description: 'การเช็กอินเข้า-ออกงานของพนักงานวันนี้ ใครมาแล้ว กี่โมง อยู่ในหรือนอกพื้นที่', parameters: { type: 'OBJECT', properties: { keyword: { type: 'STRING', description: 'ชื่อคน ว่างได้' } } } } },
 };
 export const TOOL_DECLS = [{ functionDeclarations: Object.values(TOOLS).map((t) => t.decl) }];
 
