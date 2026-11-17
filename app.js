@@ -1,9 +1,10 @@
 // น้องไฟ — แอปหลัก: ฟังเสียงไทย → ถาม Gemini (สตรีม) → พูดตอบทีละประโยค + แสดงบนจอ
-import { Mascot } from './mascot.js?v=11171254';
-import { WavRecorder } from './recorder.js?v=11171254';
+import { Mascot } from './mascot.js?v=11171348';
+import { WavRecorder } from './recorder.js?v=11171348';
+import { TOOL_DECLS, runTool, bkkNow } from './tools.js?v=11171348';
 
 const $ = (id) => document.getElementById(id);
-export const VERSION = '11171254';
+export const VERSION = '11171348';
 // อัปเดตตัวเอง: ถ้าบนเว็บมีเวอร์ชันใหม่กว่า ให้โหลดหน้าใหม่ทันที (กันไอโฟนจำไฟล์เก่า)
 fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json()).then((j) => {
   if (j.v && j.v !== VERSION && !sessionStorage.getItem('nf.reload.' + j.v)) {
@@ -12,19 +13,35 @@ fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json(
   }
 }).catch(() => {});
 
-const DEFAULTS = { apiKey: '', model: 'gemini-2.5-flash', voice: '', rate: 1.0, autoListen: true };
+const DEFAULTS = { apiKey: '', model: 'gemini-2.5-flash', voice: '', rate: 1.0, autoListen: true, hubUser: '', hubPass: '', staffPin: '' };
 const cfg = { ...DEFAULTS, ...JSON.parse(localStorage.getItem('nongfai.cfg') || '{}') };
 const saveCfg = () => localStorage.setItem('nongfai.cfg', JSON.stringify(cfg));
+// ชื่อ/รหัสศูนย์รวมงาน: ถ้าเครื่องนี้เคยล็อกอินศูนย์รวมงานไว้ ใช้ชุดนั้นเลย (โดเมนเดียวกัน)
+if (!cfg.hubUser) cfg.hubUser = localStorage.getItem('pea_aoluek_username') || '';
+if (!cfg.hubPass) cfg.hubPass = localStorage.getItem('pea_aoluek_password') || '';
 if (cfg.model === 'gemini-flash-latest') { cfg.model = DEFAULTS.model; saveCfg(); } // รุ่นนี้ค้างบน free tier
 
-const SYSTEM = `คุณคือ "น้องไฟ" หุ่นยนต์ผู้ช่วยบริการลูกค้าของการไฟฟ้าส่วนภูมิภาคสาขาอ่าวลึก (กฟส.อ่าวลึก) จังหวัดกระบี่
+const SYSTEM_BASE = `คุณคือ "น้องไฟ" หุ่นยนต์ผู้ช่วยบริการลูกค้าของการไฟฟ้าส่วนภูมิภาคสาขาอ่าวลึก (กฟส.อ่าวลึก) จังหวัดกระบี่
 บุคลิก: ผู้หญิง สุภาพ อบอุ่น เป็นกันเอง ลงท้ายด้วย ค่ะ/คะ
 กฎการตอบ:
 1. คำตอบจะถูกอ่านออกเสียง ตอบสั้น 1-3 ประโยค แต่ละประโยคขึ้นบรรทัดใหม่ ห้ามใช้ markdown อีโมจิ ดอกจัน หรือเลขข้อในส่วนที่พูด
 2. ถ้ามีรายการที่ควรแสดงบนจอ เช่น เอกสาร ขั้นตอน ช่องทาง ให้ต่อท้ายด้วยบรรทัด ###CARD ตามด้วยบรรทัดหัวข้อ แล้วแต่ละรายการขึ้นต้นด้วย "- " ไม่เกิน 6 รายการ
 3. ห้ามเดาตัวเลข ค่าธรรมเนียม อัตราค่าไฟ วันเวลานัดหมาย หรือข้อมูลเฉพาะของลูกค้ารายใด ถ้าไม่แน่ใจให้แนะนำติดต่อเจ้าหน้าที่ที่เคาน์เตอร์บริการ หรือโทร PEA Call Center 1129
-4. ถ้าผู้ถามขอข้อมูลภายในของหน่วยงาน หรือข้อมูลส่วนบุคคลของลูกค้ารายอื่น ให้ตอบว่าต้องยืนยันตัวตนพนักงานก่อน แล้วต่อท้ายด้วยบรรทัด ###VERIFY
-5. ถ้าเป็นเรื่องที่ไม่เกี่ยวกับการไฟฟ้า ตอบสั้นๆ อย่างสุภาพ แล้วชวนกลับมาที่เรื่องบริการ`;
+4. มีเครื่องมือดึงข้อมูลจริงของ กฟส.อ่าวลึก ได้แก่ สภาพอากาศ ประกาศเตือนภัย ตารางเวรแก้ไฟ ประวัติไฟดับ ระเบียบ กฟภ. คลังพัสดุ และยานพาหนะ เมื่อคำถามเกี่ยวข้องให้เรียกเครื่องมือก่อนตอบเสมอ แล้วตอบจากผลที่ได้เท่านั้น ห้ามแต่งข้อมูลเอง
+5. ถ้าเครื่องมือตอบว่า need_verify ให้บอกสั้นๆ ว่าเป็นข้อมูลภายใน ขอให้เจ้าหน้าที่ใส่รหัสยืนยันตัวตนบนจอก่อน
+6. ตอบเรื่องวัน เวลา ให้เทียบกับวันเวลาปัจจุบันที่ให้ไว้ อ่านเวลาเป็นภาษาพูด เช่น สิบหกนาฬิกาสามสิบนาที
+7. ถ้าเป็นเรื่องที่ไม่เกี่ยวกับการไฟฟ้า ตอบสั้นๆ อย่างสุภาพ แล้วชวนกลับมาที่เรื่องบริการ`;
+
+function systemText() {
+  const n = bkkNow(), wd = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์'][n.getUTCDay()];
+  return SYSTEM_BASE + `\nวันเวลาปัจจุบัน: วัน${wd}ที่ ${n.toISOString().slice(0, 16).replace('T', ' ')} (เวลาไทย)` +
+    (staffOn() ? '\nตอนนี้เจ้าหน้าที่ยืนยันตัวตนแล้ว ใช้เครื่องมือข้อมูลภายในได้' : '');
+}
+
+// ---------- โหมดเจ้าหน้าที่ (ยืนยันด้วย PIN) ----------
+let staffUntil = 0, wantVerify = false, lastAsk = null;
+const staffOn = () => Date.now() < staffUntil;
+const toolCtx = { staff: staffOn, needVerify: () => { wantVerify = true; }, creds: () => ({ user: cfg.hubUser, pass: cfg.hubPass }) };
 
 // ---------- มาสคอต ----------
 const mascot = new Mascot($('stage'));
@@ -221,8 +238,9 @@ async function ask(question, audio, keepCue) {
   controller = new AbortController();
   const myCtl = controller;
   let timedOut = false;
-  const guard = setTimeout(() => { timedOut = true; myCtl.abort(); }, 20000);
+  const guard = setTimeout(() => { timedOut = true; myCtl.abort(); }, 45000);
   let full = '', spokenUpTo = 0, cardMode = false, gotFirst = false, heard = question || '';
+  wantVerify = false;
   const filler = setTimeout(() => { if (!gotFirst) speak('ขอเช็คข้อมูลสักครู่นะคะ'); }, 1500);
 
   const flushLines = (final) => {
@@ -240,37 +258,48 @@ async function ask(question, audio, keepCue) {
   };
 
   try {
-    const res = await callGemini({
-      systemInstruction: { parts: [{ text: SYSTEM }] },
-      contents: chat,
-      generationConfig: { temperature: 0.6, maxOutputTokens: 800 },
-    }, myCtl.signal);
-    if (!res.ok) throw new Error('HTTP ' + res.status + ' ' + (await res.text()).slice(0, 200));
+    const turnStart = chat.length - 1;
+    for (let round = 0; round < 4; round++) {
+      const res = await callGemini({
+        systemInstruction: { parts: [{ text: systemText() }] },
+        contents: chat,
+        tools: TOOL_DECLS,
+        generationConfig: { temperature: 0.4, maxOutputTokens: 900 },
+      }, myCtl.signal);
+      if (!res.ok) throw new Error('HTTP ' + res.status + ' ' + (await res.text()).slice(0, 200));
 
-    const reader = res.body.getReader(), dec = new TextDecoder();
-    let buf = '';
-    for (;;) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      buf += dec.decode(value, { stream: true });
-      let nl;
-      while ((nl = buf.indexOf('\n')) >= 0) {
-        const line = buf.slice(0, nl).trim(); buf = buf.slice(nl + 1);
-        if (!line.startsWith('data:')) continue;
-        try {
-          const j = JSON.parse(line.slice(5));
-          const parts = j.candidates?.[0]?.content?.parts || [];
-          const piece = parts.filter((p) => !p.thought).map((p) => p.text || '').join('');
-          if (piece) {
+      const modelParts = [], calls = [];
+      const reader = res.body.getReader(), dec = new TextDecoder();
+      let buf = '';
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buf += dec.decode(value, { stream: true });
+        let nl;
+        while ((nl = buf.indexOf('\n')) >= 0) {
+          const line = buf.slice(0, nl).trim(); buf = buf.slice(nl + 1);
+          if (!line.startsWith('data:')) continue;
+          let j; try { j = JSON.parse(line.slice(5)); } catch { continue; }
+          for (const p of j.candidates?.[0]?.content?.parts || []) {
+            modelParts.push(p);
+            if (p.functionCall) { calls.push(p.functionCall); continue; }
+            if (p.thought || !p.text) continue;
             if (!gotFirst) { gotFirst = true; mascot.setMood('normal'); setStatus('น้องไฟกำลังตอบ'); }
-            full += piece; flushLines(false);
+            full += p.text; flushLines(false);
           }
-        } catch { /* ข้ามบรรทัดที่ยังไม่ครบ */ }
+        }
       }
+      if (!calls.length) break;
+      // เรียกเครื่องมือแล้วส่งผลกลับให้ AI ตอบต่อ
+      setStatus('กำลังดึงข้อมูล…');
+      chat.push({ role: 'model', parts: modelParts });
+      const results = await Promise.all(calls.map(async (c) => ({ functionResponse: { name: c.name, response: { result: await runTool(c.name, c.args, toolCtx) } } })));
+      chat.push({ role: 'user', parts: results });
     }
+    // เก็บประวัติแบบย่อ: คำถาม (เป็นข้อความ) + คำตอบสุดท้าย ไม่เก็บข้อมูลดิบจากเครื่องมือ
+    chat.splice(turnStart);
+    chat.push({ role: 'user', parts: [{ text: heard || '(ลูกค้าพูดด้วยเสียง)' }] });
     flushLines(true);
-    // เก็บประวัติเป็นข้อความแทนไฟล์เสียง ให้คำถามถัดไปส่งข้อมูลน้อยลง
-    if (audio) chat[chat.length - 1] = { role: 'user', parts: [{ text: heard || '(ลูกค้าพูดด้วยเสียง)' }] };
     chat.push({ role: 'model', parts: [{ text: full.replace(/^###USER:.*\n?/m, '') }] });
 
     // การ์ดแสดงบนจอ
@@ -280,9 +309,9 @@ async function ask(question, audio, keepCue) {
       const title = ls.find((s) => !s.startsWith('-')) || '';
       showCard(title, ls.filter((s) => s.startsWith('-')).map((s) => s.replace(/^-\s*/, '')));
     }
-    if (/^###VERIFY/m.test(full)) toast('ระบบยืนยันตัวตนพนักงานจะเปิดใช้ในขั้นที่ 2 ค่ะ', 5000);
+
   } catch (err) {
-    if (chat.at(-1)?.role === 'user') chat.pop();
+    while (chat.length && chat.at(-1).role !== 'model') chat.pop();
     if (err.name === 'AbortError' && !timedOut) return;
     console.error(err);
     const quota = String(err.message).includes('429');
@@ -296,8 +325,10 @@ async function ask(question, audio, keepCue) {
     mascot.setMood('normal');
   }
 
+  lastAsk = heard || question;
+  if (wantVerify) { openPin(); return; }
   onQueueEmpty = () => {
-    setStatus('ถามต่อได้เลยค่ะ');
+    setStatus(staffOn() ? 'โหมดเจ้าหน้าที่ · ถามต่อได้เลยค่ะ' : 'ถามต่อได้เลยค่ะ');
     if (cfg.autoListen && document.body.classList.contains('mode-answer')) setTimeout(() => { if (!busy()) listen(); }, 400);
   };
   if (!speakingNow) { const f = onQueueEmpty; onQueueEmpty = null; f(); }
@@ -320,13 +351,24 @@ document.addEventListener('pointerdown', bumpIdle);
 $('btnMic').onclick = listen;
 $('btnHome').onclick = goHome;
 document.querySelectorAll('.mbtn[data-q]').forEach((b) => (b.onclick = () => { stopSpeaking(); tapCue('ได้เลยค่ะ'); ask(b.dataset.q, null, true); }));
-$('btnInternal').onclick = () => {
-  setMode('answer');
-  $('userSaid').hidden = true;
-  $('bubbleTitle').textContent = 'ข้อมูลภายใน';
-  $('bubbleText').textContent = 'ข้อมูลส่วนนี้สำหรับพนักงานค่ะ ระบบสแกนใบหน้าและ PIN จะเปิดใช้ในขั้นที่ 2 นะคะ';
-  speak($('bubbleText').textContent);
+$('btnInternal').onclick = () => { stopSpeaking(); tapCue('ขอรหัสยืนยันตัวตนเจ้าหน้าที่ค่ะ'); lastAsk = null; openPin(); };
+
+// ---------- หน้าใส่ PIN เจ้าหน้าที่ ----------
+function openPin() {
+  if (!cfg.staffPin) { toast('ยังไม่ได้ตั้ง PIN เจ้าหน้าที่ — ตั้งได้ที่หน้าตั้งค่า', 6000); return; }
+  $('pinInput').value = ''; $('pinMsg').textContent = '';
+  $('pinDlg').showModal(); setTimeout(() => $('pinInput').focus(), 50);
+}
+$('pinForm').onsubmit = (e) => {
+  e.preventDefault();
+  if ($('pinInput').value.trim() !== String(cfg.staffPin)) { $('pinMsg').textContent = 'รหัสไม่ถูกต้อง'; $('pinInput').value = ''; return; }
+  staffUntil = Date.now() + 5 * 60e3;
+  $('pinDlg').close();
+  setStatus('โหมดเจ้าหน้าที่ 5 นาที');
+  tapCue('ยืนยันแล้วค่ะ');
+  if (lastAsk) { const q = lastAsk; lastAsk = null; ask(q, null, true); }
 };
+$('pinCancel').onclick = () => { $('pinDlg').close(); setStatus('ถามเรื่องอื่นได้เลยค่ะ'); };
 
 // มาสคอตมองตามนิ้วที่แตะจอ
 $('stage').addEventListener('pointermove', (e) => {
@@ -340,6 +382,7 @@ function openSettings() {
   loadVoices();
   $('setKey').value = cfg.apiKey; $('setModel').value = cfg.model; $('setVoice').value = cfg.voice;
   $('setRate').value = cfg.rate; $('rateVal').textContent = cfg.rate + 'x'; $('setAuto').checked = cfg.autoListen;
+  $('setHubUser').value = cfg.hubUser; $('setHubPass').value = cfg.hubPass; $('setPin').value = cfg.staffPin;
   $('verLabel').textContent = 'เวอร์ชัน ' + VERSION;
   $('settings').showModal();
 }
@@ -354,6 +397,7 @@ $('settings').addEventListener('close', () => {
   if ($('settings').returnValue !== 'save') return;
   cfg.apiKey = $('setKey').value.trim(); cfg.model = $('setModel').value.trim() || DEFAULTS.model;
   cfg.voice = $('setVoice').value; cfg.rate = +$('setRate').value; cfg.autoListen = $('setAuto').checked;
+  cfg.hubUser = $('setHubUser').value.trim(); cfg.hubPass = $('setHubPass').value; cfg.staffPin = $('setPin').value.trim();
   saveCfg(); toast('บันทึกแล้วค่ะ');
 });
 

@@ -74,3 +74,7 @@ body.mode-answer .bubble-title{font-size:clamp(20px,2.4vw,30px)}
   .bubble{padding:18px 20px}
   .topbar{padding-left:16px;padding-right:8px}
 }
+.settings h3.sub{margin:18px 0 10px;font-family:Prompt,sans-serif;font-size:18px;color:var(--purple-dk);border-top:1px solid var(--line);padding-top:14px}
+.pin{width:100%;height:64px;border:2px solid var(--line);border-radius:14px;font-size:32px;text-align:center;letter-spacing:12px;margin-bottom:8px}
+.pinmsg{min-height:24px;color:#B42318;font-size:17px;margin-bottom:8px}
+.settings form{max-height:80vh;overflow:auto}
