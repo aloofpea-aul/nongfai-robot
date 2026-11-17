@@ -79,3 +79,5 @@ body.mode-answer .bubble-title{font-size:clamp(20px,2.4vw,30px)}
 .pinmsg{min-height:24px;color:#B42318;font-size:17px;margin-bottom:8px}
 .settings form{max-height:80vh;overflow:auto}
 .card-list a{color:var(--purple);font-weight:600;margin-left:auto}
+body.ops .mbtn:not(.ops){display:none}
+body:not(.ops) .mbtn.ops{display:none}

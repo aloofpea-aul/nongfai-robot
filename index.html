@@ -15,7 +15,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600&family=Sarabun:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=11171352">
+<link rel="stylesheet" href="style.css?v=11171402">
 <script type="importmap">
 { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js" } }
 </script>
@@ -54,6 +54,10 @@
       <button class="mbtn" data-q="อยากตรวจสอบค่าไฟและช่องทางชำระค่าไฟ">ตรวจสอบ / ชำระค่าไฟ</button>
       <button class="mbtn" data-q="ขอติดตั้งมิเตอร์ใหม่ ต้องใช้เอกสารอะไรบ้าง">ขอติดตั้งมิเตอร์ใหม่</button>
       <button class="mbtn" data-q="ไฟดับ อยากแจ้งไฟดับต้องทำอย่างไร">แจ้งไฟดับ / ไฟขัดข้อง</button>
+      <button class="mbtn ops" data-q="วันนี้ใครเข้าเวรแก้ไฟบ้าง ช่วงไหน">เวรแก้ไฟวันนี้</button>
+      <button class="mbtn ops" data-q="สรุปไฟดับเดือนนี้ให้หน่อย กี่ครั้ง สาเหตุหลักอะไร">ไฟดับเดือนนี้</button>
+      <button class="mbtn ops" data-q="ตอนนี้สภาพอากาศเป็นอย่างไร มีประกาศเตือนภัยไหม">อากาศ / เตือนภัย</button>
+      <button class="mbtn ops" data-q="ตอนนี้รถคันไหนว่างบ้าง">รถที่ว่างตอนนี้</button>
       <button class="mbtn outline" id="btnInternal">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
         ข้อมูลภายใน (พนักงาน)
@@ -84,6 +88,9 @@
     </label>
     <label>ความเร็วเสียง <span id="rateVal"></span>
       <input id="setRate" type="range" min="0.7" max="1.4" step="0.05">
+    </label>
+    <label>โหมดใช้งาน
+      <select id="setMode"><option value="ops">แผนกปฏิบัติการระบบไฟฟ้า (ผปร.) — ใช้ภายใน ไม่ต้องใส่ PIN</option><option value="customer">บริการลูกค้า — ข้อมูลภายในต้องใส่ PIN</option></select>
     </label>
     <label class="check"><input id="setAuto" type="checkbox"> ฟังต่ออัตโนมัติหลังตอบเสร็จ</label>
     <h3 class="sub">ข้อมูลศูนย์รวมงาน</h3>
@@ -119,6 +126,6 @@
 
 <div id="toast" class="toast" hidden></div>
 
-<script type="module" src="app.js?v=11171352"></script>
+<script type="module" src="app.js?v=11171402"></script>
 </body>
 </html>

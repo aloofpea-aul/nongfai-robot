@@ -1,10 +1,10 @@
 // น้องไฟ — แอปหลัก: ฟังเสียงไทย → ถาม Gemini (สตรีม) → พูดตอบทีละประโยค + แสดงบนจอ
-import { Mascot } from './mascot.js?v=11171352';
-import { WavRecorder } from './recorder.js?v=11171352';
-import { TOOL_DECLS, runTool, bkkNow } from './tools.js?v=11171352';
+import { Mascot } from './mascot.js?v=11171402';
+import { WavRecorder } from './recorder.js?v=11171402';
+import { TOOL_DECLS, runTool, bkkNow } from './tools.js?v=11171402';
 
 const $ = (id) => document.getElementById(id);
-export const VERSION = '11171352';
+export const VERSION = '11171402';
 // อัปเดตตัวเอง: ถ้าบนเว็บมีเวอร์ชันใหม่กว่า ให้โหลดหน้าใหม่ทันที (กันไอโฟนจำไฟล์เก่า)
 fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json()).then((j) => {
   if (j.v && j.v !== VERSION && !sessionStorage.getItem('nf.reload.' + j.v)) {
@@ -13,7 +13,7 @@ fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json(
   }
 }).catch(() => {});
 
-const DEFAULTS = { apiKey: '', model: 'gemini-3.5-flash-lite', voice: '', rate: 1.0, autoListen: true, hubUser: '', hubPass: '', staffPin: '' };
+const DEFAULTS = { apiKey: '', model: 'gemini-3.5-flash-lite', voice: '', rate: 1.0, autoListen: true, hubUser: '', hubPass: '', staffPin: '', mode: 'ops' };
 const cfg = { ...DEFAULTS, ...JSON.parse(localStorage.getItem('nongfai.cfg') || '{}') };
 const saveCfg = () => localStorage.setItem('nongfai.cfg', JSON.stringify(cfg));
 // ชื่อ/รหัสศูนย์รวมงาน: ถ้าเครื่องนี้เคยล็อกอินศูนย์รวมงานไว้ ใช้ชุดนั้นเลย (โดเมนเดียวกัน)
@@ -33,22 +33,27 @@ const SYSTEM_BASE = `คุณคือ "น้องไฟ" หุ่นยน�
 6. ตอบเรื่องวัน เวลา ให้เทียบกับวันเวลาปัจจุบันที่ให้ไว้ อ่านเวลาเป็นภาษาพูด เช่น สิบหกนาฬิกาสามสิบนาที
 7. ถ้าเป็นเรื่องที่ไม่เกี่ยวกับการไฟฟ้า ตอบสั้นๆ อย่างสุภาพ แล้วชวนกลับมาที่เรื่องบริการ`;
 
+const OPS_NOTE = `
+โหมดใช้งานตอนนี้: ใช้ภายในแผนกปฏิบัติการระบบไฟฟ้า (ผปร.) กฟส.อ่าวลึก ผู้ที่คุยด้วยคือพนักงานและคนงานในแผนก ไม่ใช่ลูกค้า
+ให้พูดแบบเพื่อนร่วมงานที่สุภาพ เรียกว่า "พี่" ได้ ตอบตรงประเด็นงาน ใช้เครื่องมือข้อมูลภายในได้ทุกตัวโดยไม่ต้องยืนยันตัวตน
+ตอบตัวเลขและชื่อให้ครบถ้วน ถ้ารายการยาวให้สรุปที่สำคัญเป็นคำพูด แล้วใส่รายละเอียดในการ์ด`;
 function systemText() {
   const n = bkkNow(), wd = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์'][n.getUTCDay()];
-  return SYSTEM_BASE + `\nวันเวลาปัจจุบัน: วัน${wd}ที่ ${n.toISOString().slice(0, 16).replace('T', ' ')} (เวลาไทย)` +
+  return SYSTEM_BASE + (OPS() ? OPS_NOTE : '') + `\nวันเวลาปัจจุบัน: วัน${wd}ที่ ${n.toISOString().slice(0, 16).replace('T', ' ')} (เวลาไทย)` +
     (staffOn() ? '\nตอนนี้เจ้าหน้าที่ยืนยันตัวตนแล้ว ใช้เครื่องมือข้อมูลภายในได้' : '');
 }
 
 // ---------- โหมดเจ้าหน้าที่ (ยืนยันด้วย PIN) ----------
 let staffUntil = 0, wantVerify = false, lastAsk = null;
-const staffOn = () => Date.now() < staffUntil;
+const OPS = () => cfg.mode !== 'customer';   // ช่วงทดสอบใช้ในแผนก ผปร. = ถือว่าเป็นเจ้าหน้าที่ทุกคน
+const staffOn = () => OPS() || Date.now() < staffUntil;
 const toolCtx = { staff: staffOn, needVerify: () => { wantVerify = true; }, creds: () => ({ user: cfg.hubUser, pass: cfg.hubPass }) };
 
 // ---------- มาสคอต ----------
 const mascot = new Mascot($('stage'));
 
 // ---------- UI ----------
-function setMode(m) { document.body.className = 'mode-' + m; }
+function setMode(m) { document.body.className = 'mode-' + m + (OPS() ? ' ops' : ''); }
 function setStatus(text, cls = '') { const s = $('status'); s.textContent = text; s.className = 'status ' + cls; }
 function toast(msg, ms = 3500) { const t = $('toast'); t.textContent = msg; t.hidden = false; clearTimeout(toast.h); toast.h = setTimeout(() => (t.hidden = true), ms); }
 function showCard(title, items) {
@@ -70,8 +75,13 @@ function goHome() {
   setMode('home');
   $('userSaid').hidden = true;
   $('card').hidden = true;
-  $('bubbleTitle').innerHTML = 'สวัสดีค่ะ ยินดีต้อนรับสู่<br>การไฟฟ้าส่วนภูมิภาคสาขาอ่าวลึก';
-  $('bubbleText').textContent = 'น้องไฟช่วยอะไรได้บ้างคะ พูดได้เลย หรือแตะเมนูด้านล่าง';
+  if (OPS()) {
+    $('bubbleTitle').innerHTML = 'สวัสดีค่ะ แผนกปฏิบัติการระบบไฟฟ้า<br>กฟส.อ่าวลึก';
+    $('bubbleText').textContent = 'ถามเรื่องเวรแก้ไฟ ไฟดับ อากาศ พัสดุ รถ หรือระเบียบ กฟภ. ได้เลยค่ะ';
+  } else {
+    $('bubbleTitle').innerHTML = 'สวัสดีค่ะ ยินดีต้อนรับสู่<br>การไฟฟ้าส่วนภูมิภาคสาขาอ่าวลึก';
+    $('bubbleText').textContent = 'น้องไฟช่วยอะไรได้บ้างคะ พูดได้เลย หรือแตะเมนูด้านล่าง';
+  }
   mascot.setMood('normal');
   setStatus('แตะปุ่มไมค์แล้วพูดได้เลยค่ะ');
 }
@@ -395,6 +405,7 @@ function openSettings() {
   loadVoices();
   $('setKey').value = cfg.apiKey; $('setModel').value = cfg.model; $('setVoice').value = cfg.voice;
   $('setRate').value = cfg.rate; $('rateVal').textContent = cfg.rate + 'x'; $('setAuto').checked = cfg.autoListen;
+  $('setMode').value = cfg.mode;
   $('setHubUser').value = cfg.hubUser; $('setHubPass').value = cfg.hubPass; $('setPin').value = cfg.staffPin;
   $('verLabel').textContent = 'เวอร์ชัน ' + VERSION;
   $('settings').showModal();
@@ -411,7 +422,8 @@ $('settings').addEventListener('close', () => {
   cfg.apiKey = $('setKey').value.trim(); cfg.model = $('setModel').value.trim() || DEFAULTS.model;
   cfg.voice = $('setVoice').value; cfg.rate = +$('setRate').value; cfg.autoListen = $('setAuto').checked;
   cfg.hubUser = $('setHubUser').value.trim(); cfg.hubPass = $('setHubPass').value; cfg.staffPin = $('setPin').value.trim();
-  saveCfg(); toast('บันทึกแล้วค่ะ');
+  cfg.mode = $('setMode').value;
+  saveCfg(); toast('บันทึกแล้วค่ะ'); if (document.body.classList.contains('mode-home')) goHome(); else setMode('answer');
 });
 
 // รับ key ผ่านลิงก์ครั้งเดียว (#key=...) แล้วลบออกจากแถบที่อยู่ทันที
