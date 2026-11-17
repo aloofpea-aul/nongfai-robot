@@ -394,6 +394,14 @@ async function officeLove({ keyword }, c) {
   return cap(slim(keyword ? JSON.parse(JSON.stringify(board), (k, v) => (Array.isArray(v) ? v.filter((x) => match(x, keyword)) : v)) : board), 10000);
 }
 
+// ---------- 25) รหัสพัสดุและราคามาตรฐาน (จากระบบสำรวจออกแบบงานก่อสร้าง) ----------
+async function materialPrice({ keyword }) {
+  const [items, sp] = await cached('matdb', 6 * 3600e3, () => Promise.all([fetch('/construction/data/items.json').then((r) => r.json()), fetch('/construction/data/stdprice.json').then((r) => r.json())]));
+  const hit = Object.entries(items).filter(([code, v]) => match([code, v[0]], keyword)).slice(0, 20)
+    .map(([code, v]) => ({ รหัสพัสดุ: code, รายการ: v[0], หน่วย: v[1], ราคามาตรฐาน_บาท: sp.p && sp.p[code] }));
+  return { แหล่งราคา: sp.src, พบ: hit.length, รายการ: hit };
+}
+
 // ---------- ประกาศให้ Gemini รู้จักเครื่องมือ ----------
 export const TOOLS = {
   weather_now: { access: 'public', run: weatherNow, decl: { name: 'weather_now', description: 'สภาพอากาศตอนนี้ที่อ่าวลึก และระดับความเสี่ยงไฟดับจากฝน/ลม', parameters: { type: 'OBJECT', properties: {} } } },
@@ -421,6 +429,7 @@ export const TOOLS = {
   book_numbers: { access: 'internal', run: bookNumbers, decl: { name: 'book_numbers', description: 'ระบบออกเลขหนังสือ: เลขหนังสือล่าสุด ค้นเรื่อง หนังสือทั่วไป สัญญาจ้าง คำสั่ง ใบสำคัญจ่าย', parameters: { type: 'OBJECT', properties: { category: { type: 'STRING', description: 'หนังสือทั่วไป | หนังสือสัญญาจ้าง | คำสั่ง (พ.) | ใบสำคัญจ่าย' }, keyword: { type: 'STRING' } } } } },
   ccl: { access: 'internal', run: ccl, decl: { name: 'ccl', description: 'CCL ติดตามงานก่อสร้าง: งานก่อสร้าง สถานะ ผู้รับผิดชอบ สรุปภาพรวม', parameters: { type: 'OBJECT', properties: { keyword: { type: 'STRING' } } } } },
   office_love: { access: 'internal', run: officeLove, decl: { name: 'office_love', description: 'Office Love ระบบเดินตรวจความปลอดภัยสำนักงานของ รปภ.: การเข้าเวร จุดตรวจ เหตุผิดปกติ', parameters: { type: 'OBJECT', properties: { keyword: { type: 'STRING' } } } } },
+  material_price: { access: 'internal', run: materialPrice, decl: { name: 'material_price', description: 'ค้นรหัสพัสดุ กฟภ. ชื่อวัสดุ หน่วย และราคามาตรฐานพัสดุงบลงทุนปี 2569 (ใช้ประมาณราคางานก่อสร้าง)', parameters: { type: 'OBJECT', properties: { keyword: { type: 'STRING', description: 'ชื่อวัสดุภาษาอังกฤษหรือรหัส เช่น POLE 12, TRANSFORMER 50 KVA, 1000000003' } }, required: ['keyword'] } } },
 };
 export const TOOL_DECLS = [{ functionDeclarations: Object.values(TOOLS).map((t) => t.decl) }];
 
