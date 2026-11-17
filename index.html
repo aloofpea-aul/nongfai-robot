@@ -15,7 +15,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600&family=Sarabun:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=11180145">
+<link rel="stylesheet" href="style.css?v=11180230">
 <script type="importmap">
 { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js" } }
 </script>
@@ -26,6 +26,10 @@
   <div class="topright">
     <span id="clock">--:--</span>
     <span id="battery" class="battery" hidden></span>
+    <button id="btnBell" class="iconbtn bell" aria-label="อัปเดตจากศูนย์รวมงาน">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+      <span id="bellCount" class="bellcount" hidden>0</span>
+    </button>
     <button id="btnSettings" class="iconbtn" aria-label="ตั้งค่า">
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
     </button>
@@ -40,6 +44,18 @@
   </section>
 
   <section class="right">
+    <div id="alerts" class="alerts" hidden>
+      <div id="alertCard" class="alertcard" hidden>
+        <div class="al-head"><span class="al-dot"></span><b id="alTitle"></b><span id="alTime" class="al-time"></span></div>
+        <div id="alText" class="al-text"></div>
+        <div id="alSub" class="al-sub"></div>
+        <div class="al-btns"><button id="alMore" class="fbtn ok">ดูรายละเอียด</button><button id="alAck" class="fbtn">รับทราบ</button></div>
+      </div>
+      <div id="alHist" class="alhist" hidden>
+        <div class="al-hh"><span>อัปเดตก่อนหน้า</span><button id="alClose" class="fbtn">ปิด</button></div>
+        <ul id="alList"></ul>
+      </div>
+    </div>
     <div id="userSaid" class="usersaid" hidden></div>
     <div class="bubble">
       <div id="bubbleTitle" class="bubble-title">สวัสดีค่ะ ยินดีต้อนรับสู่<br>การไฟฟ้าส่วนภูมิภาคสาขาอ่าวลึก</div>
@@ -157,6 +173,12 @@
     <label>Office Love — รหัสผ่าน
       <input id="set_olPass" type="password" autocomplete="off">
     </label>
+    <h3 class="sub">แจ้งเตือนอัปเดตศูนย์รวมงาน</h3>
+    <label class="check"><input id="setAlertOn" type="checkbox"> เปิดแจ้งเตือน (ต้องเปิดแอปค้างไว้บนจอ)</label>
+    <label class="check"><input id="setAlertVoice" type="checkbox"> พูดออกเสียงด้วย</label>
+    <label class="check"><input id="setQuiet" type="checkbox"> งดเสียงช่วงกลางคืน <input id="setQuietFrom" type="time" class="tm"> ถึง <input id="setQuietTo" type="time" class="tm"></label>
+    <p class="hint">เลือกระบบที่จะแจ้ง</p>
+    <div id="alertTopics" class="topics"></div>
     <h3 class="sub">ระบบเรียนรู้ (Google Sheet)</h3>
     <label>ลิงก์ Apps Script ระบบเรียนรู้
       <span class="keyrow"><input id="setLearnUrl" type="url" autocomplete="off" placeholder="วางลิงก์จาก QR หรือลิงก์ …/exec"><button id="btnPasteLearn" type="button" class="abtn outline small">วาง</button></span>
@@ -213,6 +235,6 @@
 
 <div id="toast" class="toast" hidden></div>
 
-<script type="module" src="app.js?v=11180145"></script>
+<script type="module" src="app.js?v=11180230"></script>
 </body>
 </html>

@@ -56,6 +56,20 @@ function doGet(e) {
   return out_({ ok: true, name: 'nongfai-learn' });
 }
 
+// ---------- เฝ้าการเปลี่ยนแปลงของระบบในศูนย์รวมงาน (ดูแค่เวลาที่ไฟล์ถูกแก้ล่าสุด ไม่อ่านข้อมูล) ----------
+const WATCH = {
+  tickets: '1G-09SvTHMTkJicNpjoDN0Dw6tS8PUr-ivDfXxnHuR98', // ตารางเวรแก้ไฟ อ่าวลึก (รับแจ้งไฟดับ)
+  tmd: '1De5t1KWw3DHZ4vuIyjzomueYp8HYEw58wXD3VS6O1oM',     // ประกาศเตือนภัย TMD (ฐานข้อมูล)
+};
+function watch_() {
+  const c = CacheService.getScriptCache(), hit = c.get('watch');
+  if (hit) return JSON.parse(hit);
+  const t = {};
+  Object.keys(WATCH).forEach((k) => { try { t[k] = DriveApp.getFileById(WATCH[k]).getLastUpdated().getTime(); } catch (e) { t[k] = 0; } });
+  c.put('watch', JSON.stringify(t), 8); // หลายเครื่องถามพร้อมกัน ใช้ผลเดียวกันใน 8 วินาที
+  return t;
+}
+
 function doPost(e) {
   let b = {};
   try { b = JSON.parse(e.postData.contents); } catch (err) { return out_({ ok: false, error: 'bad json' }); }
@@ -64,6 +78,7 @@ function doPost(e) {
   const now = new Date(), by = String(b.by || '').slice(0, 60);
   const lock = LockService.getScriptLock();
   try {
+    if (b.action === 'watch') return out_({ ok: true, t: watch_(), now: Date.now() });
     if (b.action === 'load') {
       return out_({
         ok: true,

@@ -198,3 +198,24 @@ body.has-results #card{display:none}
 body.confirming .typeform{display:none}
 .qrbox{text-align:center;padding:12px;background:#fff;border-radius:12px;margin-top:8px}.qrbox img{width:260px;height:260px;image-rendering:pixelated}.qrbox p{font-size:15px;color:var(--purple-dk);margin:6px 0 0}
 [hidden]{display:none!important}
+
+/* แจ้งเตือนศูนย์รวมงาน */
+.bell{position:relative}
+.bellcount{position:absolute;top:4px;right:2px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:#e24b4a;color:#fff;font-size:12px;line-height:18px;text-align:center}
+.alerts{display:flex;flex-direction:column;gap:10px}
+.alertcard{background:#fff;border:2px solid #e24b4a;border-radius:16px;padding:12px 16px;animation:alin .35s ease-out}
+@keyframes alin{from{transform:translateY(-8px);opacity:0}to{transform:none;opacity:1}}
+.al-head{display:flex;align-items:center;gap:8px;font-size:19px;color:var(--purple-dk)}
+.al-dot{width:10px;height:10px;border-radius:50%;background:#e24b4a;flex:none}
+.al-time{margin-left:auto;font-size:15px;color:#777}
+.al-text{font-size:18px;margin:6px 0 2px}
+.al-sub{font-size:15px;color:#666;margin-bottom:10px}
+.al-btns{display:flex;gap:10px}.al-btns .fbtn{flex:1}
+.alhist{background:#fff;border:1.5px solid var(--soft);border-radius:16px;padding:10px 14px}
+.al-hh{display:flex;align-items:center;justify-content:space-between;font-size:16px;color:var(--purple-dk);margin-bottom:4px}
+.alhist ul{list-style:none;margin:0;padding:0;max-height:280px;overflow:auto}
+.alhist li{padding:8px 0;border-top:1px solid #eee;font-size:16px}
+.alhist li small{display:block;color:#777;font-size:14px}
+.topics{display:grid;grid-template-columns:1fr 1fr;gap:4px 12px}
+.topics label{font-size:17px}
+input.tm{width:auto;min-height:36px;padding:2px 6px;font-size:16px}
