@@ -1,8 +1,17 @@
 // น้องไฟ — แอปหลัก: ฟังเสียงไทย → ถาม Gemini (สตรีม) → พูดตอบทีละประโยค + แสดงบนจอ
-import { Mascot } from './mascot.js?v=11171231';
-import { WavRecorder } from './recorder.js?v=11171231';
+import { Mascot } from './mascot.js?v=11171236';
+import { WavRecorder } from './recorder.js?v=11171236';
 
 const $ = (id) => document.getElementById(id);
+export const VERSION = '11171236';
+// อัปเดตตัวเอง: ถ้าบนเว็บมีเวอร์ชันใหม่กว่า ให้โหลดหน้าใหม่ทันที (กันไอโฟนจำไฟล์เก่า)
+fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json()).then((j) => {
+  if (j.v && j.v !== VERSION && !sessionStorage.getItem('nf.reload.' + j.v)) {
+    sessionStorage.setItem('nf.reload.' + j.v, '1');
+    location.replace(location.pathname + '?r=' + j.v);
+  }
+}).catch(() => {});
+
 const DEFAULTS = { apiKey: '', model: 'gemini-2.5-flash', voice: '', rate: 1.0, autoListen: true };
 const cfg = { ...DEFAULTS, ...JSON.parse(localStorage.getItem('nongfai.cfg') || '{}') };
 const saveCfg = () => localStorage.setItem('nongfai.cfg', JSON.stringify(cfg));
@@ -102,7 +111,8 @@ const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platfo
 const USE_AUDIO_AI = IS_IOS || !SR; // iPad: ให้ Gemini ฟังเสียงเอง ไม่พึ่ง Siri
 const wav = new WavRecorder();
 // iPhone/iPad (Safari 16.4+): 'playback' = เสียงพูดดังแม้เปิดโหมดเงียบ แต่ต้องสลับเป็น 'play-and-record' ก่อนเปิดไมค์
-function setAudioMode(type) { try { if (navigator.audioSession) navigator.audioSession.type = type; } catch {} }
+// ไม่บังคับโหมดเสียงอีกแล้ว (โหมด playback ทำให้ไอโฟนเปิดไมค์ไม่ได้) ตั้งกลับเป็น auto ก่อนอัดทุกครั้ง
+function setAudioMode(type) { try { if (navigator.audioSession && type === 'auto') navigator.audioSession.type = 'auto'; } catch {} }
 
 function micOn() { listening = true; $('btnMic').classList.add('listening'); mascot.setMood('listening'); setStatus('กำลังฟังอยู่ค่ะ…', 'listening'); }
 function micOff() { listening = false; $('btnMic').classList.remove('listening'); mascot.setMood('normal'); }
@@ -110,16 +120,16 @@ function micOff() { listening = false; $('btnMic').classList.remove('listening')
 async function listenAudio() {
   if (wav.active) { wav.stop(); return; }
   stopSpeaking(); abortAsk();
-  setAudioMode('play-and-record');
+  setAudioMode('auto');
   wav.prime();
   micOn();
   bumpIdle();
   try {
     const audio = await wav.record({ onSpeech: () => setStatus('ฟังอยู่ พูดจบแล้วรอสักครู่นะคะ', 'listening') });
-    micOff(); setAudioMode('playback');
+    micOff();
     if (audio) ask(null, audio); else setStatus('ไม่ได้ยินเสียง แตะไมค์แล้วพูดใหม่นะคะ');
   } catch (e) {
-    micOff(); setAudioMode('playback');
+    micOff();
     console.error(e);
     toast(e.name === 'NotAllowedError' ? 'กรุณาอนุญาตให้ใช้ไมโครโฟน' : 'เปิดไมค์ไม่ได้: ' + e.message, 6000);
     setStatus('แตะปุ่มไมค์แล้วพูดได้เลยค่ะ');
@@ -279,7 +289,6 @@ async function ask(question, audio) {
 let unlocked = false;
 async function unlockOnce() {
   if (unlocked) return; unlocked = true;
-  setAudioMode('playback');
   // iPad/iPhone: ต้อง "ปลดล็อก" เสียงพูดด้วยการแตะครั้งแรก ไม่งั้นคำตอบแรกจะเงียบ
   try { const u = new SpeechSynthesisUtterance(' '); u.volume = 0; speechSynthesis.speak(u); } catch {}
   const el = document.documentElement;
@@ -313,6 +322,7 @@ function openSettings() {
   loadVoices();
   $('setKey').value = cfg.apiKey; $('setModel').value = cfg.model; $('setVoice').value = cfg.voice;
   $('setRate').value = cfg.rate; $('rateVal').textContent = cfg.rate + 'x'; $('setAuto').checked = cfg.autoListen;
+  $('verLabel').textContent = 'เวอร์ชัน ' + VERSION;
   $('settings').showModal();
 }
 $('btnSettings').onclick = openSettings;
