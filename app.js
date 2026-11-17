@@ -2,9 +2,10 @@
 import { Mascot } from './mascot.js';
 
 const $ = (id) => document.getElementById(id);
-const DEFAULTS = { apiKey: '', model: 'gemini-flash-latest', voice: '', rate: 1.0, autoListen: true };
+const DEFAULTS = { apiKey: '', model: 'gemini-2.5-flash', voice: '', rate: 1.0, autoListen: true };
 const cfg = { ...DEFAULTS, ...JSON.parse(localStorage.getItem('nongfai.cfg') || '{}') };
 const saveCfg = () => localStorage.setItem('nongfai.cfg', JSON.stringify(cfg));
+if (cfg.model === 'gemini-flash-latest') { cfg.model = DEFAULTS.model; saveCfg(); } // รุ่นนี้ค้างบน free tier
 
 const SYSTEM = `คุณคือ "น้องไฟ" หุ่นยนต์ผู้ช่วยบริการลูกค้าของการไฟฟ้าส่วนภูมิภาคสาขาย่อยอ่าวลึก (กฟส.อ่าวลึก) จังหวัดกระบี่
 บุคลิก: ผู้หญิง สุภาพ อบอุ่น เป็นกันเอง ลงท้ายด้วย ค่ะ/คะ
@@ -151,6 +152,8 @@ async function ask(question) {
 
   controller = new AbortController();
   const myCtl = controller;
+  let timedOut = false;
+  const guard = setTimeout(() => { timedOut = true; myCtl.abort(); }, 20000);
   let full = '', spokenUpTo = 0, cardMode = false, gotFirst = false;
   const filler = setTimeout(() => { if (!gotFirst) speak('ขอเช็คข้อมูลสักครู่นะคะ'); }, 1500);
 
@@ -200,7 +203,7 @@ async function ask(question) {
     chat.push({ role: 'model', parts: [{ text: full }] });
 
     // การ์ดแสดงบนจอ
-    const cardPart = full.split(/^###CARD\s*$/m)[1];
+    const cardPart = full.split(/^###CARD[ \t]*/m)[1];
     if (cardPart) {
       const ls = cardPart.split('\n').map((s) => s.trim()).filter((s) => s && !s.startsWith('###'));
       const title = ls.find((s) => !s.startsWith('-')) || '';
@@ -209,7 +212,7 @@ async function ask(question) {
     if (/^###VERIFY/m.test(full)) toast('ระบบยืนยันตัวตนพนักงานจะเปิดใช้ในขั้นที่ 2 ค่ะ', 5000);
   } catch (err) {
     if (chat.at(-1)?.role === 'user') chat.pop();
-    if (err.name === 'AbortError') return;
+    if (err.name === 'AbortError' && !timedOut) return;
     console.error(err);
     const quota = String(err.message).includes('429');
     const msg = quota ? 'ตอนนี้มีคนใช้งานเยอะ ขอพักสักครู่นะคะ ติดต่อเจ้าหน้าที่ที่เคาน์เตอร์ได้เลยค่ะ'
@@ -217,7 +220,7 @@ async function ask(question) {
     $('bubbleText').textContent = msg; speak(msg);
     if (String(err.message).includes('40')) toast('เรียก AI ไม่สำเร็จ: ' + err.message.slice(0, 120), 8000);
   } finally {
-    clearTimeout(filler);
+    clearTimeout(filler); clearTimeout(guard);
     if (controller === myCtl) controller = null;
     mascot.setMood('normal');
   }
