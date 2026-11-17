@@ -295,6 +295,22 @@ async function checkinToday({ keyword }) {
   return { วันที่: bkkToday(), เช็กอินแล้ว: recs.length, รายชื่อ: recs, อื่นๆ: cap(slim(Object.fromEntries(Object.entries(j).filter(([k]) => k !== 'records'))), 2000) };
 }
 
+// ---------- 16) รับแจ้งไฟดับ (เรื่องค้าง/ล่าสุด 36 ชม.) ----------
+async function outageTickets({ keyword }, c) {
+  needCreds(c);
+  const j = await cached('tickets', 60e3, () => postJSON(DUTY_API, { action: 'tickets', hubUser: c.user, hubPass: c.pass }));
+  const ST = { new: 'ใหม่ ยังไม่มีคนรับ', acc: 'รับงานแล้ว กำลังแก้', done: 'แก้เสร็จ', cancel: 'ยกเลิก' };
+  const rows = (j.tickets || []).map((t) => Object.assign(slim(t), { สถานะ: ST[t.st] || t.st })).filter((t) => match(t, keyword));
+  return { จำนวน: rows.length, รายการ: rows.slice(0, 30) };
+}
+// ---------- 17) สมุดโทรศัพท์ทีมแก้ไฟ ----------
+async function contacts({ keyword }, c) {
+  needCreds(c);
+  const j = await cached('contacts', 3600e3, () => postJSON(DUTY_API, { action: 'contacts', user: c.user, pass: c.pass }));
+  const list = j.contacts || j.list || j.data || j;
+  return cap(slim(Array.isArray(list) ? list.filter((x) => match(x, keyword)) : list), 8000);
+}
+
 // ---------- ประกาศให้ Gemini รู้จักเครื่องมือ ----------
 export const TOOLS = {
   weather_now: { access: 'public', run: weatherNow, decl: { name: 'weather_now', description: 'สภาพอากาศตอนนี้ที่อ่าวลึก และระดับความเสี่ยงไฟดับจากฝน/ลม', parameters: { type: 'OBJECT', properties: {} } } },
@@ -313,6 +329,8 @@ export const TOOLS = {
   k04_plan: { access: 'internal', run: k04Plan, decl: { name: 'k04_plan', description: 'K04 แผนปฏิบัติการ กฟจ.กระบี่ และ กฟฟ.ในสังกัด ปี 2569: กิจกรรม เป้าหมาย ผลรายไตรมาส ผู้รับผิดชอบ', parameters: { type: 'OBJECT', properties: { keyword: { type: 'STRING', description: 'รหัสหรือชื่อกิจกรรม เช่น 1.1, ต้นทุน, SAIFI' } } } } },
   kpi_region2: { access: 'internal', run: kpiRegion2, decl: { name: 'kpi_region2', description: 'KPI Dashboard กฟต.2 ปี 2569: เป้าหมาย ผลงาน คะแนน อันดับของแต่ละการไฟฟ้า', parameters: { type: 'OBJECT', properties: { keyword: { type: 'STRING', description: 'เช่น อ่าวลึก, 1.3.1, SAIFI' } } } } },
   checkin_today: { access: 'internal', run: checkinToday, decl: { name: 'checkin_today', description: 'การเช็กอินเข้า-ออกงานของพนักงานวันนี้ ใครมาแล้ว กี่โมง อยู่ในหรือนอกพื้นที่', parameters: { type: 'OBJECT', properties: { keyword: { type: 'STRING', description: 'ชื่อคน ว่างได้' } } } } },
+  outage_tickets: { access: 'internal', run: outageTickets, decl: { name: 'outage_tickets', description: 'งานรับแจ้งไฟดับจากผู้ใช้ไฟ: เรื่องที่ยังค้าง ใครรับงาน และรายการล่าสุดใน 36 ชั่วโมง', parameters: { type: 'OBJECT', properties: { keyword: { type: 'STRING' } } } } },
+  contacts: { access: 'internal', run: contacts, decl: { name: 'contacts', description: 'สมุดโทรศัพท์/ผู้ติดต่อของทีมแก้ไฟ กฟส.อ่าวลึก', parameters: { type: 'OBJECT', properties: { keyword: { type: 'STRING', description: 'ชื่อคนหรือหน่วยงาน' } } } } },
 };
 export const TOOL_DECLS = [{ functionDeclarations: Object.values(TOOLS).map((t) => t.decl) }];
 
