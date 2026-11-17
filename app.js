@@ -1,9 +1,9 @@
 // น้องไฟ — แอปหลัก: ฟังเสียงไทย → ถาม Gemini (สตรีม) → พูดตอบทีละประโยค + แสดงบนจอ
-import { Mascot } from './mascot.js?v=11171236';
-import { WavRecorder } from './recorder.js?v=11171236';
+import { Mascot } from './mascot.js?v=11171245';
+import { WavRecorder } from './recorder.js?v=11171245';
 
 const $ = (id) => document.getElementById(id);
-export const VERSION = '11171236';
+export const VERSION = '11171245';
 // อัปเดตตัวเอง: ถ้าบนเว็บมีเวอร์ชันใหม่กว่า ให้โหลดหน้าใหม่ทันที (กันไอโฟนจำไฟล์เก่า)
 fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json()).then((j) => {
   if (j.v && j.v !== VERSION && !sessionStorage.getItem('nf.reload.' + j.v)) {
@@ -85,6 +85,7 @@ function speak(text) {
   if (!speakingNow) speakNext();
 }
 function speakNext() {
+  if (ttsMode === 'gemini') return speakGemini();
   const text = speakQueue.shift();
   if (!text) {
     speakingNow = false; mascot.speaking = false;
@@ -97,12 +98,60 @@ function speakNext() {
   const v = voices.find((x) => x.name === cfg.voice) || voices[0];
   if (v) u.voice = v;
   u.rate = cfg.rate;
-  u.onstart = () => { mascot.speaking = true; };
+  let started = false;
+  u.onstart = () => { started = true; mascot.speaking = true; };
   u.onboundary = () => mascot.pulse();
-  u.onend = u.onerror = () => { mascot.speaking = false; speakNext(); };
+  u.onend = u.onerror = () => { if (!started) return; mascot.speaking = false; speakNext(); };
+  speechSynthesis.cancel();
   speechSynthesis.speak(u);
+  // ไอโฟน/ไอแพดบางครั้งไม่ยอมพูดถ้าไม่ได้มาจากการแตะจอ → สลับไปใช้เสียงจาก Gemini แทน
+  setTimeout(() => {
+    if (started || ttsMode === 'gemini' || !speakingNow) return;
+    speechSynthesis.cancel();
+    ttsMode = 'gemini';
+    speakQueue.unshift(text);
+    speakGemini();
+  }, 1500);
 }
-function stopSpeaking() { speakQueue.length = 0; onQueueEmpty = null; speechSynthesis.cancel(); speakingNow = false; mascot.speaking = false; }
+
+// ---------- เสียงพูดสำรองจาก Gemini (เล่นผ่าน Web Audio ที่ปลดล็อกไว้ตอนแตะจอ) ----------
+let ttsMode = 'device', outCtx = null;
+function primeOut() {
+  try {
+    if (!outCtx) outCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (outCtx.state !== 'running') outCtx.resume();
+  } catch {}
+}
+async function speakGemini() {
+  const text = speakQueue.splice(0).join(' ').trim();
+  if (!text) { speakingNow = false; mascot.speaking = false; const f = onQueueEmpty; onQueueEmpty = null; if (f) f(); return; }
+  speakingNow = true;
+  try {
+    const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': cfg.apiKey },
+      body: JSON.stringify({ contents: [{ parts: [{ text: 'พูดด้วยน้ำเสียงผู้หญิง สุภาพ อบอุ่น: ' + text }] }],
+        generationConfig: { responseModalities: ['AUDIO'], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } } } } }),
+    });
+    const j = await r.json();
+    const b64 = j.candidates?.[0]?.content?.parts?.find((p) => p.inlineData)?.inlineData?.data;
+    if (!b64 || !speakingNow) throw new Error(j.error?.message || 'no audio');
+    const bin = atob(b64), n = bin.length >> 1, f32 = new Float32Array(n);
+    for (let i = 0; i < n; i++) { let x = bin.charCodeAt(2 * i) | (bin.charCodeAt(2 * i + 1) << 8); if (x > 32767) x -= 65536; f32[i] = x / 32768; }
+    primeOut();
+    const buf = outCtx.createBuffer(1, n, 24000); buf.copyToChannel(f32, 0);
+    const src = outCtx.createBufferSource(); src.buffer = buf; src.playbackRate.value = cfg.rate;
+    src.connect(outCtx.destination);
+    curSrc = src; mascot.speaking = true;
+    await new Promise((res) => { src.onended = res; src.start(); });
+  } catch (e) {
+    console.warn('Gemini TTS', e);
+    toast('เสียงพูดไม่ออก: ' + String(e.message || e).slice(0, 80), 5000);
+  }
+  curSrc = null;
+  speakNext();
+}
+let curSrc = null;
+function stopSpeaking() { speakQueue.length = 0; onQueueEmpty = null; speechSynthesis.cancel(); try { curSrc?.stop(); } catch {} curSrc = null; speakingNow = false; mascot.speaking = false; }
 
 // ---------- ฟังเสียง (STT) ----------
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -298,6 +347,7 @@ async function unlockOnce() {
 }
 document.addEventListener('pointerdown', unlockOnce, { capture: true });
 document.addEventListener('pointerdown', bumpIdle);
+document.addEventListener('pointerdown', primeOut);
 
 $('btnMic').onclick = listen;
 $('btnHome').onclick = goHome;

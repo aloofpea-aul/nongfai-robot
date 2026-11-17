@@ -30,9 +30,11 @@ export class WavRecorder {
         proc.onaudioprocess = null;
         try { proc.disconnect(); src.disconnect(); } catch {}
         stream.getTracks().forEach((t) => t.stop()); // ปล่อยไมค์ เสียงพูดจะได้ออกลำโพงดังตามปกติ
+        // ปิด AudioContext ของไมค์ทิ้ง ให้ไอโฟนคืนเสียงลำโพงให้ระบบพูด (สร้างใหม่ตอนแตะไมค์ครั้งหน้า)
+        const rate = ctx.sampleRate; ctx.close().catch(() => {}); this.ctx = null;
         if (!ok || !speech) return resolve(null);
         // เก็บเสียงตั้งแต่ก่อนเริ่มพูดเล็กน้อย ตัดความเงียบช่วงต้นทิ้ง
-        resolve({ b64: encodeWav(chunks.slice(Math.max(0, speechChunk - 3)), ctx.sampleRate), mime: 'audio/wav' });
+        resolve({ b64: encodeWav(chunks.slice(Math.max(0, speechChunk - 3)), rate), mime: 'audio/wav' });
       };
       this._stop = finish;
       proc.onaudioprocess = (e) => {
