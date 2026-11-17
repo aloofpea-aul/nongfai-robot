@@ -1,10 +1,10 @@
 // น้องไฟ — แอปหลัก: ฟังเสียงไทย → ถาม Gemini (สตรีม) → พูดตอบทีละประโยค + แสดงบนจอ
-import { Mascot } from './mascot.js?v=11172125';
-import { WavRecorder } from './recorder.js?v=11172125';
-import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary } from './tools.js?v=11172125';
+import { Mascot } from './mascot.js?v=11172128';
+import { WavRecorder } from './recorder.js?v=11172128';
+import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary } from './tools.js?v=11172128';
 
 const $ = (id) => document.getElementById(id);
-export const VERSION = '11172125';
+export const VERSION = '11172128';
 // อัปเดตตัวเอง: ถ้าบนเว็บมีเวอร์ชันใหม่กว่า ให้โหลดหน้าใหม่ทันที (กันไอโฟนจำไฟล์เก่า)
 fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json()).then((j) => {
   if (j.v && j.v !== VERSION && !sessionStorage.getItem('nf.reload.' + j.v)) {
@@ -307,7 +307,8 @@ async function transcribe(audio) {
 ตอบเฉพาะข้อความที่ถอดได้ บรรทัดเดียว
 คำศัพท์ที่อาจได้ยิน (ชื่อคน ฟีดเดอร์ ชื่อระบบ): ${glossaryText || 'กฟส.อ่าวลึก, เวรแก้ไฟ, ฟีดเดอร์, หม้อแปลง, Patrol'}`;
   const body = { contents: [{ role: 'user', parts: [{ inlineData: { mimeType: audio.mime, data: audio.b64 } }, { text: prompt }] }], generationConfig: { temperature: 0, maxOutputTokens: 300 } };
-  for (const m of [cfg.model, ...FALLBACK_MODELS.filter((x) => x !== cfg.model)]) {
+  // ทดสอบแล้ว: ชื่อรุ่น flash-lite-latest ถอดเสียงเร็วสุด (~2 วิ) ส่วน 3.5/3.1 flash-lite ใช้ 7–10 วิ
+  for (const m of ['gemini-flash-lite-latest', 'gemini-3.5-flash-lite', 'gemini-3.1-flash-lite', cfg.model]) {
     try {
       const b = /2\.5/.test(m) ? { ...body, generationConfig: { ...body.generationConfig, thinkingConfig: { thinkingBudget: 0 } } } : body;
       const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(m)}:generateContent`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': cfg.apiKey }, body: JSON.stringify(b) });
