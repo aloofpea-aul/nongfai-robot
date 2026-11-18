@@ -97,16 +97,16 @@ export class Marbles {
       if (p >= 1 || m.mood === 'sleepy' || m.speaking || m.mood === 'listening' || m.mood === 'thinking') { this.clear(true); }
       else if (G.name === 'juggle') {
         // โยนสลับมือแบบนักกายกรรม 3 ลูก
-        const speed = 0.95, hl = new THREE.Vector3(-0.95, -1.05 + m.root.position.y, 1.3), hr = new THREE.Vector3(0.95, -1.05 + m.root.position.y, 1.3);
+        const speed = 0.7, hl = this.handPos(-1).add(new THREE.Vector3(0, 0.25, 0.35)), hr = this.handPos(1).add(new THREE.Vector3(0, 0.25, 0.35));
         G.balls.forEach((b, i) => {
           b.scale = Math.min(1, b.scale + dt * 3);
           const ph = (T * speed + i / 3) % 1, fromL = Math.floor(T * speed + i / 3) % 2 === 0;
           const a = fromL ? hl : hr, c = fromL ? hr : hl;
-          b.g.position.lerpVectors(a, c, ph); b.g.position.y += Math.sin(ph * Math.PI) * 2.3; b.g.position.z += Math.sin(ph * Math.PI) * 0.3;
+          b.g.position.lerpVectors(a, c, ph); b.g.position.y += Math.sin(ph * Math.PI) * 3.4; b.g.position.z += Math.sin(ph * Math.PI) * 0.6; b.g.position.x *= 1 + Math.sin(ph * Math.PI) * 0.35; // โค้งข้ามหัว ไม่บังหน้า
           b.spinV = 4;
         });
         const bob = Math.sin(T * speed * Math.PI * 2);
-        pose = { L: [1.15 + bob * 0.25, -1.0, -0.9], R: [1.15 - bob * 0.25, -1.0, -0.9] };
+        pose = { L: [1.3 + bob * 0.3, -0.35, -0.5], R: [1.3 - bob * 0.3, -0.35, -0.5] };
         m.lookAt(0, 0.5);
       } else if (G.name === 'orbit') {
         // ลูกแก้วโคจรรอบหัวเหมือนดาวเคราะห์
