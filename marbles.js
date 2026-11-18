@@ -96,13 +96,13 @@ export class Marbles {
       const p = (t - G.t0) / G.dur, T = t - G.t0;
       if (p >= 1 || m.mood === 'sleepy' || m.speaking || m.mood === 'listening' || m.mood === 'thinking') { this.clear(true); }
       else if (G.name === 'juggle') {
-        // โยนสลับมือแบบนักกายกรรม 3 ลูก
-        const speed = 0.7, hl = this.handPos(-1).add(new THREE.Vector3(0, 0.25, 0.35)), hr = this.handPos(1).add(new THREE.Vector3(0, 0.25, 0.35));
+        // โยนวนแบบนักกายกรรม 3 ลูก: ขึ้นจากมือซ้าย โค้งข้ามหัว ลงมือขวา แล้วส่งต่ำกลับมือซ้าย (ระยะห่างเท่ากัน ไม่ชนกัน)
+        const speed = 0.55, hl = this.handPos(-1).add(new THREE.Vector3(0, 0.25, 0.4)), hr = this.handPos(1).add(new THREE.Vector3(0, 0.25, 0.4));
         G.balls.forEach((b, i) => {
           b.scale = Math.min(1, b.scale + dt * 3);
-          const ph = (T * speed + i / 3) % 1, fromL = Math.floor(T * speed + i / 3) % 2 === 0;
-          const a = fromL ? hl : hr, c = fromL ? hr : hl;
-          b.g.position.lerpVectors(a, c, ph); b.g.position.y += Math.sin(ph * Math.PI) * 3.4; b.g.position.z += Math.sin(ph * Math.PI) * 0.6; b.g.position.x *= 1 + Math.sin(ph * Math.PI) * 0.35; // โค้งข้ามหัว ไม่บังหน้า
+          const u = (T * speed + i / G.balls.length) % 1, P = b.g.position;
+          if (u < 0.78) { const q = u / 0.78; P.lerpVectors(hl, hr, q); P.y += Math.sin(q * Math.PI) * 3.3; P.x *= 1 + Math.sin(q * Math.PI) * 0.45; P.z += Math.sin(q * Math.PI) * 0.5; }
+          else { const q = (u - 0.78) / 0.22; P.lerpVectors(hr, hl, q); P.y += Math.sin(q * Math.PI) * 0.35; P.z += 0.2; }
           b.spinV = 4;
         });
         const bob = Math.sin(T * speed * Math.PI * 2);
