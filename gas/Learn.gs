@@ -79,6 +79,7 @@ function doPost(e) {
   const lock = LockService.getScriptLock();
   try {
     if (b.action === 'watch') return out_({ ok: true, t: watch_(), now: Date.now() });
+    if (b.action === 'events') return out_({ ok: true, ...eventsSince_(Number(b.since || 0), Number(b.limit || 100)) });
     if (b.action === 'load') {
       return out_({
         ok: true,
