@@ -1,5 +1,5 @@
-import { loadNotices, ntState, ntArea, ntWhen, ntHm, ntDate } from './notices.js?v=11181425';
-// เครื่องมือให้น้องไฟดึงข้อมูลจากศูนย์รวมงาน กฟส.อ่าวลึก (Gemini function calling)
+import { loadNotices, ntState, ntArea, ntWhen, ntHm, ntDate } from './notices.js?v=11181510';
+// เครื่องมือให้น้องมีไฟดึงข้อมูลจากศูนย์รวมงาน กฟส.อ่าวลึก (Gemini function calling)
 // public = ใครถามก็ตอบได้ · internal = ต้องยืนยันตัวตนพนักงานก่อน (PIN)
 
 const DUTY_API = 'https://script.google.com/macros/s/AKfycbzIFoqXzNyJ56EOd2p-L6bdbO6ZNLQmYS5xoW4sTFJUuZKkxnnU2TEKJRMdusi1gwzr5g/exec';
@@ -220,7 +220,7 @@ const withD = (ai, d) => Object.assign(typeof ai === 'string' ? { ข้อม�
 const F = (o) => Object.entries(o || {}).filter(([k, v]) => v !== '' && v != null && typeof v !== 'object' && !k.startsWith('_') && !SKIP_KEY.test(k)).map(([k, v]) => [k, String(v).replace(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}).*$/, '$1 $2')]);
 const toneOf = (s) => /ร้ายแรง|สูง|^3$|ใหม่|ค้าง|ยังไม่|ใช้งานอยู่|นอกพื้นที่|รุนแรง/.test(String(s)) ? 'red' : /กลาง|^2$|รับงาน|กำลัง|รอ/.test(String(s)) ? 'amber' : /เสร็จ|ว่าง|ปกติ|ในพื้นที่|แล้ว/.test(String(s)) ? 'green' : '';
 const driveImg = (id) => id ? 'https://lh3.googleusercontent.com/d/' + id + '=w800' : '';
-const needCreds = (c) => { if (!c.user || !c.pass) throw new Error('ยังไม่ได้ตั้งชื่อ/รหัสศูนย์รวมงานในหน้าตั้งค่าของน้องไฟ'); };
+const needCreds = (c) => { if (!c.user || !c.pass) throw new Error('ยังไม่ได้ตั้งชื่อ/รหัสศูนย์รวมงานในหน้าตั้งค่าของน้องมีไฟ'); };
 
 // ---------- 7) SLD อุปกรณ์ในระบบจำหน่าย (สาธารณะ) ----------
 const HUB_GAS = 'https://script.google.com/macros/s/AKfycbzqsOqJJQlF4SS1UX_YM6hmhd3lUXCVocAJiK7l28Tzddms9SQ9Z7p-iYgrrgd2B2meWw/exec';
@@ -402,7 +402,7 @@ async function drawingsBom({ keyword }) {
 // ---------- 20b) ค้นแบบมาตรฐาน กฟภ. พร้อมภาพ 2D / 3D (ดึงจากคลังแบบในศูนย์รวมงาน ไม่สร้างใหม่) ----------
 async function dwgCatalog() {
   // ดัชนีชื่อแบบ (สร้างจากคลังแบบ pea-drawings ด้วย scripts/build-dwg-index.py) — ภาพ/โมเดลเปิดจากหน้าแบบในคลังโดยตรง
-  return cached('dwgcat', 24 * 3600e3, async () => (await fetch('./dwg-index.json?v=11181425')).json());
+  return cached('dwgcat', 24 * 3600e3, async () => (await fetch('./dwg-index.json?v=11181510')).json());
 }
 const DWG_SYN = [[/สามเฟส|3เฟส/g, '3 เฟส'], [/หนึ่งเฟส|เฟสเดียว|1เฟส/g, '1 เฟส'], [/เสาคู่|สองเสา/g, 'นั่งร้าน'], [/(\d+)\s*เควี|(\d+)\s*kv/gi, '$1$2 kV'], [/ลูกถ้วย|ลูกถ้วยไฟ/g, 'ลูกถ้วย'], [/แรงต่ำ/g, 'แรงต่ำ']];
 const dwgNorm = (t) => { t = String(t || '').toLowerCase(); DWG_SYN.forEach(([a, b]) => { t = t.replace(a, b); }); return t; };
@@ -437,7 +437,7 @@ async function fnCall(api, fn, args, token) {
   return j.data !== undefined ? j.data : j.result !== undefined ? j.result : j;
 }
 async function budget({ keyword }, c) {
-  if (!c.budgetUser || !c.budgetPass) throw new Error('ยังไม่ได้ตั้งชื่อผู้ใช้/รหัสของระบบตัดงบในหน้าตั้งค่าของน้องไฟ');
+  if (!c.budgetUser || !c.budgetPass) throw new Error('ยังไม่ได้ตั้งชื่อผู้ใช้/รหัสของระบบตัดงบในหน้าตั้งค่าของน้องมีไฟ');
   const login = await cached('budgetLogin', 6 * 3600e3, async () => { const r = await fnCall(BUDGET_API, 'apiLogin', [c.budgetUser, c.budgetPass]); if (!r || r.status !== 'success') throw new Error((r && r.message) || 'เข้าระบบตัดงบไม่สำเร็จ'); return r; });
   const [boot, dash] = await Promise.all([
     cached('budgetBoot', 600e3, () => fnCall(BUDGET_API, 'getBootData', [], login.token)),
@@ -449,7 +449,7 @@ async function budget({ keyword }, c) {
 // ---------- 22) ออกเลขหนังสือ (รหัสสำนักงาน) ----------
 const BOOKNUM_API = 'https://script.google.com/macros/s/AKfycbxNSVvzUdqQC-_8ZKLJM1GFliAM4zWyJI8z8VzU0vhhSSBqq0JcxrUr_UyBkWol7ko1Rw/exec';
 async function bookNumbers({ category, keyword }, c) {
-  if (!c.officeCode) throw new Error('ยังไม่ได้ตั้งรหัสสำนักงานของระบบออกเลขหนังสือในหน้าตั้งค่าของน้องไฟ');
+  if (!c.officeCode) throw new Error('ยังไม่ได้ตั้งรหัสสำนักงานของระบบออกเลขหนังสือในหน้าตั้งค่าของน้องมีไฟ');
   const login = await cached('bookLogin', 12 * 3600e3, async () => { const r = await fnCall(BOOKNUM_API, 'login', [c.officeCode]); if (!r || !r.ok) throw new Error('รหัสสำนักงานไม่ถูกต้อง'); return r; });
   const cats = category ? [category] : ['หนังสือทั่วไป', 'หนังสือสัญญาจ้าง', 'คำสั่ง (พ.)', 'ใบสำคัญจ่าย'];
   const out = {};
@@ -460,7 +460,7 @@ async function bookNumbers({ category, keyword }, c) {
 // ---------- 23) CCL งานก่อสร้าง (รหัสของระบบ CCL) ----------
 const CCL_API = 'https://script.google.com/macros/s/AKfycby4f-2rofhzok_cg9-YLftco1XuC-MCrKn72TTakoPhQfz-qGqjX9WTzZkY5Ye_BxejNQ/exec';
 async function ccl({ keyword }, c) {
-  if (!c.cclUser || !c.cclPass) throw new Error('ยังไม่ได้ตั้งชื่อผู้ใช้/รหัสของระบบ CCL ในหน้าตั้งค่าของน้องไฟ');
+  if (!c.cclUser || !c.cclPass) throw new Error('ยังไม่ได้ตั้งชื่อผู้ใช้/รหัสของระบบ CCL ในหน้าตั้งค่าของน้องมีไฟ');
   const login = await cached('cclLogin', 6 * 3600e3, async () => { const r = await fnCall(CCL_API, 'loginUser', [c.cclUser, c.cclPass]); if (!r || !r.success) throw new Error((r && r.error) || 'เข้าระบบ CCL ไม่สำเร็จ'); return r; });
   const [stats, jobs] = await Promise.all([
     cached('cclStats', 600e3, () => fnCall(CCL_API, 'getDashboardStats', [], login.token)),
@@ -474,7 +474,7 @@ async function ccl({ keyword }, c) {
 const OL_API = 'https://script.google.com/macros/s/AKfycbzDx_LY4rc3KSqC3PH1XUe--LqJPppD1q1lB1YvTRi0BCm3Z6i0luBKiyxcoGfkqpIbRw/exec';
 async function officeLove({ keyword }, c) {
   const u = c.olUser || c.user, pw = c.olPass || c.pass;
-  if (!u || !pw) throw new Error('ยังไม่ได้ตั้งชื่อผู้ใช้/รหัสของระบบ Office Love ในหน้าตั้งค่าของน้องไฟ');
+  if (!u || !pw) throw new Error('ยังไม่ได้ตั้งชื่อผู้ใช้/รหัสของระบบ Office Love ในหน้าตั้งค่าของน้องมีไฟ');
   const login = await cached('olLogin', 6 * 3600e3, () => postJSON(OL_API, { action: 'login', username: u, password: pw }));
   const tk = login.token || (login.data && login.data.token);
   let board;
@@ -517,7 +517,7 @@ export async function loadDetail(det, c) {
 }
 
 // ---------- คำศัพท์ช่วยถอดเสียง (ชื่อคน ฟีดเดอร์ ชื่อระบบ) ----------
-const BASE_TERMS = ['กฟส.อ่าวลึก', 'ผปร.', 'เวรแก้ไฟ', 'ไฟดับ', 'ไฟตก', 'ฟีดเดอร์', 'หม้อแปลง', 'ฟิวส์ลิงก์', 'ฟิวส์แรงสูง', 'รีโคลสเซอร์', 'เซกชันไลเซอร์', 'ลูกถ้วย', 'ล่อฟ้า', 'คอนสาย', 'เสาคอนกรีต',
+const BASE_TERMS = ['น้องมีไฟ', 'กฟส.อ่าวลึก', 'ผปร.', 'เวรแก้ไฟ', 'ไฟดับ', 'ไฟตก', 'ฟีดเดอร์', 'หม้อแปลง', 'ฟิวส์ลิงก์', 'ฟิวส์แรงสูง', 'รีโคลสเซอร์', 'เซกชันไลเซอร์', 'ลูกถ้วย', 'ล่อฟ้า', 'คอนสาย', 'เสาคอนกรีต',
   'Patrol', 'SLD', 'Load01', 'KPI', 'K04', 'SAIFI', 'SAIDI', 'Safety talk', 'Office Love', 'CCL', 'มิเตอร์', 'พัสดุ', 'คลังพัสดุ', 'จัดซื้อ', 'ตัดงบ', 'ออกเลขหนังสือ', 'ตัดต้นไม้', 'รปภ.', 'กฟจ.กระบี่', 'กฟต.2',
   'ALA01', 'ALA02', 'ALA03', 'ALA04', 'ALA05', 'ALA06', 'ALA07', 'ALA08', 'ALA09', 'ALA10', 'อ่าวลึก', 'ปลายพระยา', 'เขาพนม', 'แหลมสัก', 'เกาะยอ', 'คลองหิน', 'นาเหนือ', 'บ้านกลาง', 'ทุ่งไทรทอง', 'คลองยา', 'แหลมสัก'];
 export async function glossary() {
@@ -568,7 +568,7 @@ export async function runTool(name, args, ctx) {
     return { error: 'ข้อมูลภายใน ต้องให้เจ้าหน้าที่ยืนยันตัวตนก่อน', need_verify: true };
   }
   const creds = ctx.creds();
-  if ((name === 'stock_search' || name === 'vehicles') && (!creds.user || !creds.pass)) return { error: 'ยังไม่ได้ตั้งชื่อ/รหัสศูนย์รวมงานในหน้าตั้งค่าของน้องไฟ' };
+  if ((name === 'stock_search' || name === 'vehicles') && (!creds.user || !creds.pass)) return { error: 'ยังไม่ได้ตั้งชื่อ/รหัสศูนย์รวมงานในหน้าตั้งค่าของน้องมีไฟ' };
   try {
     const r = await t.run(args || {}, creds);
     if (r && typeof r === 'object' && r.__display) { const { __display, ...ai } = r; if (ctx.show) ctx.show(__display); return ai; }

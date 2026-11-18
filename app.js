@@ -1,13 +1,13 @@
-// น้องไฟ — แอปหลัก: ฟังเสียงไทย → ถาม Gemini (สตรีม) → พูดตอบทีละประโยค + แสดงบนจอ
-import { Mascot } from './mascot.js?v=11181425';
-import { WavRecorder } from './recorder.js?v=11181425';
-import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary } from './tools.js?v=11181425';
-import { startPresence, stopPresence, presenceOn } from './presence.js?v=11181425';
-import { startWatch, TOPICS, alertLog, clearAlertLog } from './watch.js?v=11181425';
-import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11181425';
+// น้องมีไฟ — แอปหลัก: ฟังเสียงไทย → ถาม Gemini (สตรีม) → พูดตอบทีละประโยค + แสดงบนจอ
+import { Mascot } from './mascot.js?v=11181510';
+import { WavRecorder } from './recorder.js?v=11181510';
+import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary } from './tools.js?v=11181510';
+import { startPresence, stopPresence, presenceOn } from './presence.js?v=11181510';
+import { startWatch, TOPICS, alertLog, clearAlertLog } from './watch.js?v=11181510';
+import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11181510';
 
 const $ = (id) => document.getElementById(id);
-export const VERSION = '11181425';
+export const VERSION = '11181510';
 // อัปเดตตัวเอง: ถ้าบนเว็บมีเวอร์ชันใหม่กว่า ให้โหลดหน้าใหม่ทันที (กันไอโฟนจำไฟล์เก่า)
 fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json()).then((j) => {
   if (j.v && j.v !== VERSION && !sessionStorage.getItem('nf.reload.' + j.v)) {
@@ -27,7 +27,7 @@ if (!cfg.hubPass) cfg.hubPass = localStorage.getItem('pea_aoluek_password') || '
 if (!cfg.alPhone && matchMedia('(max-width:820px)').matches) { cfg.autoListen = false; cfg.alPhone = 1; saveCfg(); }
 if (['gemini-flash-latest', 'gemini-2.5-flash'].includes(cfg.model)) { cfg.model = DEFAULTS.model; saveCfg(); }
 
-const SYSTEM_BASE = `คุณคือ "น้องไฟ" หุ่นยนต์ผู้ช่วยบริการลูกค้าของการไฟฟ้าส่วนภูมิภาคสาขาอ่าวลึก (กฟส.อ่าวลึก) จังหวัดกระบี่
+const SYSTEM_BASE = `คุณคือ "น้องมีไฟ" (ชื่อภาษาอังกฤษ MeeFai · ถ้ามีคนเรียก "น้องไฟ" ก็คือคุณ) หุ่นยนต์ผู้ช่วยบริการลูกค้าของการไฟฟ้าส่วนภูมิภาคสาขาอ่าวลึก (กฟส.อ่าวลึก) จังหวัดกระบี่
 บุคลิก: ผู้หญิง สุภาพ อบอุ่น เป็นกันเอง ลงท้ายด้วย ค่ะ/คะ
 กฎการตอบ:
 1. คำตอบจะถูกอ่านออกเสียง ตอบสั้น 1-3 ประโยค แต่ละประโยคขึ้นบรรทัดใหม่ ห้ามใช้ markdown อีโมจิ ดอกจัน หรือเลขข้อในส่วนที่พูด
@@ -121,7 +121,7 @@ function openDwg(g) {
   dwgNow = g;
   $('dwgTitle').textContent = g.title || 'แบบมาตรฐาน';
   if (!g.page) { if (g.pdf) window.open(g.pdf, '_blank'); return; }
-  // หน้าแบบอยู่หลังล็อกอินศูนย์รวมงาน: ใช้ชื่อ/รหัสที่ตั้งไว้ในน้องไฟ (โดเมนเดียวกัน เก็บในเครื่องนี้)
+  // หน้าแบบอยู่หลังล็อกอินศูนย์รวมงาน: ใช้ชื่อ/รหัสที่ตั้งไว้ในน้องมีไฟ (โดเมนเดียวกัน เก็บในเครื่องนี้)
   try {
     if (cfg.hubUser && cfg.hubPass && !localStorage.getItem('pea_aoluek_password')) {
       localStorage.setItem('pea_aoluek_username', cfg.hubUser); localStorage.setItem('pea_aoluek_password', cfg.hubPass);
@@ -176,7 +176,7 @@ function goHome() {
     $('bubbleText').textContent = 'ถามเรื่องเวรแก้ไฟ ไฟดับ อากาศ พัสดุ รถ หรือระเบียบ กฟภ. ได้เลยค่ะ';
   } else {
     $('bubbleTitle').innerHTML = 'สวัสดีค่ะ ยินดีต้อนรับสู่<br>การไฟฟ้าส่วนภูมิภาคสาขาอ่าวลึก';
-    $('bubbleText').textContent = 'น้องไฟช่วยอะไรได้บ้างคะ พูดได้เลย หรือแตะเมนูด้านล่าง';
+    $('bubbleText').textContent = 'น้องมีไฟช่วยอะไรได้บ้างคะ พูดได้เลย หรือแตะเมนูด้านล่าง';
   }
   mascot.setMood('normal');
   setStatus('แตะปุ่มไมค์แล้วพูดได้เลยค่ะ');
@@ -391,7 +391,7 @@ async function ask(question, audio, keepCue) {
   hideFeedback();
   if (!audio && answerVerified(question)) return;
   $('userSaid').textContent = audio ? 'กำลังฟังที่พูด…' : '“' + question + '”'; $('userSaid').hidden = false;
-  $('bubbleTitle').textContent = 'น้องไฟตอบ';
+  $('bubbleTitle').textContent = 'น้องมีไฟตอบ';
   $('bubbleText').textContent = '…';
   $('card').hidden = true;
   clearResults();
@@ -453,7 +453,7 @@ async function ask(question, audio, keepCue) {
             modelParts.push(p);
             if (p.functionCall) { calls.push(p.functionCall); continue; }
             if (p.thought || !p.text) continue;
-            if (!gotFirst) { gotFirst = true; mascot.setMood('normal'); setStatus('น้องไฟกำลังตอบ'); }
+            if (!gotFirst) { gotFirst = true; mascot.setMood('normal'); setStatus('น้องมีไฟกำลังตอบ'); }
             full += p.text; flushLines(false);
           }
         }
@@ -488,7 +488,7 @@ async function ask(question, audio, keepCue) {
     console.error(err);
     const quota = String(err.message).includes('429');
     const msg = quota ? 'ตอนนี้มีคนใช้งานเยอะ ขอพักสักครู่นะคะ ติดต่อเจ้าหน้าที่ที่เคาน์เตอร์ได้เลยค่ะ'
-      : 'ขออภัยค่ะ ตอนนี้น้องไฟเชื่อมต่อไม่ได้ กรุณาติดต่อเจ้าหน้าที่ที่เคาน์เตอร์นะคะ';
+      : 'ขออภัยค่ะ ตอนนี้น้องมีไฟเชื่อมต่อไม่ได้ กรุณาติดต่อเจ้าหน้าที่ที่เคาน์เตอร์นะคะ';
     $('bubbleText').textContent = msg; speak(msg);
     if (String(err.message).includes('40')) toast('เรียก AI ไม่สำเร็จ: ' + err.message.slice(0, 120), 8000);
   } finally {
@@ -529,7 +529,7 @@ $('cfEdit').onclick = () => { const t = cfText; cancelConfirm(); editHeard(t); }
 function editHeard(t) {
   pendingHeard = t;
   $('typeInput').value = t; $('btnSend').hidden = false; $('typeInput').focus();
-  setStatus('แก้คำให้ถูกแล้วกดส่ง น้องไฟจะจำไว้ค่ะ');
+  setStatus('แก้คำให้ถูกแล้วกดส่ง น้องมีไฟจะจำไว้ค่ะ');
 }
 
 // ตอบทันทีจากคำตอบที่เจ้าหน้าที่ยืนยันแล้ว (ไม่ต้องเรียก AI)
@@ -538,7 +538,7 @@ function answerVerified(q) {
   if (!v) return false;
   stopSpeaking();
   $('userSaid').textContent = '“' + q + '”'; $('userSaid').hidden = false;
-  $('bubbleTitle').innerHTML = 'น้องไฟตอบ<span class="badge-verified">ตอบทันที · คำตอบที่ยืนยันแล้ว</span>';
+  $('bubbleTitle').innerHTML = 'น้องมีไฟตอบ<span class="badge-verified">ตอบทันที · คำตอบที่ยืนยันแล้ว</span>';
   $('bubbleText').textContent = v.a;
   clearResults();
   const ls = String(v.card || '').split('\n').map((x) => x.trim()).filter(Boolean);
@@ -566,10 +566,10 @@ async function fbSend(extra) {
   return cacheable;
 }
 $('fbOk').onclick = async () => {
-  fbDone('ขอบคุณค่ะ น้องไฟจำไว้แล้ว');
+  fbDone('ขอบคุณค่ะ น้องมีไฟจำไว้แล้ว');
   const cacheable = await fbSend({ ok: true });
-  if (cacheable) fbDone('ขอบคุณค่ะ ครั้งหน้าถามแบบนี้น้องไฟตอบได้ทันที');
-  else if (lastAnswer && lastAnswer.tools.length) fbDone('ขอบคุณค่ะ น้องไฟจำวิธีหาข้อมูลเรื่องนี้ไว้แล้ว');
+  if (cacheable) fbDone('ขอบคุณค่ะ ครั้งหน้าถามแบบนี้น้องมีไฟตอบได้ทันที');
+  else if (lastAnswer && lastAnswer.tools.length) fbDone('ขอบคุณค่ะ น้องมีไฟจำวิธีหาข้อมูลเรื่องนี้ไว้แล้ว');
 };
 $('fbNo').onclick = () => { $('fbAsk').hidden = true; $('fbWhy').hidden = false; };
 $('fbWhy').querySelectorAll('[data-r]').forEach((b) => (b.onclick = () => {
@@ -583,7 +583,7 @@ $('fbFixForm').onsubmit = (e) => {
   e.preventDefault();
   const fix = $('fbFix').value.trim(); if (!fix) return;
   fbSend({ ok: false, reason: 'พิมพ์คำตอบที่ถูก', fix });
-  fbDone('บันทึกแล้วค่ะ ครั้งหน้าน้องไฟจะตอบตามนี้');
+  fbDone('บันทึกแล้วค่ะ ครั้งหน้าน้องมีไฟจะตอบตามนี้');
 };
 
 
@@ -650,7 +650,7 @@ $('sleepCover').onclick = () => { wakeUp(); };
 async function greetAndListen() {
   wakeUp();
   if (busy() || anyDialogOpen() || !document.body.classList.contains('mode-home')) return;
-  const hi = OPS() ? 'สวัสดีค่ะ มีอะไรให้น้องไฟช่วยไหมคะ' : 'สวัสดีค่ะ ยินดีต้อนรับสู่การไฟฟ้าส่วนภูมิภาคสาขาอ่าวลึกค่ะ มีอะไรให้น้องไฟช่วยไหมคะ';
+  const hi = OPS() ? 'สวัสดีค่ะ มีอะไรให้น้องมีไฟช่วยไหมคะ' : 'สวัสดีค่ะ ยินดีต้อนรับสู่การไฟฟ้าส่วนภูมิภาคสาขาอ่าวลึกค่ะ มีอะไรให้น้องมีไฟช่วยไหมคะ';
   setStatus(hi); mascot.setMood('happy');
   await tapCue(hi);
   mascot.setMood('normal');
@@ -669,7 +669,7 @@ async function startWake() {
       onArrive: greetAndListen,
       onIdle: () => { if (cfg.wakeSleep) sleepNow(); },
     });
-    toast('โหมดรอเปิดแล้ว เดินเข้ามาหน้าจอ น้องไฟจะทักเองค่ะ', 4000);
+    toast('โหมดรอเปิดแล้ว เดินเข้ามาหน้าจอ น้องมีไฟจะทักเองค่ะ', 4000);
   } catch (e) {
     if (e && (e.name === 'NotFoundError' || e.name === 'OverconstrainedError')) { cfg.wakeFace = false; saveCfg(); toast('เครื่องนี้ไม่มีกล้อง ปิดโหมดทักเมื่อเห็นคนให้แล้วค่ะ', 6000); return; }
     toast(e && e.name === 'NotAllowedError' ? 'ต้องอนุญาตให้ใช้กล้องก่อนค่ะ (ตั้งค่าของเครื่อง > Safari > กล้อง)' : 'เปิดโหมดรอไม่ได้: ' + String(e && e.message || e).slice(0, 80), 7000);
@@ -808,7 +808,7 @@ $('btnPasteLearn').onclick = async () => {
   catch { toast('วางไม่ได้ ลองกดค้างที่ช่องแล้วเลือก "วาง" นะคะ'); }
 };
 $('setRate').oninput = (e) => ($('rateVal').textContent = e.target.value + 'x');
-$('btnTestVoice').onclick = () => { stopSpeaking(); cfg.voice = $('setVoice').value; cfg.rate = +$('setRate').value; speak('สวัสดีค่ะ น้องไฟยินดีให้บริการค่ะ'); };
+$('btnTestVoice').onclick = () => { stopSpeaking(); cfg.voice = $('setVoice').value; cfg.rate = +$('setRate').value; speak('สวัสดีค่ะ น้องมีไฟยินดีให้บริการค่ะ'); };
 $('settings').addEventListener('close', () => {
   $('qrBox').hidden = true; $('qrBox').replaceChildren();
   if ($('settings').returnValue !== 'save') return;
@@ -840,7 +840,7 @@ if (rawHash.length > 5 && !inApp && /iPhone|iPad|Macintosh/.test(navigator.userA
   setTimeout(() => {
     $('cpDlg').showModal();
     $('cpBtn').onclick = async () => {
-      try { await navigator.clipboard.writeText(link); $('cpMsg').textContent = 'คัดลอกแล้ว ✓ ไปเปิดน้องไฟจากไอคอนหน้าจอโฮม → ตั้งค่า → กด "วาง" ข้างช่องลิงก์ระบบเรียนรู้ → บันทึก'; }
+      try { await navigator.clipboard.writeText(link); $('cpMsg').textContent = 'คัดลอกแล้ว ✓ ไปเปิดน้องมีไฟจากไอคอนหน้าจอโฮม → ตั้งค่า → กด "วาง" ข้างช่องลิงก์ระบบเรียนรู้ → บันทึก'; }
       catch { $('cpMsg').textContent = 'คัดลอกไม่สำเร็จ ลองแตะอีกครั้งค่ะ'; }
     };
   }, 600);

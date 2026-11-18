@@ -65,7 +65,7 @@ export async function addCorrection(heard, fixed, by) {
 }
 
 // ---------- คำตอบที่ยืนยันแล้ว ----------
-const norm = (q) => String(q).toLowerCase().replace(/\s+|[?？!.,]|ครับ|ค่ะ|คะ|คับ|นะ|หน่อย|ด้วย|น้องไฟ|พี่|จ้า|จ๊ะ/g, '');
+const norm = (q) => String(q).toLowerCase().replace(/\s+|[?？!.,]|ครับ|ค่ะ|คะ|คับ|นะ|หน่อย|ด้วย|น้องมีไฟ|น้องไฟ|พี่|จ้า|จ๊ะ/g, '');
 function bigrams(s) { const m = new Map(); for (let i = 0; i < s.length - 1; i++) { const g = s.slice(i, i + 2); m.set(g, (m.get(g) || 0) + 1); } return m; }
 function dice(a, b) {
   if (a === b) return 1; if (a.length < 2 || b.length < 2) return 0;

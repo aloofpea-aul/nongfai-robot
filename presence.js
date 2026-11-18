@@ -28,7 +28,7 @@ function tick() {
   if (face) {
     lastSeen = t;
     if (!seenSince) seenSince = t;
-    // ให้น้องไฟมองตามคน (ภาพจากกล้องหน้ากลับซ้ายขวา)
+    // ให้น้องมีไฟมองตามคน (ภาพจากกล้องหน้ากลับซ้ายขวา)
     const cx = (face.originX + face.width / 2) / video.videoWidth, cy = (face.originY + face.height / 2) / video.videoHeight;
     opts.onLook(-(cx * 2 - 1), -(cy * 2 - 1));
     if (!present && t - seenSince >= 800) {

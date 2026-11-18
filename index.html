@@ -7,22 +7,22 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="น้องไฟ">
+<meta name="apple-mobile-web-app-title" content="น้องมีไฟ">
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="icon" type="image/png" href="icon-192.png">
 <link rel="manifest" href="manifest.json">
-<title>น้องไฟ · กฟส.อ่าวลึก</title>
+<title>น้องมีไฟ · กฟส.อ่าวลึก</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600&family=Sarabun:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=11181425">
+<link rel="stylesheet" href="style.css?v=11181510">
 <script type="importmap">
 { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js" } }
 </script>
 </head>
 <body class="mode-home">
 <header class="topbar">
-  <div class="brand">กฟส.อ่าวลึก · น้องไฟ<span class="brand-sub"> ผู้ช่วยบริการ</span></div>
+  <div class="brand">กฟส.อ่าวลึก · น้องมีไฟ<span class="brand-sub"> MeeFai · ผู้ช่วยบริการ</span></div>
   <div class="topright">
     <span id="clock">--:--</span>
     <span id="battery" class="battery" hidden></span>
@@ -38,9 +38,9 @@
 
 <main class="main">
   <section class="left">
-    <div id="stage" class="stage" aria-label="มาสคอตน้องไฟ"></div>
+    <div id="stage" class="stage" aria-label="มาสคอตน้องมีไฟ"></div>
     <div id="status" class="status">แตะปุ่มไมค์แล้วพูดได้เลยค่ะ</div>
-    <div class="strip-info"><span id="stripStatus">น้องไฟ</span><button id="btnHome2" type="button" class="linkbtn">หน้าแรก</button></div>
+    <div class="strip-info"><span id="stripStatus">น้องมีไฟ</span><button id="btnHome2" type="button" class="linkbtn">หน้าแรก</button></div>
   </section>
 
   <section class="right">
@@ -59,7 +59,7 @@
     <div id="userSaid" class="usersaid" hidden></div>
     <div class="bubble">
       <div id="bubbleTitle" class="bubble-title">สวัสดีค่ะ ยินดีต้อนรับสู่<br>การไฟฟ้าส่วนภูมิภาคสาขาอ่าวลึก</div>
-      <div id="bubbleText" class="bubble-text">น้องไฟช่วยอะไรได้บ้างคะ พูดได้เลย หรือแตะเมนูด้านล่าง</div>
+      <div id="bubbleText" class="bubble-text">น้องมีไฟช่วยอะไรได้บ้างคะ พูดได้เลย หรือแตะเมนูด้านล่าง</div>
     </div>
 
     <div id="results" class="results"></div>
@@ -75,7 +75,7 @@
         <button class="fbtn" data-r="ฟังผิด">ฟังผิด</button><button class="fbtn" data-r="ข้อมูลผิด">ข้อมูลผิด</button>
         <button class="fbtn" data-r="ตอบไม่ตรงคำถาม">ตอบไม่ตรงคำถาม</button><button class="fbtn" data-r="fix">พิมพ์คำตอบที่ถูก</button></div>
       <form id="fbFixForm" class="fb-fix" hidden>
-        <textarea id="fbFix" rows="3" placeholder="พิมพ์คำตอบที่ถูกต้อง น้องไฟจะใช้ตอบครั้งต่อไป"></textarea>
+        <textarea id="fbFix" rows="3" placeholder="พิมพ์คำตอบที่ถูกต้อง น้องมีไฟจะใช้ตอบครั้งต่อไป"></textarea>
         <button class="fbtn ok" type="submit">บันทึกคำตอบ</button>
       </form>
       <div id="fbDone" class="fb-done" hidden></div>
@@ -122,7 +122,7 @@
 
 <dialog id="settings" class="settings">
   <form method="dialog">
-    <h2>ตั้งค่าน้องไฟ</h2>
+    <h2>ตั้งค่าน้องมีไฟ</h2>
     <label>Gemini API key
       <span class="keyrow"><input id="setKey" type="password" autocomplete="off" placeholder="วาง API key ที่นี่"><button id="btnPaste" type="button" class="abtn outline small">วาง</button></span>
     </label>
@@ -221,12 +221,12 @@
   </div>
 </dialog>
 
-<div id="wakeCover" class="cover wake" hidden><div><b>แตะหน้าจอเพื่อเริ่มโหมดรอ</b><span>น้องไฟจะทักเมื่อมีคนเดินเข้ามา<br>(แตะครั้งเดียวหลังเปิดแอป)</span></div></div>
-<div id="sleepCover" class="cover sleep" hidden><div><b>น้องไฟพักอยู่ค่ะ</b><span>เดินเข้ามาหน้าจอ หรือแตะเพื่อปลุก</span></div></div>
+<div id="wakeCover" class="cover wake" hidden><div><b>แตะหน้าจอเพื่อเริ่มโหมดรอ</b><span>น้องมีไฟจะทักเมื่อมีคนเดินเข้ามา<br>(แตะครั้งเดียวหลังเปิดแอป)</span></div></div>
+<div id="sleepCover" class="cover sleep" hidden><div><b>น้องมีไฟพักอยู่ค่ะ</b><span>เดินเข้ามาหน้าจอ หรือแตะเพื่อปลุก</span></div></div>
 <dialog id="cpDlg" class="settings">
   <form method="dialog">
     <h2>ตั้งค่าแอปบนหน้าจอโฮม</h2>
-    <p class="hint" style="font-size:18px">ตอนนี้เปิดใน Safari ซึ่งเก็บข้อมูลแยกจากไอคอนน้องไฟบนหน้าจอโฮม แตะปุ่มด้านล่างเพื่อคัดลอกค่าไปใส่ในแอปค่ะ</p>
+    <p class="hint" style="font-size:18px">ตอนนี้เปิดใน Safari ซึ่งเก็บข้อมูลแยกจากไอคอนน้องมีไฟบนหน้าจอโฮม แตะปุ่มด้านล่างเพื่อคัดลอกค่าไปใส่ในแอปค่ะ</p>
     <button id="cpBtn" type="button" class="abtn">แตะเพื่อคัดลอก</button>
     <p id="cpMsg" class="hint" style="font-size:18px"></p>
     <div class="row"><button value="close" class="abtn outline">ปิด</button></div>
@@ -247,6 +247,6 @@
 
 <div id="toast" class="toast" hidden></div>
 
-<script type="module" src="app.js?v=11181425"></script>
+<script type="module" src="app.js?v=11181510"></script>
 </body>
 </html>
