@@ -1,13 +1,13 @@
 // น้องมีไฟ — แอปหลัก: ฟังเสียงไทย → ถาม Gemini (สตรีม) → พูดตอบทีละประโยค + แสดงบนจอ
-import { Mascot } from './mascot.js?v=11181915';
-import { WavRecorder } from './recorder.js?v=11181915';
-import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary } from './tools.js?v=11181915';
-import { startPresence, stopPresence, presenceOn, someoneHere } from './presence.js?v=11181915';
-import { startWatch, TOPICS, alertLog, clearAlertLog } from './watch.js?v=11181915';
-import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11181915';
+import { Mascot } from './mascot.js?v=11181930';
+import { WavRecorder } from './recorder.js?v=11181930';
+import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary } from './tools.js?v=11181930';
+import { startPresence, stopPresence, presenceOn, someoneHere, status as camStatus } from './presence.js?v=11181930';
+import { startWatch, TOPICS, alertLog, clearAlertLog } from './watch.js?v=11181930';
+import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11181930';
 
 const $ = (id) => document.getElementById(id);
-export const VERSION = '11181915';
+export const VERSION = '11181930';
 // อัปเดตตัวเอง: ถ้าบนเว็บมีเวอร์ชันใหม่กว่า ให้โหลดหน้าใหม่ทันที (กันไอโฟนจำไฟล์เก่า)
 fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json()).then((j) => {
   if (j.v && j.v !== VERSION && !sessionStorage.getItem('nf.reload.' + j.v)) {
@@ -673,9 +673,12 @@ async function startWake() {
       onPresence: (here) => { if (here) wakeUp(); },
       onArrive: greetAndListen,
       onIdle: () => { if (cfg.wakeSleep) sleepNow(); },
+      onStatus: (st, face) => { const d = $('camDot'); d.hidden = false; d.classList.toggle('face', face); },
+      onError: (e) => { camStatus.err = String(e && e.message || e).slice(0, 120); },
     });
     toast('โหมดรอเปิดแล้ว เดินเข้ามาหน้าจอ น้องมีไฟจะทักเองค่ะ', 4000);
   } catch (e) {
+    camStatus.step = 'error'; camStatus.err = (e && e.name ? e.name + ': ' : '') + String(e && e.message || e).slice(0, 120);
     if (e && (e.name === 'NotFoundError' || e.name === 'OverconstrainedError')) { cfg.wakeFace = false; saveCfg(); toast('เครื่องนี้ไม่มีกล้อง ปิดโหมดทักเมื่อเห็นคนให้แล้วค่ะ', 6000); return; }
     toast(e && e.name === 'NotAllowedError' ? 'ต้องอนุญาตให้ใช้กล้องก่อนค่ะ (ตั้งค่าของเครื่อง > Safari > กล้อง)' : 'เปิดโหมดรอไม่ได้: ' + String(e && e.message || e).slice(0, 80), 7000);
   }
@@ -688,6 +691,13 @@ function armWake() {
 }
 $('wakeCover').onclick = () => { tapCue(' '); wav.prime(); startWake(); };
 armWake();
+const CAM_STEP = { off: 'ยังไม่เปิด (แตะจอเพื่อเริ่มโหมดรอ)', 'loading-model': 'กำลังโหลดตัวตรวจใบหน้า…', 'opening-camera': 'กำลังเปิดกล้อง…', 'waiting-video': 'เปิดกล้องแล้ว แต่ยังไม่ได้ภาพ', running: 'ทำงานอยู่', 'detect-error': 'ตรวจใบหน้าผิดพลาด', error: 'เปิดไม่ได้' };
+function showCamStatus() {
+  const s = camStatus, ago = (t) => (t ? Math.round((Date.now() - t) / 1000) + ' วิที่แล้ว' : '-');
+  $('camInfo').textContent = !cfg.wakeFace ? 'สถานะกล้อง: ปิดอยู่' :
+    `สถานะกล้อง: ${CAM_STEP[s.step] || s.step}${s.delegate ? ' (' + s.delegate + ')' : ''} · ภาพ ${s.w}×${s.h} · ตรวจแล้ว ${s.checks} ครั้ง (ล่าสุด ${ago(s.lastCheckAt)}) · เห็นหน้าล่าสุด ${ago(s.lastFaceAt)} · ขนาดหน้า ${Math.round(s.size * 100)}%${s.err ? ' · ข้อผิดพลาด: ' + s.err : ''}`;
+}
+setInterval(() => { if ($('settings').open) showCamStatus(); }, 1000);
 // ท่าเล่นยามว่าง: เฉพาะหน้าแรก ไม่มีใครคุยอยู่ และไม่มีคนยืนหน้าจอ
 setInterval(() => { mascot.idlePlay = !!cfg.idlePlay && document.body.classList.contains('mode-home') && !busy() && !someoneHere() && !anyDialogOpen(); }, 1000);
 
@@ -780,6 +790,7 @@ function openSettings() {
   $('set_budgetUser').value = cfg.budgetUser; $('set_budgetPass').value = cfg.budgetPass; $('set_officeCode').value = cfg.officeCode; $('set_cclUser').value = cfg.cclUser; $('set_cclPass').value = cfg.cclPass; $('set_olUser').value = cfg.olUser; $('set_olPass').value = cfg.olPass;
   $('setHubUser').value = cfg.hubUser; $('setHubPass').value = cfg.hubPass; $('setPin').value = cfg.staffPin;
   $('setIdlePlay').checked = cfg.idlePlay;
+  showCamStatus();
   $('setWakeFace').checked = cfg.wakeFace; $('setWakeSleep').checked = cfg.wakeSleep;
   $('setAlertOn').checked = cfg.alertOn; $('setAlertVoice').checked = cfg.alertVoice; $('setQuiet').checked = cfg.quietOn; $('setQuietFrom').value = cfg.quietFrom; $('setQuietTo').value = cfg.quietTo;
   Object.keys(TOPICS).forEach((k) => { $('top_' + k).checked = cfg.alertTopics[k] !== false; });

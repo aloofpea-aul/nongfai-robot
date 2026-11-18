@@ -15,7 +15,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600&family=Sarabun:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=11181915">
+<link rel="stylesheet" href="style.css?v=11181930">
 <script type="importmap">
 { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js" } }
 </script>
@@ -26,6 +26,7 @@
   <div class="topright">
     <span id="clock">--:--</span>
     <span id="battery" class="battery" hidden></span>
+    <span id="camDot" class="camdot" title="กล้องโหมดรอ" hidden></span>
     <button id="btnBell" class="iconbtn bell" aria-label="อัปเดตจากศูนย์รวมงาน">
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
       <span id="bellCount" class="bellcount" hidden>0</span>
@@ -177,6 +178,7 @@
     <h3 class="sub">เปิดใช้แบบไม่ต้องแตะ</h3>
     <label class="check"><input id="setWakeFace" type="checkbox"> ทักเมื่อเห็นคนเข้ามา (ใช้กล้องหน้า ตรวจในเครื่อง ไม่บันทึกภาพ)</label>
     <label class="check"><input id="setWakeSleep" type="checkbox"> พักจอเมื่อไม่มีคน 2 นาที</label>
+    <p class="hint" id="camInfo"></p>
     <label class="check"><input id="setIdlePlay" type="checkbox"> ท่าเล่นยามว่าง (โยนโลโก้ หมุนตัว ยืดเส้น)</label>
     <h3 class="sub">แจ้งเตือนอัปเดตศูนย์รวมงาน</h3>
     <label class="check"><input id="setAlertOn" type="checkbox"> เปิดแจ้งเตือน (ต้องเปิดแอปค้างไว้บนจอ)</label>
@@ -248,6 +250,6 @@
 
 <div id="toast" class="toast" hidden></div>
 
-<script type="module" src="app.js?v=11181915"></script>
+<script type="module" src="app.js?v=11181930"></script>
 </body>
 </html>

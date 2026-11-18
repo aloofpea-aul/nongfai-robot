@@ -6,24 +6,34 @@ const MODEL = 'https://storage.googleapis.com/mediapipe-models/face_detector/bla
 
 let det = null, video = null, stream = null, timer = null, opts = null;
 let seenSince = 0, lastSeen = 0, lastGreet = 0, present = false;
+// สถานะไว้ตรวจว่ากล้องยังทำงานไหม (แสดงในหน้าตั้งค่า + จุดบนแถบด้านบน)
+export const status = { step: 'off', delegate: '', checks: 0, faces: 0, lastFaceAt: 0, lastCheckAt: 0, err: '', w: 0, h: 0, size: 0 };
 
 async function loadDetector() {
   if (det) return det;
   const { FaceDetector, FilesetResolver } = await import(`https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${VER}/vision_bundle.mjs`);
   const fs = await FilesetResolver.forVisionTasks(WASM);
-  det = await FaceDetector.createFromOptions(fs, { baseOptions: { modelAssetPath: MODEL, delegate: 'GPU' }, runningMode: 'VIDEO', minDetectionConfidence: 0.6 });
+  // ไอแพดบางรุ่นใช้ GPU ไม่ได้ → ใช้ CPU แทน (โมเดลเล็ก ไหวสบาย)
+  try { det = await FaceDetector.createFromOptions(fs, { baseOptions: { modelAssetPath: MODEL, delegate: 'GPU' }, runningMode: 'VIDEO', minDetectionConfidence: 0.5 }); status.delegate = 'GPU'; }
+  catch { det = await FaceDetector.createFromOptions(fs, { baseOptions: { modelAssetPath: MODEL, delegate: 'CPU' }, runningMode: 'VIDEO', minDetectionConfidence: 0.5 }); status.delegate = 'CPU'; }
   return det;
 }
 
 function tick() {
-  if (!video || video.readyState < 2 || document.visibilityState !== 'visible') return;
+  if (!video || document.visibilityState !== 'visible') return;
+  if (video.readyState < 2) { status.step = 'waiting-video'; return; }
   const now = performance.now();
   let face = null;
   try {
     const r = det.detectForVideo(video, now);
     // เลือกใบหน้าที่ใหญ่สุด (อยู่ใกล้สุด) และต้องใหญ่พอ = ยืนอยู่หน้าจอจริง ไม่ใช่คนเดินผ่านไกลๆ
-    for (const d of r.detections || []) { const b = d.boundingBox; if (b && b.width / video.videoWidth >= opts.minSize() && (!face || b.width > face.width)) face = b; }
-  } catch { return; }
+    status.checks++; status.lastCheckAt = Date.now(); status.step = 'running'; status.w = video.videoWidth; status.h = video.videoHeight;
+    let big = 0;
+    for (const d of r.detections || []) { const b = d.boundingBox; if (!b) continue; big = Math.max(big, b.width / video.videoWidth); if (b.width / video.videoWidth >= opts.minSize() && (!face || b.width > face.width)) face = b; }
+    status.size = big;
+    if (face) { status.faces++; status.lastFaceAt = Date.now(); }
+    opts.onStatus && opts.onStatus(status, !!face);
+  } catch (e) { status.err = String(e && e.message || e).slice(0, 120); status.step = 'detect-error'; return; }
   const t = Date.now();
   if (face) {
     lastSeen = t;
@@ -46,11 +56,18 @@ function tick() {
 export async function startPresence(o) {
   opts = o;
   if (timer) return true;
+  status.step = 'loading-model'; status.err = '';
   await loadDetector();
+  status.step = 'opening-camera';
   stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 320 }, height: { ideal: 240 }, frameRate: { ideal: 10 } }, audio: false });
   video = document.createElement('video');
-  video.playsInline = true; video.muted = true; video.setAttribute('playsinline', ''); video.srcObject = stream;
+  video.playsInline = true; video.muted = true; video.autoplay = true; video.setAttribute('playsinline', ''); video.setAttribute('muted', '');
+  // ไอแพดไม่ส่งภาพจากกล้องให้ video ที่ไม่ได้อยู่ในหน้า → ใส่ไว้ในหน้าแบบมองไม่เห็น
+  video.style.cssText = 'position:fixed;left:0;bottom:0;width:4px;height:3px;opacity:0.01;pointer-events:none;z-index:-1';
+  document.body.append(video);
+  video.srcObject = stream;
   await video.play();
+  status.step = 'running';
   lastSeen = Date.now();
   timer = setInterval(tick, 500);
   return true;
@@ -72,7 +89,8 @@ setInterval(reopen, 15000);
 export function stopPresence() {
   clearInterval(timer); timer = null;
   try { stream && stream.getTracks().forEach((t) => t.stop()); } catch {}
-  stream = null; video = null; present = false; seenSince = 0;
+  try { video && video.remove(); } catch {}
+  stream = null; video = null; present = false; seenSince = 0; status.step = 'off';
 }
 export const presenceOn = () => !!timer;
 export const someoneHere = () => present;
