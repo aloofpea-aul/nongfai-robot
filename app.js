@@ -1,13 +1,13 @@
 // น้องไฟ — แอปหลัก: ฟังเสียงไทย → ถาม Gemini (สตรีม) → พูดตอบทีละประโยค + แสดงบนจอ
-import { Mascot } from './mascot.js?v=11181420';
-import { WavRecorder } from './recorder.js?v=11181420';
-import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary } from './tools.js?v=11181420';
-import { startPresence, stopPresence, presenceOn } from './presence.js?v=11181420';
-import { startWatch, TOPICS, alertLog, clearAlertLog } from './watch.js?v=11181420';
-import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11181420';
+import { Mascot } from './mascot.js?v=11181425';
+import { WavRecorder } from './recorder.js?v=11181425';
+import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary } from './tools.js?v=11181425';
+import { startPresence, stopPresence, presenceOn } from './presence.js?v=11181425';
+import { startWatch, TOPICS, alertLog, clearAlertLog } from './watch.js?v=11181425';
+import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11181425';
 
 const $ = (id) => document.getElementById(id);
-export const VERSION = '11181420';
+export const VERSION = '11181425';
 // อัปเดตตัวเอง: ถ้าบนเว็บมีเวอร์ชันใหม่กว่า ให้โหลดหน้าใหม่ทันที (กันไอโฟนจำไฟล์เก่า)
 fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json()).then((j) => {
   if (j.v && j.v !== VERSION && !sessionStorage.getItem('nf.reload.' + j.v)) {
@@ -671,7 +671,8 @@ async function startWake() {
     });
     toast('โหมดรอเปิดแล้ว เดินเข้ามาหน้าจอ น้องไฟจะทักเองค่ะ', 4000);
   } catch (e) {
-    toast(e && e.name === 'NotAllowedError' ? 'ต้องอนุญาตให้ใช้กล้องก่อนค่ะ' : 'เปิดโหมดรอไม่ได้: ' + String(e && e.message || e).slice(0, 80), 7000);
+    if (e && (e.name === 'NotFoundError' || e.name === 'OverconstrainedError')) { cfg.wakeFace = false; saveCfg(); toast('เครื่องนี้ไม่มีกล้อง ปิดโหมดทักเมื่อเห็นคนให้แล้วค่ะ', 6000); return; }
+    toast(e && e.name === 'NotAllowedError' ? 'ต้องอนุญาตให้ใช้กล้องก่อนค่ะ (ตั้งค่าของเครื่อง > Safari > กล้อง)' : 'เปิดโหมดรอไม่ได้: ' + String(e && e.message || e).slice(0, 80), 7000);
   }
 }
 // ไอโฟน/ไอแพดต้องแตะหน้าจอ 1 ครั้งหลังเปิดแอป จึงจะเปิดกล้อง ไมค์ และเสียงพูดเองได้
