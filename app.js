@@ -1,12 +1,12 @@
 // น้องไฟ — แอปหลัก: ฟังเสียงไทย → ถาม Gemini (สตรีม) → พูดตอบทีละประโยค + แสดงบนจอ
-import { Mascot } from './mascot.js?v=11181040';
-import { WavRecorder } from './recorder.js?v=11181040';
-import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary } from './tools.js?v=11181040';
-import { startWatch, TOPICS, alertLog, clearAlertLog } from './watch.js?v=11181040';
-import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11181040';
+import { Mascot } from './mascot.js?v=11181115';
+import { WavRecorder } from './recorder.js?v=11181115';
+import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary } from './tools.js?v=11181115';
+import { startWatch, TOPICS, alertLog, clearAlertLog } from './watch.js?v=11181115';
+import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11181115';
 
 const $ = (id) => document.getElementById(id);
-export const VERSION = '11181040';
+export const VERSION = '11181115';
 // อัปเดตตัวเอง: ถ้าบนเว็บมีเวอร์ชันใหม่กว่า ให้โหลดหน้าใหม่ทันที (กันไอโฟนจำไฟล์เก่า)
 fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json()).then((j) => {
   if (j.v && j.v !== VERSION && !sessionStorage.getItem('nf.reload.' + j.v)) {
@@ -71,7 +71,7 @@ function showResults(d) {
 }
 function itemRow(it, d) {
   const b = el('button', 'ri'); b.type = 'button';
-  if (it.thumb) { const im = el('img', 'th'); im.src = it.thumb; im.alt = ''; im.loading = 'lazy'; im.onerror = () => im.replaceWith(thumbIcon(it)); b.append(im); } else b.append(thumbIcon(it));
+  if (it.thumb) { const im = el('img', 'th' + (it.wide ? ' wide' : '')); im.src = it.thumb; im.alt = ''; im.loading = 'lazy'; im.onerror = () => im.replaceWith(thumbIcon(it)); b.append(im); } else b.append(thumbIcon(it));
   const tx = el('div', 'tx'); tx.append(el('div', 't1', it.title || '-')); if (it.sub) tx.append(el('div', 't2', it.sub)); b.append(tx);
   if (it.badge) b.append(el('span', 'bd' + (it.tone || toneGuess(it.badge) ? ' ' + (it.tone || toneGuess(it.badge)) : ''), String(it.badge)));
   b.onclick = () => (it.dwg ? openDwg(it.dwg) : openDetail(it, d));

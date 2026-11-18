@@ -17,6 +17,8 @@ for x in items:
         m = re.search(r'<title>([^<]*)', h)
         if m: t = html.unescape(m.group(1)).strip()
         parts = ' '.join(sorted(set(re.findall(r'"th":"([^"]{2,40})"', h))))[:300]
-    out.append({'t': t, 'en': x['en'], 's': sern.get(x['c'], ''), 'p': page, 'f': pdf.get(x['id'], ''), 'w': parts})
+    o = {'t': t, 'en': x['en'], 's': sern.get(x['c'], ''), 'p': page, 'f': pdf.get(x['id'], ''), 'w': parts}
+    if page and os.path.exists('thumbs/' + os.path.basename(page).replace('.html', '.jpg')): o['i'] = 1  # ภาพย่อจากภาพ 2D ของหน้าแบบ (scripts/make-thumbs.py)
+    out.append(o)
 json.dump(out, open('dwg-index.json', 'w', encoding='utf8'), ensure_ascii=False, separators=(',', ':'))
 print(len(out), os.path.getsize('dwg-index.json'))

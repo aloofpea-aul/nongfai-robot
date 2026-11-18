@@ -380,7 +380,7 @@ async function drawingsBom({ keyword }) {
 // ---------- 20b) ค้นแบบมาตรฐาน กฟภ. พร้อมภาพ 2D / 3D (ดึงจากคลังแบบในศูนย์รวมงาน ไม่สร้างใหม่) ----------
 async function dwgCatalog() {
   // ดัชนีชื่อแบบ (สร้างจากคลังแบบ pea-drawings ด้วย scripts/build-dwg-index.py) — ภาพ/โมเดลเปิดจากหน้าแบบในคลังโดยตรง
-  return cached('dwgcat', 24 * 3600e3, async () => (await fetch('./dwg-index.json?v=11181040')).json());
+  return cached('dwgcat', 24 * 3600e3, async () => (await fetch('./dwg-index.json?v=11181115')).json());
 }
 const DWG_SYN = [[/สามเฟส|3เฟส/g, '3 เฟส'], [/หนึ่งเฟส|เฟสเดียว|1เฟส/g, '1 เฟส'], [/เสาคู่|สองเสา/g, 'นั่งร้าน'], [/(\d+)\s*เควี|(\d+)\s*kv/gi, '$1$2 kV'], [/ลูกถ้วย|ลูกถ้วยไฟ/g, 'ลูกถ้วย'], [/แรงต่ำ/g, 'แรงต่ำ']];
 const dwgNorm = (t) => { t = String(t || '').toLowerCase(); DWG_SYN.forEach(([a, b]) => { t = t.replace(a, b); }); return t; };
@@ -405,7 +405,7 @@ async function standardDrawing({ keyword }) {
   const hit = cat.map((x) => [score(x), x]).filter(([s]) => s > 1).sort((a, b) => b[0] - a[0]).slice(0, 8).map(([, x]) => x);
   const P = (u) => (u ? '/pea-drawings/' + u : '');
   return withD({ พบ: hit.length, แบบ: hit.map((x) => ({ แบบ: x.t, หมวด: x.s, มีภาพ2D3D: !!x.p })), หมายเหตุ: 'รายการแบบแสดงบนจอแล้ว ผู้ใช้แตะเพื่อดูภาพ 2D / 3D / วัสดุ / PDF' },
-    { source: 'แบบมาตรฐาน กฟภ. · 2D / 3D', app: '/pea-drawings/', items: hit.map((x) => ({ title: x.t, sub: [x.s, x.en].filter(Boolean).join(' · '), badge: x.p ? '2D · 3D' : 'PDF', tone: x.p ? 'green' : '', dwg: { page: P(x.p), pdf: P(x.f), title: x.t } })) });
+    { source: 'แบบมาตรฐาน กฟภ. · 2D / 3D', app: '/pea-drawings/', items: hit.map((x) => ({ title: x.t, sub: [x.s, x.en].filter(Boolean).join(' · '), badge: x.p ? '2D · 3D' : 'PDF', tone: x.p ? 'green' : '', thumb: x.i ? './thumbs/' + x.p.split('/').pop().replace('.html', '.jpg') : '', wide: true, dwg: { page: P(x.p), pdf: P(x.f), title: x.t } })) });
 }
 
 // ---------- 21) ระบบตัดงบ / เบิกค่ารักษา (รหัสของระบบตัดงบ) ----------
