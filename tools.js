@@ -379,40 +379,31 @@ async function drawingsBom({ keyword }) {
 
 // ---------- 20b) ค้นแบบมาตรฐาน กฟภ. พร้อมภาพ 2D / 3D (ดึงจากคลังแบบในศูนย์รวมงาน ไม่สร้างใหม่) ----------
 async function dwgCatalog() {
-  return cached('dwgcat', 24 * 3600e3, async () => {
-    const html = await (await fetch('/pea-drawings/index.html', { cache: 'force-cache' })).text();
-    const grab = (n) => { const m = html.match(new RegExp('const ' + n + '=(.*?);\\s*(?:\\n|const )')); return m ? JSON.parse(m[1]) : null; };
-    const items = grab('ITEMS') || [], pdf = grab('PDF') || {}, detail = grab('DETAIL') || {}, series = grab('SERIES') || [];
-    let bom = []; try { bom = await (await fetch('/pea-drawings/bom-index.json')).json(); } catch {}
-    const asm = {}; bom.forEach((x) => { asm[x.f] = x.t; });
-    const ser = Object.fromEntries(series.map((x) => [x.c, x.th]));
-    return items.map((x) => {
-      const page = detail[x.id] ? '/pea-drawings/' + detail[x.id] : '', f = (detail[x.id] || '').replace(/^d\//, '');
-      const t = asm[f] || '';
-      return { id: x.id, th: x.th, en: x.en, n: x.n || (t.match(/^\d{3,5}\w*/) || [''])[0], c: x.c, ser: ser[x.c] || '', page, pdf: pdf[x.id] ? '/pea-drawings/' + pdf[x.id] : '', bomT: t };
-    });
-  });
+  // ดัชนีชื่อแบบ (สร้างจากคลังแบบ pea-drawings ด้วย scripts/build-dwg-index.py) — ภาพ/โมเดลเปิดจากหน้าแบบในคลังโดยตรง
+  return cached('dwgcat', 24 * 3600e3, async () => (await fetch('./dwg-index.json?v=11181030')).json());
 }
+const DWG_SYN = [[/สามเฟส|3เฟส/g, '3 เฟส'], [/หนึ่งเฟส|เฟสเดียว|1เฟส/g, '1 เฟส'], [/เสาคู่|สองเสา/g, 'นั่งร้าน'], [/(\d+)\s*เควี|(\d+)\s*kv/gi, '$1$2 kV'], [/ลูกถ้วย|ลูกถ้วยไฟ/g, 'ลูกถ้วย'], [/แรงต่ำ/g, 'แรงต่ำ']];
+const dwgNorm = (t) => { t = String(t || '').toLowerCase(); DWG_SYN.forEach(([a, b]) => { t = t.replace(a, b); }); return t; };
 async function standardDrawing({ keyword }) {
   const cat = await dwgCatalog();
-  const ws = words(keyword || '');
+  const q = dwgNorm(keyword);
+  const ws = q.split(/[\s,]+/).filter(Boolean);
   const score = (x) => {
-    const hay = [x.n, x.th, x.en, x.c, x.ser, x.bomT].join(' ').toLowerCase();
+    const name = dwgNorm(x.t + ' ' + x.en), hay = dwgNorm([x.t, x.en, x.s, x.w].join(' ')), hayNs = hay.replace(/\s+/g, '');
     let sc = 0;
     for (const w of ws) {
-      if (x.n && x.n.toLowerCase() === w) sc += 10;
-      else if (hay.includes(w)) sc += 2;
-      else if (w.length > 3) { // คำไทยติดกันยาวๆ: นับว่าตัวอักษรคู่ๆ ของคำค้นมีในชื่อแบบกี่ส่วน
-        let n = 0, k = 0; for (let i = 0; i < w.length - 1; i++, k++) if (hay.includes(w.slice(i, i + 2))) n++;
-        sc += n / k >= 0.75 ? 1 + n / k : -3;
-      } else sc -= 3;
+      if (/^\d{3,4}[a-z]?$/i.test(w) && name.startsWith(w)) sc += 12;   // เลขการประกอบ เช่น 3718
+      else if (name.includes(w)) sc += 3;
+      else if (hay.includes(w) || hayNs.includes(w)) sc += 1.5;
+      else if (w.length > 3) { let n = 0, k = 0; for (let i = 0; i < w.length - 1; i++, k++) if (hayNs.includes(w.slice(i, i + 2))) n++; sc += n / k >= 0.8 ? n / k : -3; }
+      else sc -= 3;
     }
-    return sc + (x.page ? 1 : 0);
+    return sc + (x.p ? 0.5 : 0);
   };
-  const hit = cat.map((x) => [score(x), x]).filter(([s]) => s > 0).sort((a, b) => b[0] - a[0]).slice(0, 8).map(([, x]) => x);
-  const name = (x) => [x.n, x.th].filter(Boolean).join(' ');
-  return withD({ พบ: hit.length, แบบ: hit.map((x) => ({ แบบ: name(x), หมวด: x.ser, มีภาพ2D3D: !!x.page })), หมายเหตุ: 'ภาพ 2D/3D แสดงบนจออัตโนมัติ ให้บอกผู้ใช้แตะรายการเพื่อดู' },
-    { source: 'แบบมาตรฐาน กฟภ. · 2D / 3D', app: '/pea-drawings/', items: hit.map((x) => ({ title: name(x), sub: [x.ser, x.en].filter(Boolean).join(' · '), badge: x.page ? '2D · 3D' : 'PDF', tone: x.page ? 'green' : '', dwg: { page: x.page, pdf: x.pdf, title: name(x) } })) });
+  const hit = cat.map((x) => [score(x), x]).filter(([s]) => s > 1).sort((a, b) => b[0] - a[0]).slice(0, 8).map(([, x]) => x);
+  const P = (u) => (u ? '/pea-drawings/' + u : '');
+  return withD({ พบ: hit.length, แบบ: hit.map((x) => ({ แบบ: x.t, หมวด: x.s, มีภาพ2D3D: !!x.p })), หมายเหตุ: 'รายการแบบแสดงบนจอแล้ว ผู้ใช้แตะเพื่อดูภาพ 2D / 3D / วัสดุ / PDF' },
+    { source: 'แบบมาตรฐาน กฟภ. · 2D / 3D', app: '/pea-drawings/', items: hit.map((x) => ({ title: x.t, sub: [x.s, x.en].filter(Boolean).join(' · '), badge: x.p ? '2D · 3D' : 'PDF', tone: x.p ? 'green' : '', dwg: { page: P(x.p), pdf: P(x.f), title: x.t } })) });
 }
 
 // ---------- 21) ระบบตัดงบ / เบิกค่ารักษา (รหัสของระบบตัดงบ) ----------
