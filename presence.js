@@ -55,6 +55,20 @@ export async function startPresence(o) {
   timer = setInterval(tick, 500);
   return true;
 }
+// ไอแพดหยุดกล้องเมื่อสลับไปแอปอื่นหรือล็อกจอ → กลับมาแล้วเปิดกล้องให้ใหม่
+async function reopen() {
+  if (!timer || document.visibilityState !== 'visible') return;
+  const tr = stream && stream.getVideoTracks()[0];
+  if (tr && tr.readyState === 'live' && video && !video.paused) return;
+  try {
+    try { stream && stream.getTracks().forEach((t) => t.stop()); } catch {}
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 320 }, height: { ideal: 240 }, frameRate: { ideal: 10 } }, audio: false });
+    video.srcObject = stream; await video.play();
+  } catch (e) { opts && opts.onError && opts.onError(e); }
+}
+document.addEventListener('visibilitychange', () => setTimeout(reopen, 500));
+setInterval(reopen, 15000);
+
 export function stopPresence() {
   clearInterval(timer); timer = null;
   try { stream && stream.getTracks().forEach((t) => t.stop()); } catch {}
