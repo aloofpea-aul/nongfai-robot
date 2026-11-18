@@ -1,12 +1,12 @@
 // น้องไฟ — แอปหลัก: ฟังเสียงไทย → ถาม Gemini (สตรีม) → พูดตอบทีละประโยค + แสดงบนจอ
-import { Mascot } from './mascot.js?v=11180935';
-import { WavRecorder } from './recorder.js?v=11180935';
-import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary } from './tools.js?v=11180935';
-import { startWatch, TOPICS, alertLog, clearAlertLog } from './watch.js?v=11180935';
-import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11180935';
+import { Mascot } from './mascot.js?v=11181015';
+import { WavRecorder } from './recorder.js?v=11181015';
+import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary } from './tools.js?v=11181015';
+import { startWatch, TOPICS, alertLog, clearAlertLog } from './watch.js?v=11181015';
+import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11181015';
 
 const $ = (id) => document.getElementById(id);
-export const VERSION = '11180935';
+export const VERSION = '11181015';
 // อัปเดตตัวเอง: ถ้าบนเว็บมีเวอร์ชันใหม่กว่า ให้โหลดหน้าใหม่ทันที (กันไอโฟนจำไฟล์เก่า)
 fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json()).then((j) => {
   if (j.v && j.v !== VERSION && !sessionStorage.getItem('nf.reload.' + j.v)) {
@@ -32,7 +32,7 @@ const SYSTEM_BASE = `คุณคือ "น้องไฟ" หุ่นยน�
 1. คำตอบจะถูกอ่านออกเสียง ตอบสั้น 1-3 ประโยค แต่ละประโยคขึ้นบรรทัดใหม่ ห้ามใช้ markdown อีโมจิ ดอกจัน หรือเลขข้อในส่วนที่พูด
 2. ถ้ามีรายการที่ควรแสดงบนจอ เช่น เอกสาร ขั้นตอน ช่องทาง ให้ต่อท้ายด้วยบรรทัด ###CARD ตามด้วยบรรทัดหัวข้อ แล้วแต่ละรายการขึ้นต้นด้วย "- " ไม่เกิน 6 รายการ ลิงก์ให้ใส่ในการ์ดเท่านั้น ห้ามพูดหรือพิมพ์ลิงก์ในส่วนที่พูด
 3. ห้ามเดาตัวเลข ค่าธรรมเนียม อัตราค่าไฟ วันเวลานัดหมาย หรือข้อมูลเฉพาะของลูกค้ารายใด ถ้าไม่แน่ใจให้แนะนำติดต่อเจ้าหน้าที่ที่เคาน์เตอร์บริการ หรือโทร PEA Call Center 1129
-4. มีเครื่องมือดึงข้อมูลจริงจากศูนย์รวมงาน กฟส.อ่าวลึก หลายระบบ (อากาศ เตือนภัย เวรแก้ไฟ ไฟดับ รับแจ้งไฟดับ เบอร์โทรทีม SLD Patrol ตัดต้นไม้ ระเบียบ พัสดุ รถ จัดซื้อ ซื้อหม้อแปลง safety talk K04 KPI เช็กอิน SAIFI/SAIDI Load01 แบบมาตรฐาน ตัดงบ ออกเลขหนังสือ CCL Office Love ราคามาตรฐานพัสดุ) เมื่อคำถามเกี่ยวข้องให้เรียกเครื่องมือก่อนตอบเสมอ แล้วตอบจากผลที่ได้เท่านั้น ห้ามแต่งข้อมูลเอง
+4. มีเครื่องมือดึงข้อมูลจริงจากศูนย์รวมงาน กฟส.อ่าวลึก หลายระบบ (อากาศ เตือนภัย เวรแก้ไฟ ไฟดับ รับแจ้งไฟดับ เบอร์โทรทีม SLD Patrol ตัดต้นไม้ ระเบียบ พัสดุ รถ จัดซื้อ ซื้อหม้อแปลง safety talk K04 KPI เช็กอิน SAIFI/SAIDI Load01 แบบมาตรฐาน (ดูภาพ 2D/3D ใช้ standard_drawing · รายการวัสดุใช้ drawings_bom) ตัดงบ ออกเลขหนังสือ CCL Office Love ราคามาตรฐานพัสดุ) เมื่อคำถามเกี่ยวข้องให้เรียกเครื่องมือก่อนตอบเสมอ แล้วตอบจากผลที่ได้เท่านั้น ห้ามแต่งข้อมูลเอง
 5. ถ้าเครื่องมือตอบว่า need_verify ให้บอกสั้นๆ ว่าเป็นข้อมูลภายใน ขอให้เจ้าหน้าที่ใส่รหัสยืนยันตัวตนบนจอก่อน
 6. ตอบเรื่องวัน เวลา ให้เทียบกับวันเวลาปัจจุบันที่ให้ไว้ ในส่วนที่พูดให้อ่านตัวเลขเป็นคำพูดได้ แต่ในการ์ด ###CARD ให้ใช้ตัวเลขเสมอ เช่น 2,048,517 บาท หรือ 16:30 น.
 7. ถ้าเป็นเรื่องที่ไม่เกี่ยวกับการไฟฟ้า ตอบสั้นๆ อย่างสุภาพ แล้วชวนกลับมาที่เรื่องบริการ`;
@@ -74,7 +74,7 @@ function itemRow(it, d) {
   if (it.thumb) { const im = el('img', 'th'); im.src = it.thumb; im.alt = ''; im.loading = 'lazy'; im.onerror = () => im.replaceWith(thumbIcon(it)); b.append(im); } else b.append(thumbIcon(it));
   const tx = el('div', 'tx'); tx.append(el('div', 't1', it.title || '-')); if (it.sub) tx.append(el('div', 't2', it.sub)); b.append(tx);
   if (it.badge) b.append(el('span', 'bd' + (it.tone || toneGuess(it.badge) ? ' ' + (it.tone || toneGuess(it.badge)) : ''), String(it.badge)));
-  b.onclick = () => openDetail(it, d);
+  b.onclick = () => (it.dwg ? openDwg(it.dwg) : openDetail(it, d));
   return b;
 }
 function thumbIcon(it) { const s = el('span', 'th', it.lat ? '⌖' : it.link ? '▤' : '•'); s.setAttribute('aria-hidden', 'true'); return s; }
@@ -98,6 +98,34 @@ async function openDetail(it, d) {
   }
 }
 document.getElementById('dtBack').onclick = () => $('detailDlg').close();
+
+// ---------- ดูแบบมาตรฐาน 2D / 3D (เปิดหน้าแบบจากคลังในศูนย์รวมงาน) ----------
+let dwgNow = null;
+function openDwg(g) {
+  dwgNow = g;
+  $('dwgTitle').textContent = g.title || 'แบบมาตรฐาน';
+  if (!g.page) { if (g.pdf) window.open(g.pdf, '_blank'); return; }
+  // หน้าแบบอยู่หลังล็อกอินศูนย์รวมงาน: ใช้ชื่อ/รหัสที่ตั้งไว้ในน้องไฟ (โดเมนเดียวกัน เก็บในเครื่องนี้)
+  try {
+    if (cfg.hubUser && cfg.hubPass && !localStorage.getItem('pea_aoluek_password')) {
+      localStorage.setItem('pea_aoluek_username', cfg.hubUser); localStorage.setItem('pea_aoluek_password', cfg.hubPass);
+    }
+  } catch {}
+  $('dwgDlg').querySelectorAll('.dwg-tabs button').forEach((b) => b.classList.toggle('on', b.dataset.go === 'elev'));
+  $('dwgFrame').src = g.page;
+  $('dwgDlg').showModal();
+}
+$('dwgBack').onclick = () => { $('dwgDlg').close(); $('dwgFrame').src = 'about:blank'; };
+$('dwgDlg').querySelectorAll('.dwg-tabs button').forEach((b) => (b.onclick = () => {
+  const go = b.dataset.go;
+  if (go === 'pdf') { if (dwgNow && dwgNow.pdf) window.open(dwgNow.pdf, '_blank'); else toast('แบบนี้ไม่มี PDF ค่ะ'); return; }
+  $('dwgDlg').querySelectorAll('.dwg-tabs button').forEach((x) => x.classList.toggle('on', x === b));
+  try {
+    const doc = $('dwgFrame').contentDocument;
+    const t = go === 'tb' ? (doc.getElementById('tb') || [...doc.querySelectorAll('h2')].find((h) => /วัสดุ|รายการ/.test(h.textContent))) : doc.getElementById(go);
+    if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' }); else toast('แบบนี้ไม่มีส่วนนี้ค่ะ');
+  } catch { toast('ยังโหลดแบบไม่เสร็จค่ะ'); }
+}));
 
 // ---------- มาสคอต ----------
 const mascot = new Mascot($('stage'));

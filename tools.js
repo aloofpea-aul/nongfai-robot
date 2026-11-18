@@ -377,6 +377,44 @@ async function drawingsBom({ keyword }) {
   return withD({ พบ: hit.length, แบบ: hit }, { source: 'แบบมาตรฐาน กฟภ.', app: '/pea-drawings/', items: hit.map((x) => ({ title: x.แบบ, sub: (x.วัสดุ || []).length + ' รายการวัสดุ', link: x.หน้า, fields: (x.วัสดุ || []).map((m) => { const p = m.split(' · '); return [p[0] + '. ' + (p[1] || ''), p.slice(2).join(' ')]; }) })) });
 }
 
+// ---------- 20b) ค้นแบบมาตรฐาน กฟภ. พร้อมภาพ 2D / 3D (ดึงจากคลังแบบในศูนย์รวมงาน ไม่สร้างใหม่) ----------
+async function dwgCatalog() {
+  return cached('dwgcat', 24 * 3600e3, async () => {
+    const html = await (await fetch('/pea-drawings/index.html', { cache: 'force-cache' })).text();
+    const grab = (n) => { const m = html.match(new RegExp('const ' + n + '=(.*?);\\s*(?:\\n|const )')); return m ? JSON.parse(m[1]) : null; };
+    const items = grab('ITEMS') || [], pdf = grab('PDF') || {}, detail = grab('DETAIL') || {}, series = grab('SERIES') || [];
+    let bom = []; try { bom = await (await fetch('/pea-drawings/bom-index.json')).json(); } catch {}
+    const asm = {}; bom.forEach((x) => { asm[x.f] = x.t; });
+    const ser = Object.fromEntries(series.map((x) => [x.c, x.th]));
+    return items.map((x) => {
+      const page = detail[x.id] ? '/pea-drawings/' + detail[x.id] : '', f = (detail[x.id] || '').replace(/^d\//, '');
+      const t = asm[f] || '';
+      return { id: x.id, th: x.th, en: x.en, n: x.n || (t.match(/^\d{3,5}\w*/) || [''])[0], c: x.c, ser: ser[x.c] || '', page, pdf: pdf[x.id] ? '/pea-drawings/' + pdf[x.id] : '', bomT: t };
+    });
+  });
+}
+async function standardDrawing({ keyword }) {
+  const cat = await dwgCatalog();
+  const ws = words(keyword || '');
+  const score = (x) => {
+    const hay = [x.n, x.th, x.en, x.c, x.ser, x.bomT].join(' ').toLowerCase();
+    let sc = 0;
+    for (const w of ws) {
+      if (x.n && x.n.toLowerCase() === w) sc += 10;
+      else if (hay.includes(w)) sc += 2;
+      else if (w.length > 3) { // คำไทยติดกันยาวๆ: นับว่าตัวอักษรคู่ๆ ของคำค้นมีในชื่อแบบกี่ส่วน
+        let n = 0, k = 0; for (let i = 0; i < w.length - 1; i++, k++) if (hay.includes(w.slice(i, i + 2))) n++;
+        sc += n / k >= 0.75 ? 1 + n / k : -3;
+      } else sc -= 3;
+    }
+    return sc + (x.page ? 1 : 0);
+  };
+  const hit = cat.map((x) => [score(x), x]).filter(([s]) => s > 0).sort((a, b) => b[0] - a[0]).slice(0, 8).map(([, x]) => x);
+  const name = (x) => [x.n, x.th].filter(Boolean).join(' ');
+  return withD({ พบ: hit.length, แบบ: hit.map((x) => ({ แบบ: name(x), หมวด: x.ser, มีภาพ2D3D: !!x.page })), หมายเหตุ: 'ภาพ 2D/3D แสดงบนจออัตโนมัติ ให้บอกผู้ใช้แตะรายการเพื่อดู' },
+    { source: 'แบบมาตรฐาน กฟภ. · 2D / 3D', app: '/pea-drawings/', items: hit.map((x) => ({ title: name(x), sub: [x.ser, x.en].filter(Boolean).join(' · '), badge: x.page ? '2D · 3D' : 'PDF', tone: x.page ? 'green' : '', dwg: { page: x.page, pdf: x.pdf, title: name(x) } })) });
+}
+
 // ---------- 21) ระบบตัดงบ / เบิกค่ารักษา (รหัสของระบบตัดงบ) ----------
 const BUDGET_API = 'https://script.google.com/macros/s/AKfycbygECo4LkNmO4KLt2CXCrX25vwXE0armUUsdajOWF1CL3djNXaELZX8gwb8zU1GFdsWwQ/exec';
 async function fnCall(api, fn, args, token) {
@@ -470,6 +508,7 @@ export async function glossary() {
 
 // ---------- ประกาศให้ Gemini รู้จักเครื่องมือ ----------
 export const TOOLS = {
+  standard_drawing: { access: 'public', run: standardDrawing, decl: { name: 'standard_drawing', description: 'ค้นแบบก่อสร้างมาตรฐาน กฟภ. และแสดงภาพ 2D / โมเดล 3D / PDF บนจอ เช่น แบบติดตั้งหม้อแปลง คอนสาย ลูกถ้วย เสา หรือเลขแบบ เช่น 6201 (ใช้เมื่อผู้ใช้อยากดูแบบหรือรูป)', parameters: { type: 'OBJECT', properties: { keyword: { type: 'STRING', description: 'ชื่อแบบ อุปกรณ์ หรือเลขการประกอบ' } }, required: ['keyword'] } } },
   weather_now: { access: 'public', run: weatherNow, decl: { name: 'weather_now', description: 'สภาพอากาศตอนนี้ที่อ่าวลึก และระดับความเสี่ยงไฟดับจากฝน/ลม', parameters: { type: 'OBJECT', properties: {} } } },
   weather_warnings: { access: 'public', run: weatherWarnings, decl: { name: 'weather_warnings', description: 'ประกาศเตือนภัยกรมอุตุนิยมวิทยารายวันของเดือน (เฉพาะที่เกี่ยวกับกระบี่และทั่วไป)', parameters: { type: 'OBJECT', properties: { month: { type: 'STRING', description: 'YYYY-MM ว่างได้ = เดือนนี้' } } } } },
   duty_roster: { access: 'internal', run: dutyRoster, decl: { name: 'duty_roster', description: 'ตารางเวรแก้ไฟของพนักงานและคนงาน กฟส.อ่าวลึก ในวันที่ระบุ ว่าใครเข้าเวรช่วงไหน และเบอร์ห้องเวร', parameters: { type: 'OBJECT', properties: { date: { type: 'STRING', description: 'YYYY-MM-DD ว่างได้ = วันนี้' } } } } },
