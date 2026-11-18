@@ -1,14 +1,15 @@
 // แจ้งเตือนอัปเดตจากศูนย์รวมงาน (เกือบเรียลไทม์)
 // ถามตัวเฝ้า (Apps Script ระบบเรียนรู้) ทุก ~12 วิ ว่าไฟล์ของระบบไหนถูกแก้ → ดึงเฉพาะระบบนั้นมาเทียบกับครั้งก่อน
 // ครั้งแรกจำสถานะไว้เฉยๆ (ไม่ประกาศของเก่า) · ทำงานเฉพาะตอนเปิดแอปอยู่บนจอ
-const DUTY_API = 'https://script.google.com/macros/s/AKfycbzIFoqXzNyJ56EOd2p-L6bdbO6ZNLQmYS5xoW4sTFJUuZKkxnnU2TEKJRMdusi1gwzr5g/exec';
+import { DUTY_API, loadNotices, ntState, ntT, ntArea, ntWhen } from './notices.js?v=11181345';
 const TMD_API = 'https://script.google.com/macros/s/AKfycbyF7Am81Ut4aUbzTbACUFpJhIQ2q3iKiiTxoLM8IoGvANQ8NQpaM5BvokCeyOWiAqrwNA/exec';
 const KEY = 'nongfai.watch';
 const S = JSON.parse(localStorage.getItem(KEY) || '{}'); // { ts:{}, tk:{id:st}, tmd:[keys], log:[] }
 S.ts = S.ts || {}; S.log = S.log || [];
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch {} };
 
-export const TOPICS = { tickets: 'รับแจ้งไฟดับ', tmd: 'เตือนภัยกรมอุตุ' };
+export const TOPICS = { notices: 'ประกาศงดจ่ายไฟ', tickets: 'รับแจ้งไฟดับ', tmd: 'เตือนภัยกรมอุตุ' };
+const FILE_OF = { notices: 'tickets', tickets: 'tickets', tmd: 'tmd' }; // ประกาศงดจ่ายไฟอยู่ในไฟล์เดียวกับงานเวรแก้ไฟ
 const FULL_EVERY = 3 * 60e3; // ดึงเต็มทุก 3 นาทีด้วย เผื่อเวลาไฟล์ใน Drive อัปเดตช้า
 
 const post = async (url, body) => (await fetch(url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) })).json();
@@ -49,13 +50,40 @@ async function checkTmd() {
     q: 'ประกาศเตือนภัยกรมอุตุล่าสุดมีอะไรบ้าง',
   }));
 }
-const CHECK = { tickets: checkTickets, tmd: checkTmd };
+async function checkNotices() {
+  const list = await loadNotices(), now = Date.now();
+  const first = !S.nt; const prev = S.nt || {};
+  const cur = {};
+  const out = [], Q = 'ประกาศงดจ่ายไฟที่กำลังจะมาถึงมีอะไรบ้าง';
+  for (const n of list) {
+    const st = ntState(n, now), p = prev[n.id] || {}, emg = n.type === 'emg', area = ntArea(n);
+    const soonMin = Math.round((ntT(n.startAt) - now) / 60e3);
+    const c = cur[n.id] = { st, soon: p.soon || false };
+    if (first) { c.soon = soonMin <= 30; continue; }
+    const card = (title, say, sub) => out.push({ topic: 'notices', title, text: area, sub: sub || ntWhen(n), say, q: Q });
+    if (!prev[n.id]) {
+      if (st === 'plan' || st === 'due' || st === 'live')
+        card(emg ? 'ดับไฟฉุกเฉิน' : 'ประกาศงดจ่ายไฟใหม่', emg ? 'มีการดับไฟฉุกเฉิน ที่ ' + area + (n.reason ? ' เนื่องจาก' + n.reason : '') + 'ค่ะ' : 'มีประกาศงดจ่ายไฟใหม่ ' + ntWhen(n) + ' ที่ ' + area + 'ค่ะ');
+      c.soon = soonMin <= 30;
+      continue;
+    }
+    if (p.st !== st) {
+      if (st === 'live' && !emg) card('เริ่มงดจ่ายไฟแล้ว', 'เริ่มงดจ่ายไฟแล้ว ที่ ' + area + 'ค่ะ');
+      else if (st === 'done') card('ไฟมาแล้ว', 'จ่ายไฟคืนแล้ว ที่ ' + area + 'ค่ะ');
+      else if (st === 'cancel') card('ยกเลิกงดจ่ายไฟ', 'ยกเลิกการงดจ่ายไฟ ' + ntWhen(n) + ' ที่ ' + area + ' ใช้ไฟได้ตามปกติค่ะ');
+    }
+    if (!c.soon && st === 'plan' && soonMin > 0 && soonMin <= 30) { c.soon = true; card('อีก ' + soonMin + ' นาทีจะงดจ่ายไฟ', 'อีก ' + soonMin + ' นาที จะเริ่มงดจ่ายไฟ ที่ ' + area + 'ค่ะ'); }
+  }
+  S.nt = cur;
+  return out;
+}
+const CHECK = { notices: checkNotices, tickets: checkTickets, tmd: checkTmd };
 
 // ---------- วนเช็ก ----------
 let timer = null, running = false, lastFull = 0, ctxRef = null;
 export const alertLog = () => S.log;
 export function clearAlertLog() { S.log = []; save(); }
-export function resetWatchBaseline() { delete S.tk; delete S.tmd; S.ts = {}; save(); }
+export function resetWatchBaseline() { delete S.tk; delete S.tmd; delete S.nt; S.ts = {}; save(); }
 
 async function tick() {
   const ctx = ctxRef; if (!ctx || running) return;
@@ -71,8 +99,8 @@ async function tick() {
     if (L.url && L.secret && !full) {
       const w = await post(L.url, { action: 'watch', secret: L.secret });
       if (w && w.ok && w.t) {
-        changed = topics.filter((k) => w.t[k] && w.t[k] !== S.ts[k] || S.ts[k] === undefined);
-        topics.forEach((k) => { if (w.t[k]) S.ts[k] = w.t[k]; });
+        changed = topics.filter((k) => { const t = w.t[FILE_OF[k]]; return (t && t !== S.ts[k]) || S.ts[k] === undefined; });
+        topics.forEach((k) => { const t = w.t[FILE_OF[k]]; if (t) S.ts[k] = t; });
       } else changed = topics; // ตัวเฝ้าใช้ไม่ได้ → ดึงตรงทุกรอบแทน (ช้ากว่าแต่ยังทำงาน)
     } else changed = topics;
     if (full) lastFull = Date.now();

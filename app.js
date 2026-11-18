@@ -1,12 +1,12 @@
 // น้องไฟ — แอปหลัก: ฟังเสียงไทย → ถาม Gemini (สตรีม) → พูดตอบทีละประโยค + แสดงบนจอ
-import { Mascot } from './mascot.js?v=11181115';
-import { WavRecorder } from './recorder.js?v=11181115';
-import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary } from './tools.js?v=11181115';
-import { startWatch, TOPICS, alertLog, clearAlertLog } from './watch.js?v=11181115';
-import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11181115';
+import { Mascot } from './mascot.js?v=11181345';
+import { WavRecorder } from './recorder.js?v=11181345';
+import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary } from './tools.js?v=11181345';
+import { startWatch, TOPICS, alertLog, clearAlertLog } from './watch.js?v=11181345';
+import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11181345';
 
 const $ = (id) => document.getElementById(id);
-export const VERSION = '11181115';
+export const VERSION = '11181345';
 // อัปเดตตัวเอง: ถ้าบนเว็บมีเวอร์ชันใหม่กว่า ให้โหลดหน้าใหม่ทันที (กันไอโฟนจำไฟล์เก่า)
 fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json()).then((j) => {
   if (j.v && j.v !== VERSION && !sessionStorage.getItem('nf.reload.' + j.v)) {
@@ -32,7 +32,7 @@ const SYSTEM_BASE = `คุณคือ "น้องไฟ" หุ่นยน�
 1. คำตอบจะถูกอ่านออกเสียง ตอบสั้น 1-3 ประโยค แต่ละประโยคขึ้นบรรทัดใหม่ ห้ามใช้ markdown อีโมจิ ดอกจัน หรือเลขข้อในส่วนที่พูด
 2. ถ้ามีรายการที่ควรแสดงบนจอ เช่น เอกสาร ขั้นตอน ช่องทาง ให้ต่อท้ายด้วยบรรทัด ###CARD ตามด้วยบรรทัดหัวข้อ แล้วแต่ละรายการขึ้นต้นด้วย "- " ไม่เกิน 6 รายการ ลิงก์ให้ใส่ในการ์ดเท่านั้น ห้ามพูดหรือพิมพ์ลิงก์ในส่วนที่พูด
 3. ห้ามเดาตัวเลข ค่าธรรมเนียม อัตราค่าไฟ วันเวลานัดหมาย หรือข้อมูลเฉพาะของลูกค้ารายใด ถ้าไม่แน่ใจให้แนะนำติดต่อเจ้าหน้าที่ที่เคาน์เตอร์บริการ หรือโทร PEA Call Center 1129
-4. มีเครื่องมือดึงข้อมูลจริงจากศูนย์รวมงาน กฟส.อ่าวลึก หลายระบบ (อากาศ เตือนภัย เวรแก้ไฟ ไฟดับ รับแจ้งไฟดับ เบอร์โทรทีม SLD Patrol ตัดต้นไม้ ระเบียบ พัสดุ รถ จัดซื้อ ซื้อหม้อแปลง safety talk K04 KPI เช็กอิน SAIFI/SAIDI Load01 แบบมาตรฐาน (ดูภาพ 2D/3D ใช้ standard_drawing · รายการวัสดุใช้ drawings_bom) ตัดงบ ออกเลขหนังสือ CCL Office Love ราคามาตรฐานพัสดุ) เมื่อคำถามเกี่ยวข้องให้เรียกเครื่องมือก่อนตอบเสมอ แล้วตอบจากผลที่ได้เท่านั้น ห้ามแต่งข้อมูลเอง
+4. มีเครื่องมือดึงข้อมูลจริงจากศูนย์รวมงาน กฟส.อ่าวลึก หลายระบบ (อากาศ เตือนภัย เวรแก้ไฟ ไฟดับ รับแจ้งไฟดับ เบอร์โทรทีม SLD Patrol ตัดต้นไม้ ระเบียบ พัสดุ รถ จัดซื้อ ซื้อหม้อแปลง safety talk K04 KPI เช็กอิน SAIFI/SAIDI ประกาศงดจ่ายไฟ Load01 แบบมาตรฐาน (ดูภาพ 2D/3D ใช้ standard_drawing · รายการวัสดุใช้ drawings_bom) ตัดงบ ออกเลขหนังสือ CCL Office Love ราคามาตรฐานพัสดุ) เมื่อคำถามเกี่ยวข้องให้เรียกเครื่องมือก่อนตอบเสมอ แล้วตอบจากผลที่ได้เท่านั้น ห้ามแต่งข้อมูลเอง
 5. ถ้าเครื่องมือตอบว่า need_verify ให้บอกสั้นๆ ว่าเป็นข้อมูลภายใน ขอให้เจ้าหน้าที่ใส่รหัสยืนยันตัวตนบนจอก่อน
 6. ตอบเรื่องวัน เวลา ให้เทียบกับวันเวลาปัจจุบันที่ให้ไว้ ในส่วนที่พูดให้อ่านตัวเลขเป็นคำพูดได้ แต่ในการ์ด ###CARD ให้ใช้ตัวเลขเสมอ เช่น 2,048,517 บาท หรือ 16:30 น.
 7. ถ้าเป็นเรื่องที่ไม่เกี่ยวกับการไฟฟ้า ตอบสั้นๆ อย่างสุภาพ แล้วชวนกลับมาที่เรื่องบริการ`;
@@ -587,7 +587,8 @@ function onAlerts(list) {
   showAlert(list[0]);
   alertUnseen += list.length; setBell();
   mascot.pulse();
-  if (!cfg.alertVoice || quietNow() || !OPS()) return; // โหมดลูกค้า: ไม่พูดข้อมูลภายในออกเสียง
+  const publicOnly = list.every((a) => a.topic === 'notices' || a.topic === 'test'); // ประกาศงดจ่ายไฟเป็นข้อมูลสาธารณะ พูดในโหมดลูกค้าได้
+  if (!cfg.alertVoice || quietNow() || (!OPS() && !publicOnly)) return; // โหมดลูกค้า: ไม่พูดข้อมูลภายในออกเสียง
   sayLater.push(list.length > 1 ? 'มีอัปเดตจากศูนย์รวมงาน ' + list.length + ' เรื่องค่ะ ' + list[0].say : list[0].say);
   flushSay();
 }
