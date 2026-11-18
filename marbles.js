@@ -25,7 +25,7 @@ const V = `varying vec3 vN; varying vec3 vV;
 void main(){ vec4 mv = modelViewMatrix * vec4(position, 1.0); vN = normalize(normalMatrix * normal); vV = normalize(-mv.xyz); gl_Position = projectionMatrix * mv; }`;
 const F = `uniform vec3 uTint; uniform float uFade; varying vec3 vN; varying vec3 vV;
 void main(){
-  float f = pow(1.0 - max(dot(vN, vV), 0.0), 2.3);
+  float f = pow(1.0 - max(dot(vN, vV), 0.0), 1.9);
   vec3 L = normalize(vec3(-0.45, 0.75, 0.6)); float sp = pow(max(dot(vN, normalize(L + vV)), 0.0), 90.0) * 1.4;
   vec3 L2 = normalize(vec3(0.5, -0.55, 0.5)); float sp2 = pow(max(dot(vN, normalize(L2 + vV)), 0.0), 18.0) * 0.22;
   vec3 c = mix(uTint * 0.75, uTint * 1.15, f) + vec3(sp + sp2);
@@ -41,7 +41,7 @@ function emojiTexture(e) {
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; iconTex.set(e, t); return t;
 }
 
-const R = 0.3, FLOOR = -2.25, WALL = 2.05;
+const R = 0.4, FLOOR = -2.2, WALL = 2.0;
 const geo = new THREE.SphereGeometry(R, 32, 24);
 const hitGeo = new THREE.SphereGeometry(R * 1.5, 8, 6);
 
@@ -51,7 +51,7 @@ class Marble {
     this.mat = new THREE.ShaderMaterial({ vertexShader: V, fragmentShader: F, transparent: true, depthWrite: false, uniforms: { uTint: { value: new THREE.Color(tint) }, uFade: { value: 1 } } });
     this.g = new THREE.Group();
     this.icon = new THREE.Sprite(new THREE.SpriteMaterial({ map: emojiTexture(app.e), transparent: true, depthWrite: false }));
-    this.icon.scale.setScalar(R * 1.25);
+    this.icon.scale.setScalar(R * 1.35);
     this.shell = new THREE.Mesh(geo, this.mat); this.shell.renderOrder = 2;
     const hit = new THREE.Mesh(hitGeo, new THREE.MeshBasicMaterial({ visible: false })); hit.userData.marble = this;
     this.g.add(this.icon, this.shell, hit);
