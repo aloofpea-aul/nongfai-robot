@@ -380,7 +380,7 @@ async function drawingsBom({ keyword }) {
 // ---------- 20b) ค้นแบบมาตรฐาน กฟภ. พร้อมภาพ 2D / 3D (ดึงจากคลังแบบในศูนย์รวมงาน ไม่สร้างใหม่) ----------
 async function dwgCatalog() {
   // ดัชนีชื่อแบบ (สร้างจากคลังแบบ pea-drawings ด้วย scripts/build-dwg-index.py) — ภาพ/โมเดลเปิดจากหน้าแบบในคลังโดยตรง
-  return cached('dwgcat', 24 * 3600e3, async () => (await fetch('./dwg-index.json?v=11181030')).json());
+  return cached('dwgcat', 24 * 3600e3, async () => (await fetch('./dwg-index.json?v=11181040')).json());
 }
 const DWG_SYN = [[/สามเฟส|3เฟส/g, '3 เฟส'], [/หนึ่งเฟส|เฟสเดียว|1เฟส/g, '1 เฟส'], [/เสาคู่|สองเสา/g, 'นั่งร้าน'], [/(\d+)\s*เควี|(\d+)\s*kv/gi, '$1$2 kV'], [/ลูกถ้วย|ลูกถ้วยไฟ/g, 'ลูกถ้วย'], [/แรงต่ำ/g, 'แรงต่ำ']];
 const dwgNorm = (t) => { t = String(t || '').toLowerCase(); DWG_SYN.forEach(([a, b]) => { t = t.replace(a, b); }); return t; };
@@ -393,8 +393,10 @@ async function standardDrawing({ keyword }) {
     let sc = 0;
     for (const w of ws) {
       if (/^\d{3,4}[a-z]?$/i.test(w) && name.startsWith(w)) sc += 12;   // เลขการประกอบ เช่น 3718
-      else if (name.includes(w)) sc += 3;
+      else if (/^(kv|kva|v|เฟส|ม\.?|มม\.?|ระบบ|แบบ|การติดตั้ง)$/.test(w)) sc += name.includes(w) ? 0.3 : 0; // คำทั่วไป ให้น้ำหนักน้อย
+      else if (name.includes(w)) sc += 2 + Math.min(w.length, 12) / 3;                    // คำยาว = เจาะจงกว่า
       else if (hay.includes(w) || hayNs.includes(w)) sc += 1.5;
+      else if (/^\d+$/.test(w)) sc -= 1;
       else if (w.length > 3) { let n = 0, k = 0; for (let i = 0; i < w.length - 1; i++, k++) if (hayNs.includes(w.slice(i, i + 2))) n++; sc += n / k >= 0.8 ? n / k : -3; }
       else sc -= 3;
     }
