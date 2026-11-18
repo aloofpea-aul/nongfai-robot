@@ -1,12 +1,12 @@
 // น้องไฟ — แอปหลัก: ฟังเสียงไทย → ถาม Gemini (สตรีม) → พูดตอบทีละประโยค + แสดงบนจอ
-import { Mascot } from './mascot.js?v=11180240';
-import { WavRecorder } from './recorder.js?v=11180240';
-import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary } from './tools.js?v=11180240';
-import { startWatch, TOPICS, alertLog, clearAlertLog } from './watch.js?v=11180240';
-import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11180240';
+import { Mascot } from './mascot.js?v=11180840';
+import { WavRecorder } from './recorder.js?v=11180840';
+import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary } from './tools.js?v=11180840';
+import { startWatch, TOPICS, alertLog, clearAlertLog } from './watch.js?v=11180840';
+import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11180840';
 
 const $ = (id) => document.getElementById(id);
-export const VERSION = '11180240';
+export const VERSION = '11180840';
 // อัปเดตตัวเอง: ถ้าบนเว็บมีเวอร์ชันใหม่กว่า ให้โหลดหน้าใหม่ทันที (กันไอโฟนจำไฟล์เก่า)
 fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json()).then((j) => {
   if (j.v && j.v !== VERSION && !sessionStorage.getItem('nf.reload.' + j.v)) {
@@ -661,22 +661,20 @@ function openSettings() {
   const st = learnStats();
   $('learnInfo').textContent = (st.online ? 'เชื่อม Sheet แล้ว ✓ · ' : st.configured ? 'ใส่ค่าแล้วแต่เชื่อม Sheet ไม่สำเร็จ · ' : 'ยังไม่เชื่อม Sheet (เก็บในเครื่องนี้) · ') + `จำคำ ${st.corr} · คำตอบยืนยัน ${st.verified} · ตัวอย่าง ${st.examples}`;
   $('verLabel').textContent = 'เวอร์ชัน ' + VERSION;
-  $('settings').showModal();
+  if (!$('settings').open) $('settings').showModal();
 }
 $('btnSettings').onclick = openSettings;
 // QR สำหรับตั้งค่าเครื่องอื่นครั้งเดียว: มี API key + ระบบเรียนรู้ (สแกนด้วยกล้องแล้วเปิดในแอปที่ติดตั้งไว้)
 $('btnQr').onclick = async () => {
   const box = $('qrBox');
   if (!box.hidden) { box.hidden = true; box.replaceChildren(); return; }
-  const h = new URLSearchParams();
-  if (cfg.apiKey) h.set('key', cfg.apiKey);
-  if (cfg.learnUrl && cfg.learnSecret) { h.set('lu', cfg.learnUrl); h.set('ls', cfg.learnSecret); }
-  if (![...h.keys()].length) { toast('ยังไม่มีค่าที่จะส่งต่อค่ะ'); return; }
-  const url = location.origin + location.pathname + '#' + h.toString();
+  const pack = Object.fromEntries(SHARE_KEYS.filter((k) => cfg[k] !== '' && cfg[k] != null).map((k) => [k, cfg[k]]));
+  if (!Object.keys(pack).length) { toast('ยังไม่มีค่าที่จะส่งต่อค่ะ'); return; }
+  const url = location.origin + location.pathname + '#cfg=' + packCfg(pack);
   if (!window.qrcode) await new Promise((ok, no) => { const sc = document.createElement('script'); sc.src = 'https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js'; sc.onload = ok; sc.onerror = no; document.head.append(sc); });
   const q = window.qrcode(0, 'M'); q.addData(url); q.make();
   const img = new Image(); img.src = q.createDataURL(6, 2); img.alt = 'QR ตั้งค่า';
-  box.replaceChildren(img, el('p', null, 'สแกนด้วยกล้องไอแพด/ไอโฟน · QR นี้มีรหัสลับ อย่าถ่ายรูปส่งต่อ'));
+  box.replaceChildren(img, el('p', null, 'สแกนด้วยกล้องไอแพด/ไอโฟน · มีการตั้งค่าทั้งหมดรวมรหัสผ่าน อย่าถ่ายรูปส่งต่อ'));
   box.hidden = false;
 };
 $('btnPaste').onclick = async () => {
@@ -684,8 +682,19 @@ $('btnPaste').onclick = async () => {
   catch { toast('วางไม่ได้ ลองกดค้างที่ช่องแล้วเลือก "วาง" นะคะ'); }
 };
 // วางลิงก์จาก QR (มี #lu=…&ls=…) แล้วแยกลิงก์กับรหัสลับให้เอง
+// ย้ายการตั้งค่าทั้งหมดข้ามเครื่อง (API key, รหัสศูนย์รวมงาน, รหัสระบบอื่น, ระบบเรียนรู้, แจ้งเตือน)
+const SHARE_KEYS = ['apiKey', 'model', 'rate', 'mode', 'stt', 'hubUser', 'hubPass', 'staffPin', 'budgetUser', 'budgetPass', 'officeCode', 'cclUser', 'cclPass', 'olUser', 'olPass', 'learnUrl', 'learnSecret', 'confirm', 'alertOn', 'alertVoice', 'quietOn', 'quietFrom', 'quietTo', 'alertTopics'];
+function packCfg(o) { return btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
+function unpackCfg(t) { try { return JSON.parse(decodeURIComponent(escape(atob(t.replace(/-/g, '+').replace(/_/g, '/'))))); } catch { return null; } }
+function importCfg(o) {
+  if (!o || typeof o !== 'object') return false;
+  SHARE_KEYS.forEach((k) => { if (k in o) cfg[k] = o[k]; });
+  saveCfg(); initLearn(cfg.learnUrl, cfg.learnSecret);
+  return true;
+}
 function fillLearn(v) {
   const i = v.indexOf('#'), h = new URLSearchParams(i >= 0 ? v.slice(i + 1) : '');
+  if (h.get('cfg') && importCfg(unpackCfg(h.get('cfg')))) { openSettings(); toast('นำเข้าการตั้งค่าทั้งหมดแล้วค่ะ', 5000); return true; }
   if (h.get('lu') && h.get('ls')) { $('setLearnUrl').value = h.get('lu'); $('setLearnSecret').value = h.get('ls'); toast('ใส่ลิงก์และรหัสลับให้แล้ว กดบันทึกได้เลยค่ะ', 5000); return true; }
   return false;
 }
@@ -731,6 +740,10 @@ if (rawHash.length > 5 && !inApp && /iPhone|iPad|Macintosh/.test(navigator.userA
 }
 if (hashKey) { cfg.apiKey = hashKey; saveCfg(); window.history.replaceState(null, "", location.pathname); toast('บันทึก API key แล้วค่ะ'); }
 // ลิงก์ตั้งค่าระบบเรียนรู้ครั้งเดียว (#lu=...&ls=...)
+if (hp.get('cfg')) {
+  if (importCfg(unpackCfg(hp.get('cfg')))) toast('นำเข้าการตั้งค่าทั้งหมดแล้วค่ะ', 5000);
+  window.history.replaceState(null, "", location.pathname);
+}
 if (hp.get('lu') && hp.get('ls')) {
   cfg.learnUrl = hp.get('lu'); cfg.learnSecret = hp.get('ls'); saveCfg(); window.history.replaceState(null, "", location.pathname);
   initLearn(cfg.learnUrl, cfg.learnSecret).then((ok) => toast(ok ? 'เชื่อมระบบเรียนรู้แล้วค่ะ' : 'เชื่อมระบบเรียนรู้ไม่สำเร็จค่ะ', 5000));
