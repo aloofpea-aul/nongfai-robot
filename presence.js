@@ -4,7 +4,7 @@ const VER = '0.10.14';
 const WASM = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${VER}/wasm`;
 const MODEL = 'https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite';
 
-let det = null, video = null, stream = null, timer = null, opts = null;
+let det = null, video = null, stream = null, timer = null, opts = null, rateMs = 500;
 let seenSince = 0, lastSeen = 0, lastGreet = 0, present = false;
 // สถานะไว้ตรวจว่ากล้องยังทำงานไหม (แสดงในหน้าตั้งค่า + จุดบนแถบด้านบน)
 export const status = { step: 'off', delegate: '', checks: 0, faces: 0, lastFaceAt: 0, lastCheckAt: 0, err: '', w: 0, h: 0, size: 0 };
@@ -69,7 +69,7 @@ export async function startPresence(o) {
   await video.play();
   status.step = 'running';
   lastSeen = Date.now();
-  timer = setInterval(tick, 500);
+  timer = setInterval(tick, rateMs);
   return true;
 }
 // ไอแพดหยุดกล้องเมื่อสลับไปแอปอื่นหรือล็อกจอ → กลับมาแล้วเปิดกล้องให้ใหม่
@@ -94,3 +94,10 @@ export function stopPresence() {
 }
 export const presenceOn = () => !!timer;
 export const someoneHere = () => present;
+
+// ปรับความถี่การตรวจใบหน้า (โหมดประหยัดพลังงาน: ตอนพักจอตรวจช้าลง)
+export function setPresenceRate(ms) {
+  if (ms === rateMs) return;
+  rateMs = ms;
+  if (timer) { clearInterval(timer); timer = setInterval(tick, rateMs); }
+}

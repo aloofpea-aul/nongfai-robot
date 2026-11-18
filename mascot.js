@@ -137,7 +137,13 @@ export class Mascot {
     this.setupTouch();
     new ResizeObserver(() => this.resize()).observe(container);
     this.resize();
-    this.renderer.setAnimationLoop(() => this.tick());
+    // จำกัดจำนวนภาพต่อวินาทีได้ (โหมดประหยัดพลังงาน): maxFps = 0 คือเต็มที่
+    this.maxFps = 0; this._lastFrame = 0;
+    this.renderer.setAnimationLoop((now) => {
+      if (this.maxFps && now - this._lastFrame < 1000 / this.maxFps - 2) return;
+      this._lastFrame = now;
+      this.tick();
+    });
   }
 
   resize() {
@@ -175,7 +181,7 @@ export class Mascot {
   lookAt(x, y) { this.lookTarget.set(THREE.MathUtils.clamp(x, -1, 1), THREE.MathUtils.clamp(y, -1, 1)); }
 
   tick() {
-    const dt = Math.min(this.clock.getDelta(), 0.05), t = this.clock.elapsedTime;
+    const dt = Math.min(this.clock.getDelta(), this.maxFps && this.maxFps < 20 ? 0.25 : 0.05), t = this.clock.elapsedTime;
     const sleepy = this.mood === 'sleepy';
 
     // ลอยขึ้นลงเบาๆ

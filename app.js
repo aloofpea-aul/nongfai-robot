@@ -1,13 +1,13 @@
 // น้องมีไฟ — แอปหลัก: ฟังเสียงไทย → ถาม Gemini (สตรีม) → พูดตอบทีละประโยค + แสดงบนจอ
-import { Mascot } from './mascot.js?v=11181930';
-import { WavRecorder } from './recorder.js?v=11181930';
-import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary } from './tools.js?v=11181930';
-import { startPresence, stopPresence, presenceOn, someoneHere, status as camStatus } from './presence.js?v=11181930';
-import { startWatch, TOPICS, alertLog, clearAlertLog } from './watch.js?v=11181930';
-import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11181930';
+import { Mascot } from './mascot.js?v=11181940';
+import { WavRecorder } from './recorder.js?v=11181940';
+import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary } from './tools.js?v=11181940';
+import { startPresence, stopPresence, presenceOn, someoneHere, setPresenceRate, status as camStatus } from './presence.js?v=11181940';
+import { startWatch, TOPICS, alertLog, clearAlertLog } from './watch.js?v=11181940';
+import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11181940';
 
 const $ = (id) => document.getElementById(id);
-export const VERSION = '11181930';
+export const VERSION = '11181940';
 // อัปเดตตัวเอง: ถ้าบนเว็บมีเวอร์ชันใหม่กว่า ให้โหลดหน้าใหม่ทันที (กันไอโฟนจำไฟล์เก่า)
 fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json()).then((j) => {
   if (j.v && j.v !== VERSION && !sessionStorage.getItem('nf.reload.' + j.v)) {
@@ -16,7 +16,7 @@ fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json(
   }
 }).catch(() => {});
 
-const DEFAULTS = { apiKey: '', model: 'gemini-3.5-flash-lite', voice: '', rate: 1.0, autoListen: true, hubUser: '', hubPass: '', staffPin: '', mode: 'ops', stt: 'gemini', budgetUser: '', budgetPass: '', officeCode: '', cclUser: '', cclPass: '', olUser: '', olPass: '', learnUrl: '', learnSecret: '', confirm: true, alertOn: true, alertVoice: true, quietOn: true, quietFrom: '22:00', quietTo: '06:00', alertTopics: {}, wakeFace: Math.min(screen.width, screen.height) >= 700, wakeSleep: true, idlePlay: true };
+const DEFAULTS = { apiKey: '', model: 'gemini-3.5-flash-lite', voice: '', rate: 1.0, autoListen: true, hubUser: '', hubPass: '', staffPin: '', mode: 'ops', stt: 'gemini', budgetUser: '', budgetPass: '', officeCode: '', cclUser: '', cclPass: '', olUser: '', olPass: '', learnUrl: '', learnSecret: '', confirm: true, alertOn: true, alertVoice: true, quietOn: true, quietFrom: '22:00', quietTo: '06:00', alertTopics: {}, wakeFace: Math.min(screen.width, screen.height) >= 700, wakeSleep: true, idlePlay: true, powerSave: true };
 const cfg = { ...DEFAULTS, ...JSON.parse(localStorage.getItem('nongfai.cfg') || '{}') };
 const saveCfg = () => localStorage.setItem('nongfai.cfg', JSON.stringify(cfg));
 // ชื่อ/รหัสศูนย์รวมงาน: ถ้าเครื่องนี้เคยล็อกอินศูนย์รวมงานไว้ ใช้ชุดนั้นเลย (โดเมนเดียวกัน)
@@ -699,7 +699,15 @@ function showCamStatus() {
 }
 setInterval(() => { if ($('settings').open) showCamStatus(); }, 1000);
 // ท่าเล่นยามว่าง: เฉพาะหน้าแรก ไม่มีใครคุยอยู่ และไม่มีคนยืนหน้าจอ
-setInterval(() => { mascot.idlePlay = !!cfg.idlePlay && document.body.classList.contains('mode-home') && !busy() && !someoneHere() && !anyDialogOpen(); }, 1000);
+setInterval(() => {
+  const idleHome = document.body.classList.contains('mode-home') && !busy() && !someoneHere() && !anyDialogOpen();
+  mascot.idlePlay = !!cfg.idlePlay && idleHome;
+  // โหมดประหยัดพลังงาน: พักจอ = 5 ภาพ/วิ ตรวจหน้า 1 ครั้ง/วิ · รอที่หน้าแรก = 30 ภาพ/วิ · คุยอยู่ = เต็มที่
+  const ps = !!cfg.powerSave;
+  mascot.maxFps = !ps ? 0 : sleeping ? 5 : idleHome ? 30 : 0;
+  setPresenceRate(ps && sleeping ? 1000 : 500);
+  $('sleepCover').classList.toggle('deep', ps);
+}, 1000);
 
 // ---------- ปุ่มต่างๆ ----------
 let unlocked = false;
@@ -789,7 +797,7 @@ function openSettings() {
   $('setMode').value = cfg.mode; $('setStt').value = cfg.stt;
   $('set_budgetUser').value = cfg.budgetUser; $('set_budgetPass').value = cfg.budgetPass; $('set_officeCode').value = cfg.officeCode; $('set_cclUser').value = cfg.cclUser; $('set_cclPass').value = cfg.cclPass; $('set_olUser').value = cfg.olUser; $('set_olPass').value = cfg.olPass;
   $('setHubUser').value = cfg.hubUser; $('setHubPass').value = cfg.hubPass; $('setPin').value = cfg.staffPin;
-  $('setIdlePlay').checked = cfg.idlePlay;
+  $('setIdlePlay').checked = cfg.idlePlay; $('setPowerSave').checked = cfg.powerSave;
   showCamStatus();
   $('setWakeFace').checked = cfg.wakeFace; $('setWakeSleep').checked = cfg.wakeSleep;
   $('setAlertOn').checked = cfg.alertOn; $('setAlertVoice').checked = cfg.alertVoice; $('setQuiet').checked = cfg.quietOn; $('setQuietFrom').value = cfg.quietFrom; $('setQuietTo').value = cfg.quietTo;
@@ -820,7 +828,7 @@ $('btnPaste').onclick = async () => {
 };
 // วางลิงก์จาก QR (มี #lu=…&ls=…) แล้วแยกลิงก์กับรหัสลับให้เอง
 // ย้ายการตั้งค่าทั้งหมดข้ามเครื่อง (API key, รหัสศูนย์รวมงาน, รหัสระบบอื่น, ระบบเรียนรู้, แจ้งเตือน)
-const SHARE_KEYS = ['apiKey', 'model', 'rate', 'mode', 'stt', 'hubUser', 'hubPass', 'staffPin', 'budgetUser', 'budgetPass', 'officeCode', 'cclUser', 'cclPass', 'olUser', 'olPass', 'learnUrl', 'learnSecret', 'confirm', 'alertOn', 'alertVoice', 'quietOn', 'quietFrom', 'quietTo', 'alertTopics', 'wakeSleep', 'idlePlay'];
+const SHARE_KEYS = ['apiKey', 'model', 'rate', 'mode', 'stt', 'hubUser', 'hubPass', 'staffPin', 'budgetUser', 'budgetPass', 'officeCode', 'cclUser', 'cclPass', 'olUser', 'olPass', 'learnUrl', 'learnSecret', 'confirm', 'alertOn', 'alertVoice', 'quietOn', 'quietFrom', 'quietTo', 'alertTopics', 'wakeSleep', 'idlePlay', 'powerSave'];
 function packCfg(o) { return btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
 function unpackCfg(t) { try { return JSON.parse(decodeURIComponent(escape(atob(t.replace(/-/g, '+').replace(/_/g, '/'))))); } catch { return null; } }
 function importCfg(o) {
@@ -857,7 +865,7 @@ $('settings').addEventListener('close', () => {
   const relearn = lu !== cfg.learnUrl || ls !== cfg.learnSecret;
   cfg.learnUrl = lu; cfg.learnSecret = ls; cfg.confirm = $('setConfirm').checked;
   const wf = $('setWakeFace').checked, wfChanged = wf !== cfg.wakeFace;
-  cfg.wakeFace = wf; cfg.wakeSleep = $('setWakeSleep').checked; cfg.idlePlay = $('setIdlePlay').checked;
+  cfg.wakeFace = wf; cfg.wakeSleep = $('setWakeSleep').checked; cfg.idlePlay = $('setIdlePlay').checked; cfg.powerSave = $('setPowerSave').checked;
   if (wfChanged) setTimeout(() => { if (cfg.wakeFace) { tapCue(' '); wav.prime(); startWake(); } else armWake(); }, 0);
   cfg.alertOn = $('setAlertOn').checked; cfg.alertVoice = $('setAlertVoice').checked; cfg.quietOn = $('setQuiet').checked; cfg.quietFrom = $('setQuietFrom').value || '22:00'; cfg.quietTo = $('setQuietTo').value || '06:00';
   cfg.alertTopics = Object.fromEntries(Object.keys(TOPICS).map((k) => [k, $('top_' + k).checked]));
