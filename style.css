@@ -232,3 +232,4 @@ input.tm{width:auto;min-height:36px;padding:2px 6px;font-size:16px}
 .ri .th.wide{width:96px;height:70px;background:#fff;object-fit:contain;border:1px solid #e5e0ee}
 .dt-imgs.big img{max-height:none}
 .dt-imgs img{cursor:zoom-in}
+a.tel{color:var(--purple);font-weight:600;text-decoration:underline}
