@@ -1,12 +1,12 @@
 // น้องไฟ — แอปหลัก: ฟังเสียงไทย → ถาม Gemini (สตรีม) → พูดตอบทีละประโยค + แสดงบนจอ
-import { Mascot } from './mascot.js?v=11181400';
-import { WavRecorder } from './recorder.js?v=11181400';
-import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary } from './tools.js?v=11181400';
-import { startWatch, TOPICS, alertLog, clearAlertLog } from './watch.js?v=11181400';
-import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11181400';
+import { Mascot } from './mascot.js?v=11181401';
+import { WavRecorder } from './recorder.js?v=11181401';
+import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary } from './tools.js?v=11181401';
+import { startWatch, TOPICS, alertLog, clearAlertLog } from './watch.js?v=11181401';
+import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11181401';
 
 const $ = (id) => document.getElementById(id);
-export const VERSION = '11181400';
+export const VERSION = '11181401';
 // อัปเดตตัวเอง: ถ้าบนเว็บมีเวอร์ชันใหม่กว่า ให้โหลดหน้าใหม่ทันที (กันไอโฟนจำไฟล์เก่า)
 fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json()).then((j) => {
   if (j.v && j.v !== VERSION && !sessionStorage.getItem('nf.reload.' + j.v)) {
@@ -83,16 +83,24 @@ async function openDetail(it, d) {
   $('dtTitle').textContent = it.title || '';
   $('dtBadge').replaceChildren(...(it.badge ? [el('span', 'bd' + ((it.tone || toneGuess(it.badge)) ? ' ' + (it.tone || toneGuess(it.badge)) : ''), String(it.badge))] : []));
   $('dtText').textContent = [it.sub, it.text].filter(Boolean).join('\n\n');
-  const setImgs = (arr) => $('dtImgs').replaceChildren(...(arr || []).map((u) => { const im = el('img'); im.src = u; im.alt = it.title || ''; im.onerror = () => im.remove(); return im; }));
+  const setImgs = (arr) => $('dtImgs').replaceChildren(...(arr || []).map((u) => { const im = el('img'); im.src = u; im.alt = it.title || ''; im.onerror = () => im.remove(); im.onclick = () => $('dtImgs').classList.toggle('big'); return im; }));
+  $('dtImgs').classList.remove('big');
   const setFields = (f) => $('dtFields').replaceChildren(...(f || []).map(([k, v]) => { const r = el('div'); r.append(el('span', null, k), el('span', null, v)); return r; }));
   setImgs(it.images); setFields(it.fields);
   const lat = Number(it.lat), lon = Number(it.lon);
   $('dtMap').hidden = !(lat && lon); if (lat && lon) $('dtMap').href = 'https://www.google.com/maps/search/?api=1&query=' + lat + ',' + lon;
-  const app = it.link || d.app; $('dtOpen').hidden = !app; if (app) { $('dtOpen').href = app; $('dtOpen').textContent = it.link ? 'เปิดเอกสาร' : 'เปิดในแอป'; }
+  const app = it.link || d.app; $('dtOpen').hidden = !app; if (app) { $('dtOpen').href = app; $('dtOpen').textContent = it.link && !/^\/[\w-]+\/(\?|$)/.test(it.link) ? 'เปิดเอกสาร' : 'เปิดในแอป'; }
   $('detailDlg').showModal();
   if (it.detail) {
     $('dtLoading').hidden = false;
-    try { const x = await loadDetail(it.detail, toolCtx.creds()); if (x) { if (x.images && x.images.length) setImgs(x.images); if (x.fields && x.fields.length) setFields(x.fields); } }
+    try {
+      const x = await loadDetail(it.detail, toolCtx.creds());
+      if (x) {
+        if (x.images && x.images.length) setImgs(x.images);
+        if (x.fields && x.fields.length) setFields(x.fields);
+        if (x.pdf) { $('dtOpen').hidden = false; $('dtOpen').href = x.pdf; $('dtOpen').textContent = 'เปิดหนังสือประกาศ (PDF)'; }
+      }
+    }
     catch (e) { toast('โหลดรายละเอียดไม่สำเร็จ: ' + String(e.message || e).slice(0, 80)); }
     $('dtLoading').hidden = true;
   }

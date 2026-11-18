@@ -1,7 +1,7 @@
 // แจ้งเตือนอัปเดตจากศูนย์รวมงาน (เกือบเรียลไทม์)
 // ถามตัวเฝ้า (Apps Script ระบบเรียนรู้) ทุก ~12 วิ ว่าไฟล์ของระบบไหนถูกแก้ → ดึงเฉพาะระบบนั้นมาเทียบกับครั้งก่อน
 // ครั้งแรกจำสถานะไว้เฉยๆ (ไม่ประกาศของเก่า) · ทำงานเฉพาะตอนเปิดแอปอยู่บนจอ
-import { DUTY_API, loadNotices, ntState, ntT, ntArea, ntAreaSay, ntWhen } from './notices.js?v=11181400';
+import { DUTY_API, loadNotices, ntState, ntT, ntArea, ntAreaSay, ntWhen } from './notices.js?v=11181401';
 const TMD_API = 'https://script.google.com/macros/s/AKfycbyF7Am81Ut4aUbzTbACUFpJhIQ2q3iKiiTxoLM8IoGvANQ8NQpaM5BvokCeyOWiAqrwNA/exec';
 const KEY = 'nongfai.watch';
 const S = JSON.parse(localStorage.getItem(KEY) || '{}'); // { ts:{}, tk:{id:st}, tmd:[keys], log:[] }
