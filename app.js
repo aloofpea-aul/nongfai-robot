@@ -1,14 +1,14 @@
 // น้องมีไฟ — แอปหลัก: ฟังเสียงไทย → ถาม Gemini (สตรีม) → พูดตอบทีละประโยค + แสดงบนจอ
-import { Mascot } from './mascot.js?v=11182360';
-import { WavRecorder } from './recorder.js?v=11182360';
-import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary } from './tools.js?v=11182360';
-import { startPresence, stopPresence, presenceOn, someoneHere, setPresenceRate, status as camStatus } from './presence.js?v=11182360';
-import { startWatch, TOPICS, topicOn, alertLog, clearAlertLog } from './watch.js?v=11182360';
-import { SYS } from './systems.js?v=11182360';
-import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11182360';
+import { Mascot } from './mascot.js?v=11182365';
+import { WavRecorder } from './recorder.js?v=11182365';
+import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary } from './tools.js?v=11182365';
+import { startPresence, stopPresence, presenceOn, someoneHere, setPresenceRate, status as camStatus } from './presence.js?v=11182365';
+import { startWatch, TOPICS, topicOn, alertLog, clearAlertLog } from './watch.js?v=11182365';
+import { SYS } from './systems.js?v=11182365';
+import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11182365';
 
 const $ = (id) => document.getElementById(id);
-export const VERSION = '11182360';
+export const VERSION = '11182365';
 // อัปเดตตัวเอง: ถ้าบนเว็บมีเวอร์ชันใหม่กว่า ให้โหลดหน้าใหม่ทันที (กันไอโฟนจำไฟล์เก่า)
 fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json()).then((j) => {
   if (j.v && j.v !== VERSION && !sessionStorage.getItem('nf.reload.' + j.v)) {

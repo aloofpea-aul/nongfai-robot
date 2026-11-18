@@ -101,7 +101,7 @@ export class Marbles {
         G.balls.forEach((b, i) => {
           b.scale = Math.min(1, b.scale + dt * 3);
           const u = (T * speed + i / G.balls.length) % 1, P = b.g.position;
-          if (u < 0.78) { const q = u / 0.78; P.lerpVectors(hl, hr, q); P.y += Math.sin(q * Math.PI) * 3.3; P.x *= 1 + Math.sin(q * Math.PI) * 0.45; P.z += Math.sin(q * Math.PI) * 0.5; }
+          if (u < 0.78) { const q = u / 0.78; P.lerpVectors(hl, hr, q); P.y += Math.sin(q * Math.PI) * 2.85; P.x *= 1 + Math.sin(q * Math.PI) * 0.45; P.z += Math.sin(q * Math.PI) * 0.5; }
           else { const q = (u - 0.78) / 0.22; P.lerpVectors(hr, hl, q); P.y += Math.sin(q * Math.PI) * 0.35; P.z += 0.2; }
           b.spinV = 4;
         });
