@@ -18,6 +18,9 @@ export class Mascot {
     this.nextIdle = 12;
     this.pointSide = 'right';      // ชี้ไปทางการ์ด: right (จอกว้าง) | down (มือถือ)
     this.sparks = [];
+    this.userSpin = 0; this.spinVel = 0; this.spunTotal = 0; // หมุนเล่นด้วยนิ้ว
+    this.onTouch = null;           // แอปรับเหตุการณ์ไปพูดตอบ
+    this.blush = 0;
 
     const r = this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     r.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
@@ -42,7 +45,7 @@ export class Mascot {
 
     // หัวหลอดไฟ
     this.headMat = mat(0x7B3FB0, { emissive: 0x2a0f44, emissiveIntensity: 0.6 });
-    const skull = new THREE.Mesh(new THREE.SphereGeometry(1.4, 64, 48), this.headMat);
+    const skull = new THREE.Mesh(new THREE.SphereGeometry(1.4, 64, 48), this.headMat); skull.userData.part = 'head';
     this.head.add(skull);
 
     // วงแสงรอบหัว
@@ -55,7 +58,7 @@ export class Mascot {
     [[0.05, 0.42], [-0.17, 0.0], [0.0, 0.0], [-0.1, -0.34], [0.2, 0.1], [0.03, 0.1], [0.12, 0.42]]
       .forEach(([x, y], i) => (i ? s.lineTo(x, y) : s.moveTo(x, y)));
     const bolt = new THREE.Mesh(new THREE.ExtrudeGeometry(s, { depth: 0.12, bevelEnabled: false }), mat(0xF5B942, { emissive: 0x8a5a00, emissiveIntensity: 0.5 }));
-    bolt.position.set(0, 1.62, 0.2);
+    bolt.position.set(0, 1.62, 0.2); bolt.userData.part = 'bolt'; this.bolt = bolt;
     this.head.add(bolt);
 
     // ตา
@@ -64,7 +67,7 @@ export class Mascot {
       const g = new THREE.Group();
       g.position.set(x, 0.15, 1.22);
       const white = new THREE.Mesh(new THREE.SphereGeometry(1, 32, 24), mat(0xffffff, { roughness: 0.2 }));
-      white.scale.set(0.22, 0.3, 0.13);
+      white.scale.set(0.22, 0.3, 0.13); white.userData.part = 'eye';
       const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.13, 24, 16), mat(0x1E1030, { roughness: 0.2 }));
       pupil.scale.set(1, 1, 0.5);
       pupil.position.z = 0.1;
@@ -78,8 +81,10 @@ export class Mascot {
     }
 
     // แก้ม
+    this.cheeks = [];
     for (const x of [-0.86, 0.86]) {
       const c = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 12), new THREE.MeshBasicMaterial({ color: 0xF28CB1, transparent: true, opacity: 0.75 }));
+      c.userData.part = 'cheek'; this.cheeks.push(c);
       c.scale.set(0.2, 0.11, 0.05);
       c.position.set(x, -0.2, 1.06);
       c.lookAt(x * 3, -0.6, 4);
@@ -88,7 +93,7 @@ export class Mascot {
 
     // ปาก
     this.mouth = new THREE.Mesh(new THREE.SphereGeometry(1, 32, 16), mat(0x1E1030));
-    this.mouth.position.set(0, -0.4, 1.27);
+    this.mouth.position.set(0, -0.4, 1.27); this.mouth.userData.part = 'mouth';
     this.head.add(this.mouth);
     this.tongue = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 12), mat(0xF2758F));
     this.tongue.position.set(0, -0.48, 1.31);
@@ -97,7 +102,7 @@ export class Mascot {
     // ขั้วหลอดไฟ
     [[0.62, -1.48], [0.52, -1.7], [0.36, -1.9]].forEach(([rad, y], i) => {
       const c = new THREE.Mesh(new THREE.CylinderGeometry(rad, rad * 0.95, 0.18, 40), mat([0xC9B8DD, 0xA992C6, 0x8C72AE][i]));
-      c.position.y = y;
+      c.position.y = y; c.userData.part = 'body';
       this.root.add(c);
     });
 
@@ -109,6 +114,9 @@ export class Mascot {
       const el = new THREE.Group(); el.position.y = -0.56; sh.add(el);
       const lo = new THREE.Mesh(new THREE.CapsuleGeometry(0.11, 0.36, 6, 16), armMat); lo.position.y = -0.24; el.add(lo);
       const hand = new THREE.Mesh(new THREE.SphereGeometry(0.19, 24, 16), handMat); hand.position.y = -0.52; el.add(hand);
+      // จุดแตะมือให้ใหญ่กว่ามือจริง (นิ้วแตะง่าย)
+      const hit = new THREE.Mesh(new THREE.SphereGeometry(0.42, 8, 6), new THREE.MeshBasicMaterial({ visible: false })); hit.position.y = -0.52; hit.userData.part = side < 0 ? 'handL' : 'handR'; el.add(hit);
+      up.userData.part = lo.userData.part = 'arm';
       this.root.add(sh);
       return { side, sh, el, hand, a: 0.25, f: 0, e: -0.15 };
     });
@@ -126,6 +134,7 @@ export class Mascot {
     this.sparkMat = new THREE.MeshBasicMaterial({ color: 0xF5B942, transparent: true });
 
     this.clock = new THREE.Clock();
+    this.setupTouch();
     new ResizeObserver(() => this.resize()).observe(container);
     this.resize();
     this.renderer.setAnimationLoop(() => this.tick());
@@ -149,7 +158,7 @@ export class Mascot {
   pulse() { this.pulseUntil = this.clock.elapsedTime + 0.18; }
   gesture(name) {
     if (this.action && this.action.name === name) return;
-    const dur = { wave: 1.9, point: 2.2, cheer: 1.6, toss: 2.6, spin: 1.5, stretch: 2.4, yawn: 2.2 }[name];
+    const dur = { wave: 1.9, point: 2.2, cheer: 1.6, toss: 2.6, spin: 1.5, stretch: 2.4, yawn: 2.2, shakeL: 2.0, shakeR: 2.0, giggle: 1.6, blush: 2.2, jump: 1.0, hug: 2.4, dizzy: 2.8, squint: 1.0, zap: 1.4, munch: 1.4, highfive: 1.2 }[name];
     if (!dur) return;
     this.action = { name, t0: this.clock.elapsedTime, dur };
     if (name === 'cheer') this.burst(14);
@@ -196,6 +205,10 @@ export class Mascot {
       if (p >= 1) { this.blinkT = -1; this.nextBlink = t + 1.8 + Math.random() * 3.5; }
     }
     if (sleepy) eyeY = 0.15;
+    const an = this.action && this.action.name;
+    if (an === 'giggle' || an === 'squint' || an === 'hug') eyeY = 0.25;   // ตายิ้ม/หยีตา
+    if (an === 'dizzy') { for (const e of this.eyes) { e.userData.pupil.position.x = Math.cos(t * 14) * 0.07; e.userData.pupil.position.y = Math.sin(t * 14) * 0.08; } }
+    if (an === 'zap') this.bolt.rotation.z = Math.sin(t * 40) * 0.25; else this.bolt.rotation.z *= 0.8;
     for (const e of this.eyes) e.scale.y = eyeY;
 
     // ปากขยับตามเสียง
@@ -248,6 +261,16 @@ export class Mascot {
         else if (k === 'cheer') { const b = Math.sin(t * 16) * 0.12; Rt = P(2.75 + b, -0.1, 0.2); L = P(2.75 - b, -0.1, 0.2); }
         else if (k === 'spin') { Rt = P(1.45, 0, 0); L = P(1.45, 0, 0); spin = sm(Math.min(1, p / 0.9)) * Math.PI * 2; }
         else if (k === 'stretch') { const h = p < 0.2 ? p / 0.2 : p > 0.8 ? (1 - p) / 0.2 : 1; Rt = P(3.0 * h + 0.25 * (1 - h), -0.05, 0); L = Rt; headTilt = Math.sin(t * 2) * 0.12 * h; }
+        else if (k === 'shakeL' || k === 'shakeR') { const sh = P(1.15, -1.05, -0.2 + Math.sin(t * 13) * 0.28); if (k === 'shakeR') Rt = sh; else L = sh; }
+        else if (k === 'highfive') Rt = P(2.4, -0.9, 0.1);
+        else if (k === 'hug') { const h = P(1.35, -1.25, -1.1 + Math.sin(t * 3) * 0.08); L = h; Rt = h; }
+        else if (k === 'giggle') { Rt = P(1.1, -1.2, -1.7); L = P(0.6, -0.4, -0.8); headTilt = Math.sin(t * 18) * 0.06; }
+        else if (k === 'blush') { Rt = P(1.25, -1.15, -1.9); L = P(1.25, -1.15, -1.9); headTilt = 0.12; }
+        else if (k === 'squint') { Rt = P(1.4, -1.0, -2.0); }
+        else if (k === 'zap') { const b = Math.sin(t * 30) * 0.2; Rt = P(1.6 + b, 0, 0.3); L = P(1.6 - b, 0, 0.3); }
+        else if (k === 'munch') { extraMouth = Math.abs(Math.sin(t * 12)) * 0.25; }
+        else if (k === 'jump') { Rt = P(2.2, 0, 0.2); L = Rt; this.root.position.y += Math.sin(Math.min(1, p) * Math.PI) * 0.6; }
+        else if (k === 'dizzy') { headTilt = Math.sin(t * 5) * 0.18; Rt = P(0.6 + Math.sin(t * 4) * 0.3, 0, -0.3); L = P(0.6 - Math.sin(t * 4) * 0.3, 0, -0.3); }
         else if (k === 'yawn') { Rt = P(1.0, -1.25, -1.65); extraMouth = p > 0.15 && p < 0.75 ? 0.32 : 0; }
         else if (k === 'toss') {
           // 0–0.2 ประคองโลโก้ · 0.2–0.85 โลโก้ลอยขึ้นแล้วตกกลับ · 0.85–1 รับไว้แล้วเก็บ
@@ -274,7 +297,22 @@ export class Mascot {
       arm.sh.rotation.z = arm.side * arm.a;
       arm.el.rotation.z = arm.side * arm.e;
     });
-    this.root.rotation.y = spin;
+    // หมุนเล่นด้วยนิ้ว: ปล่อยแล้วหมุนต่อตามแรงปัด แล้วค่อยๆ กลับมาหน้าตรง
+    if (!this.dragging) {
+      this.userSpin += this.spinVel * dt;
+      this.spunTotal += Math.abs(this.spinVel * dt);
+      this.spinVel *= Math.exp(-dt * 1.6);
+      if (Math.abs(this.spinVel) < 0.6) {
+        const home = Math.round(this.userSpin / (Math.PI * 2)) * Math.PI * 2;
+        this.userSpin += (home - this.userSpin) * (1 - Math.exp(-dt * 4));
+        if (this.spunTotal > Math.PI * 3) { this.spunTotal = 0; this.gesture('dizzy'); this.emit('dizzy'); }
+        else if (Math.abs(this.spinVel) < 0.05) this.spunTotal = 0;
+      }
+    }
+    this.root.rotation.y = spin + this.userSpin;
+    // แก้มแดงตอนเขิน
+    this.blush += ((this.action && this.action.name === 'blush' ? 1 : 0) - this.blush) * (1 - Math.exp(-dt * 6));
+    for (const c of this.cheeks) { c.material.opacity = 0.75 + this.blush * 0.25; c.material.color.setRGB(0.95, 0.55 - this.blush * 0.25, 0.69 - this.blush * 0.3); }
     if (headTilt) this.head.rotation.z = headTilt; else this.head.rotation.z *= 0.9;
     if (extraMouth) this.mouth.scale.y = Math.max(this.mouth.scale.y, extraMouth);
     // ประกายดีใจ
@@ -284,5 +322,55 @@ export class Mascot {
       m.material.opacity = Math.max(0, m.userData.life / 1.1);
       if (m.userData.life <= 0) { this.scene.remove(m); m.material.dispose(); this.sparks.splice(i, 1); }
     }
+  }
+
+  emit(kind) { try { this.onTouch && this.onTouch(kind); } catch {} }
+
+  // ---------- หยอกเล่นด้วยการแตะ ----------
+  setupTouch() {
+    const cv = this.renderer.domElement, ray = new THREE.Raycaster(), v2 = new THREE.Vector2();
+    cv.style.touchAction = 'none';
+    const pick = (e) => {
+      const r = cv.getBoundingClientRect();
+      v2.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+      ray.setFromCamera(v2, this.camera);
+      const hit = ray.intersectObjects(this.root.children, true).find((h) => h.object.userData.part);
+      return hit ? hit.object.userData.part : null;
+    };
+    let down = null, lastTap = 0, longT = null;
+    cv.addEventListener('pointerdown', (e) => {
+      const part = pick(e);
+      down = { x: e.clientX, y: e.clientY, t: performance.now(), part, lastX: e.clientX, lastT: performance.now(), moved: false };
+      clearTimeout(longT);
+      if (part) longT = setTimeout(() => { if (down && !down.moved) { down.long = true; this.gesture('hug'); this.emit('hug'); } }, 650);
+      try { cv.setPointerCapture(e.pointerId); } catch {}
+    });
+    cv.addEventListener('pointermove', (e) => {
+      if (!down) return;
+      const dx = e.clientX - down.x;
+      if (!down.moved && Math.abs(dx) > 10) { down.moved = true; clearTimeout(longT); this.dragging = true; this.dragBase = this.userSpin; }
+      if (this.dragging) {
+        const now = performance.now(), w = cv.clientWidth || 300;
+        this.userSpin = this.dragBase + (dx / w) * Math.PI * 1.6;
+        const dt = Math.max(1, now - down.lastT);
+        this.spinVel = ((e.clientX - down.lastX) / w) * Math.PI * 1.6 / (dt / 1000);
+        down.lastX = e.clientX; down.lastT = now;
+      }
+    });
+    const up = () => {
+      clearTimeout(longT);
+      if (!down) return;
+      const d = down; down = null;
+      if (this.dragging) { this.dragging = false; this.spinVel = THREE.MathUtils.clamp(this.spinVel, -25, 25); if (Math.abs(this.spinVel) > 3) this.emit('spin'); return; }
+      if (d.long) return;
+      const now = performance.now();
+      if (now - lastTap < 320) { this.gesture('cheer'); this.emit('double'); lastTap = 0; return; }
+      lastTap = now;
+      const map = { handL: 'shakeL', handR: 'shakeR', head: 'giggle', cheek: 'blush', eye: 'squint', bolt: 'zap', mouth: 'munch', body: 'jump', arm: 'highfive' };
+      const g = d.part && map[d.part];
+      if (g) { this.action = null; this.gesture(g); if (g === 'zap' || g === 'highfive') this.burst(10); this.emit(d.part); }
+      else this.emit('none');
+    };
+    cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
   }
 }

@@ -1,13 +1,13 @@
 // น้องมีไฟ — แอปหลัก: ฟังเสียงไทย → ถาม Gemini (สตรีม) → พูดตอบทีละประโยค + แสดงบนจอ
-import { Mascot } from './mascot.js?v=11181600';
-import { WavRecorder } from './recorder.js?v=11181600';
-import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary } from './tools.js?v=11181600';
-import { startPresence, stopPresence, presenceOn, someoneHere } from './presence.js?v=11181600';
-import { startWatch, TOPICS, alertLog, clearAlertLog } from './watch.js?v=11181600';
-import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11181600';
+import { Mascot } from './mascot.js?v=11181610';
+import { WavRecorder } from './recorder.js?v=11181610';
+import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary } from './tools.js?v=11181610';
+import { startPresence, stopPresence, presenceOn, someoneHere } from './presence.js?v=11181610';
+import { startWatch, TOPICS, alertLog, clearAlertLog } from './watch.js?v=11181610';
+import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11181610';
 
 const $ = (id) => document.getElementById(id);
-export const VERSION = '11181600';
+export const VERSION = '11181610';
 // อัปเดตตัวเอง: ถ้าบนเว็บมีเวอร์ชันใหม่กว่า ให้โหลดหน้าใหม่ทันที (กันไอโฟนจำไฟล์เก่า)
 fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json()).then((j) => {
   if (j.v && j.v !== VERSION && !sessionStorage.getItem('nf.reload.' + j.v)) {
@@ -754,7 +754,22 @@ $('stage').addEventListener('pointermove', (e) => {
   const r = e.currentTarget.getBoundingClientRect();
   mascot.lookAt(((e.clientX - r.left) / r.width) * 2 - 1, -(((e.clientY - r.top) / r.height) * 2 - 1));
 });
-$('stage').addEventListener('click', () => { mascot.pulse(); speak('สวัสดีค่ะ'); });
+// หยอกเล่นกับน้องมีไฟ: แตะมือ แตะหัว แก้ม ตา ปาก ตัว · ลากหมุน · แตะค้างกอด · แตะสองครั้งดีใจ
+const PLAY_SAY = {
+  handL: ['ยินดีที่ได้รู้จักค่ะ', 'จับมือกันหน่อยค่ะ'], handR: ['ยินดีที่ได้รู้จักค่ะ', 'สวัสดีค่ะ จับมือกันค่ะ'],
+  arm: ['ไฮไฟว์ค่ะ!', 'เย่!'], head: ['อิอิ จั๊กจี้ค่ะ', 'ลูบหัวน้องมีไฟเหรอคะ'], cheek: ['เขินจังค่ะ', 'อย่าแซวสิคะ'],
+  eye: ['โอ๊ย แสบตาค่ะ', 'มองไม่เห็นแล้วค่ะ'], bolt: ['ซ่า! ไฟแรงเต็มที่ค่ะ', 'ระวังไฟช็อตนะคะ'], mouth: ['หม่ำๆ ค่ะ', 'อร่อยจังค่ะ'],
+  body: ['จั๊กจี้ค่ะ ฮ่าๆ', 'อุ๊ย!'], hug: ['กอดๆ ค่ะ', 'อบอุ่นจังค่ะ'], dizzy: ['เวียนหัวแล้วค่ะ หมุนช้าๆ หน่อยนะคะ'],
+  spin: ['ว้าว หมุนได้ด้วย'], double: ['เย่!'],
+};
+let playSaidAt = 0;
+mascot.onTouch = (kind) => {
+  bumpIdle(); wakeUp && wakeUp();
+  const lines = PLAY_SAY[kind];
+  if (!lines || busy() || Date.now() - playSaidAt < 2500) return;
+  playSaidAt = Date.now();
+  speak(lines[Math.floor(Math.random() * lines.length)]);
+};
 
 // ---------- ตั้งค่า ----------
 function openSettings() {
