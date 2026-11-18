@@ -45,25 +45,35 @@ function evSheet_() {
   }
   return sh;
 }
-function snapFolder_() {
-  const p = PropertiesService.getScriptProperties();
-  const id = p.getProperty('SNAP_FOLDER');
-  if (id) { try { return DriveApp.getFolderById(id); } catch (e) {} }
-  const f = DriveApp.createFolder('น้องมีไฟ snapshot (ห้ามลบ)');
-  p.setProperty('SNAP_FOLDER', f.getId());
-  return f;
+// ภาพจำข้อมูลครั้งก่อน: เก็บแบบบีบอัดในชีตซ่อน "_snap" ของสมุดเหตุการณ์ (ไม่ต้องใช้สิทธิ์สร้างไฟล์ใน Drive)
+function snapSheet_() {
+  const ss = evSheet_().getParent();
+  let sh = ss.getSheetByName('_snap');
+  if (!sh) { sh = ss.insertSheet('_snap'); sh.hideSheet(); }
+  return sh;
+}
+function snapRow_(sh, fid) {
+  const n = sh.getLastRow();
+  if (!n) return 0;
+  const ids = sh.getRange(1, 1, n, 1).getValues();
+  for (let i = 0; i < n; i++) if (ids[i][0] === fid) return i + 1;
+  return 0;
 }
 function loadSnap_(fid) {
-  const p = PropertiesService.getScriptProperties(), sid = p.getProperty('SNAP_' + fid);
-  if (!sid) return null;
-  try { return JSON.parse(Utilities.ungzip(Utilities.newBlob(Utilities.base64Decode(DriveApp.getFileById(sid).getBlob().getDataAsString()), 'application/x-gzip')).getDataAsString()); } catch (e) { return null; }
+  const sh = snapSheet_(), r = snapRow_(sh, fid);
+  if (!r) return null;
+  const parts = sh.getRange(r, 2, 1, Math.max(1, sh.getLastColumn() - 1)).getValues()[0].filter((x) => x !== '');
+  try { return JSON.parse(Utilities.ungzip(Utilities.newBlob(Utilities.base64Decode(parts.join('')), 'application/x-gzip')).getDataAsString()); } catch (e) { return null; }
 }
 function saveSnap_(fid, obj) {
-  const p = PropertiesService.getScriptProperties(), sid = p.getProperty('SNAP_' + fid);
+  const sh = snapSheet_();
   const data = Utilities.base64Encode(Utilities.gzip(Utilities.newBlob(JSON.stringify(obj))).getBytes());
-  if (sid) { try { DriveApp.getFileById(sid).setContent(data); return; } catch (e) {} }
-  const f = snapFolder_().createFile('snap_' + fid + '.txt', data, MimeType.PLAIN_TEXT);
-  p.setProperty('SNAP_' + fid, f.getId());
+  const parts = []; for (let i = 0; i < data.length; i += 45000) parts.push(data.slice(i, i + 45000));
+  if (parts.length > 200) return; // ใหญ่เกิน (ไม่ควรเกิด) ข้าม
+  const r = snapRow_(sh, fid) || sh.getLastRow() + 1;
+  const width = Math.max(sh.getLastColumn(), parts.length + 1);
+  const row = [fid, ...parts]; while (row.length < width) row.push('');
+  sh.getRange(r, 1, 1, width).setValues([row]);
 }
 
 const fmt_ = (v) => (v instanceof Date ? Utilities.formatDate(v, 'Asia/Bangkok', v.getHours() || v.getMinutes() ? 'yyyy-MM-dd HH:mm' : 'yyyy-MM-dd') : String(v == null ? '' : v)).trim();
@@ -173,7 +183,7 @@ function eventsSince_(since, limit) {
 // ติดตั้งครั้งเดียว: ตั้งเวลาทุก 1 นาที + จำสถานะเริ่มต้นของทุกไฟล์ (ไม่สร้างเหตุการณ์ย้อนหลัง)
 function setupWatch() {
   ScriptApp.getProjectTriggers().filter((t) => t.getHandlerFunction() === 'watchTick').forEach((t) => ScriptApp.deleteTrigger(t));
-  evSheet_(); snapFolder_();
+  evSheet_(); snapSheet_();
   watchTick();
   ScriptApp.newTrigger('watchTick').timeBased().everyMinutes(1).create();
   return 'ติดตั้งแล้ว: สมุดเหตุการณ์ ' + SpreadsheetApp.openById(PropertiesService.getScriptProperties().getProperty('EVENTS_ID')).getUrl();
