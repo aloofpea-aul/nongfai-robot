@@ -15,7 +15,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600&family=Sarabun:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=11180910">
+<link rel="stylesheet" href="style.css?v=11180935">
 <script type="importmap">
 { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js" } }
 </script>
@@ -179,6 +179,7 @@
     <label class="check"><input id="setQuiet" type="checkbox"> งดเสียงช่วงกลางคืน <input id="setQuietFrom" type="time" class="tm"> ถึง <input id="setQuietTo" type="time" class="tm"></label>
     <p class="hint">เลือกระบบที่จะแจ้ง</p>
     <div id="alertTopics" class="topics"></div>
+    <button id="btnTestAlert" type="button" class="abtn outline small">ทดสอบแจ้งเตือน</button>
     <h3 class="sub">ระบบเรียนรู้ (Google Sheet)</h3>
     <label>ลิงก์ Apps Script ระบบเรียนรู้
       <span class="keyrow"><input id="setLearnUrl" type="url" autocomplete="off" placeholder="วางลิงก์จาก QR หรือลิงก์ …/exec"><button id="btnPasteLearn" type="button" class="abtn outline small">วาง</button></span>
@@ -235,6 +236,6 @@
 
 <div id="toast" class="toast" hidden></div>
 
-<script type="module" src="app.js?v=11180910"></script>
+<script type="module" src="app.js?v=11180935"></script>
 </body>
 </html>

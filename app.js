@@ -1,12 +1,12 @@
 // น้องไฟ — แอปหลัก: ฟังเสียงไทย → ถาม Gemini (สตรีม) → พูดตอบทีละประโยค + แสดงบนจอ
-import { Mascot } from './mascot.js?v=11180910';
-import { WavRecorder } from './recorder.js?v=11180910';
-import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary } from './tools.js?v=11180910';
-import { startWatch, TOPICS, alertLog, clearAlertLog } from './watch.js?v=11180910';
-import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11180910';
+import { Mascot } from './mascot.js?v=11180935';
+import { WavRecorder } from './recorder.js?v=11180935';
+import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary } from './tools.js?v=11180935';
+import { startWatch, TOPICS, alertLog, clearAlertLog } from './watch.js?v=11180935';
+import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11180935';
 
 const $ = (id) => document.getElementById(id);
-export const VERSION = '11180910';
+export const VERSION = '11180935';
 // อัปเดตตัวเอง: ถ้าบนเว็บมีเวอร์ชันใหม่กว่า ให้โหลดหน้าใหม่ทันที (กันไอโฟนจำไฟล์เก่า)
 fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json()).then((j) => {
   if (j.v && j.v !== VERSION && !sessionStorage.getItem('nf.reload.' + j.v)) {
@@ -570,13 +570,18 @@ function flushSay() {
 }
 setInterval(flushSay, 2000);
 $('alAck').onclick = () => { $('alertCard').hidden = true; alertUnseen = 0; setBell(); if ($('alHist').hidden) $('alerts').hidden = true; };
-$('alMore').onclick = () => { const q = alertNow && alertNow.q; $('alAck').onclick(); if (q) { stopSpeaking(); tapCue('ได้เลยค่ะ'); ask(q, null, true); } };
+$('alMore').onclick = () => { const q = alertNow && alertNow.q; if (!q) { $('alAck').onclick(); return; } $('alAck').onclick(); if (q) { stopSpeaking(); tapCue('ได้เลยค่ะ'); ask(q, null, true); } };
 $('btnBell').onclick = () => {
   const h = $('alHist');
   if (!h.hidden) { h.hidden = true; if ($('alertCard').hidden) $('alerts').hidden = true; return; }
   const log = alertLog();
   $('alList').replaceChildren(...(log.length ? log.slice(0, 20).map((a) => { const li = el('li', null, a.title + ' · ' + (a.text || '')); li.append(el('small', null, [a.time, a.sub].filter(Boolean).join(' · '))); li.onclick = () => { stopSpeaking(); tapCue('ได้เลยค่ะ'); ask(a.q, null, true); h.hidden = true; }; return li; }) : [el('li', null, 'ยังไม่มีอัปเดตค่ะ')]));
   h.hidden = false; $('alerts').hidden = false; alertUnseen = 0; setBell();
+};
+$('btnTestAlert').onclick = () => {
+  $('settings').close();
+  tapCue('ทดสอบค่ะ');
+  setTimeout(() => onAlerts([{ topic: 'test', title: 'ทดสอบแจ้งเตือน', text: 'นี่คือตัวอย่างการ์ดแจ้งเตือนจากศูนย์รวมงาน', sub: 'ไม่ใช่ข้อมูลจริง', say: 'ทดสอบแจ้งเตือนจากศูนย์รวมงานค่ะ ถ้าได้ยินเสียงนี้ แปลว่าใช้งานได้ค่ะ', q: '', time: new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) }]), 1500);
 };
 $('alClose').onclick = () => { $('alHist').hidden = true; if ($('alertCard').hidden) $('alerts').hidden = true; };
 startWatch({ cfg: () => cfg, creds: () => ({ user: cfg.hubUser, pass: cfg.hubPass }), learn: () => ({ url: cfg.learnUrl, secret: cfg.learnSecret }), onAlerts });
