@@ -104,7 +104,7 @@ export class Mascot {
     // แขน 2 ข้าง: ไหล่ → แขนบน → ศอก → แขนล่าง → มือ (สร้างด้วยโค้ด)
     const armMat = mat(0x9B6BD3, { emissive: 0x2a0f44, emissiveIntensity: 0.35 }), handMat = mat(0xF5B942, { emissive: 0x8a5a00, emissiveIntensity: 0.35 });
     this.arms = [-1, 1].map((side) => {
-      const sh = new THREE.Group(); sh.position.set(side * 1.22, -0.55, 0.15);
+      const sh = new THREE.Group(); sh.position.set(side * 1.25, -0.8, 0.35);
       const up = new THREE.Mesh(new THREE.CapsuleGeometry(0.12, 0.42, 6, 16), armMat); up.position.y = -0.27; sh.add(up);
       const el = new THREE.Group(); el.position.y = -0.56; sh.add(el);
       const lo = new THREE.Mesh(new THREE.CapsuleGeometry(0.11, 0.36, 6, 16), armMat); lo.position.y = -0.24; el.add(lo);
@@ -243,7 +243,7 @@ export class Mascot {
       else {
         rate = 12;
         const k = A.name;
-        if (k === 'wave') Rt = P(2.55, -0.1, -0.35 + Math.sin(t * 11) * 0.5);
+        if (k === 'wave') Rt = P(2.8, -0.15, -0.35 + Math.sin(t * 11) * 0.5);
         else if (k === 'point') { if (this.pointSide === 'down') Rt = P(0.55, -1.15, -0.05); else Rt = P(1.5, -0.25, 0.05); headTilt = 0.08; }
         else if (k === 'cheer') { const b = Math.sin(t * 16) * 0.12; Rt = P(2.75 + b, -0.1, 0.2); L = P(2.75 - b, -0.1, 0.2); }
         else if (k === 'spin') { Rt = P(1.45, 0, 0); L = P(1.45, 0, 0); spin = sm(Math.min(1, p / 0.9)) * Math.PI * 2; }
@@ -251,12 +251,12 @@ export class Mascot {
         else if (k === 'yawn') { Rt = P(1.0, -1.25, -1.65); extraMouth = p > 0.15 && p < 0.75 ? 0.32 : 0; }
         else if (k === 'toss') {
           // 0–0.2 ประคองโลโก้ · 0.2–0.85 โลโก้ลอยขึ้นแล้วตกกลับ · 0.85–1 รับไว้แล้วเก็บ
-          const hold = P(1.75, -0.75, -0.95), ready = P(2.15, -0.45, -0.55);
+          const hold = P(0.75, -1.05, -1.1), ready = P(2.1, -0.5, -0.5);
           Rt = p < 0.2 || p > 0.85 ? hold : ready; L = Rt;
           this.logo.visible = p < 0.95;
-          const base = new THREE.Vector3(0, 0.55 + this.root.position.y, 1.25);
+          const base = new THREE.Vector3(0, -1.05 + this.root.position.y, 1.45); // ถือไว้ระดับอก ไม่บังหน้า
           if (p < 0.2 || p > 0.85) { this.logo.position.copy(base); this.logo.rotation.set(0, 0, 0); }
-          else { const q = (p - 0.2) / 0.65; this.logo.position.set(0, base.y + 4 * q * (1 - q) * 2.6, 1.25); this.logo.rotation.y = q * Math.PI * 4; }
+          else { const q = (p - 0.2) / 0.65; this.logo.position.set(0, base.y + 4 * q * (1 - q) * 3.9, 1.45); this.logo.rotation.y = q * Math.PI * 4; }
         }
       }
     }
