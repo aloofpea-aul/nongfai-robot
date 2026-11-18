@@ -1,5 +1,6 @@
 // น้องมีไฟ — มาสคอต 3D สร้างด้วยโค้ดทั้งตัว (three.js) ไม่ต้องใช้ไฟล์โมเดล
 import * as THREE from 'three';
+import { Marbles } from './marbles.js?v=11182345';
 
 export class Mascot {
   constructor(container) {
@@ -132,6 +133,7 @@ export class Mascot {
     this.scene.add(this.logo);
     this.sparkGeo = new THREE.SphereGeometry(0.05, 8, 6);
     this.sparkMat = new THREE.MeshBasicMaterial({ color: 0xF5B942, transparent: true });
+    this.marbles = new Marbles(this); // ลูกแก้วแอปในศูนย์รวมงาน
 
     this.clock = new THREE.Clock();
     this.setupTouch();
@@ -289,12 +291,16 @@ export class Mascot {
         }
       }
     }
-    // เล่นเองยามว่าง
-    if (!A && this.idlePlay && t > this.nextIdle) {
-      const opts = sleepy ? ['yawn'] : ['toss', 'toss', 'spin', 'stretch', 'wave', 'cheer'];
-      this.gesture(opts[Math.floor(Math.random() * opts.length)]);
-      this.nextIdle = t + 20 + Math.random() * 20;
-    } else if (!this.idlePlay && t > this.nextIdle) this.nextIdle = t + 8;
+    // ลูกแก้วแอป (ฟิสิกส์ + ท่าแขนตอนเล่น)
+    const pose = this.marbles.tick(t, dt);
+    if (!A && pose) { L = P(...pose.L); Rt = P(...pose.R); rate = 10; }
+    // เล่นเองยามว่าง: สลับเล่นลูกแก้วกับท่าทางต่างๆ ถี่ขึ้น
+    const free = !A && !this.speaking && this.mood === 'normal' && !this.marbles.busy;
+    if (this.idlePlay && t > this.nextIdle && (free || sleepy) && !A) {
+      if (sleepy) { this.gesture('yawn'); this.nextIdle = t + 25; }
+      else if (Math.random() < 0.6) { this.marbles.start(); this.nextIdle = t + 13 + Math.random() * 7; }
+      else { const opts = ['toss', 'spin', 'stretch', 'wave', 'cheer', 'jump']; this.gesture(opts[Math.floor(Math.random() * opts.length)]); this.nextIdle = t + 6 + Math.random() * 6; }
+    } else if (!this.idlePlay) { if (this.marbles.game) this.marbles.clear(true); if (t > this.nextIdle) this.nextIdle = t + 8; }
     // ขยับไปหาท่าเป้าหมายแบบนุ่มๆ
     const k = 1 - Math.exp(-dt * rate);
     [[this.arms[0], L], [this.arms[1], Rt]].forEach(([arm, tg]) => {
@@ -330,7 +336,7 @@ export class Mascot {
     }
   }
 
-  emit(kind) { try { this.onTouch && this.onTouch(kind); } catch {} }
+  emit(kind, data) { try { this.onTouch && this.onTouch(kind, data); } catch {} }
 
   // ---------- หยอกเล่นด้วยการแตะ ----------
   setupTouch() {
@@ -340,15 +346,21 @@ export class Mascot {
       const r = cv.getBoundingClientRect();
       v2.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
       ray.setFromCamera(v2, this.camera);
+      const mb = this.marbles.hits(ray);
+      if (mb) return { marble: mb };
       const hit = ray.intersectObjects(this.root.children, true).find((h) => h.object.userData.part);
       return hit ? hit.object.userData.part : null;
     };
+    // ตำแหน่งแตะ → พิกัดแนวนอนในฉาก (ไว้ปล่อยลูกแก้วตรงที่แตะ)
+    const worldX = (e) => { const r = cv.getBoundingClientRect(), h = 2 * Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2)) * (this.camera.position.z - 0.9); return (((e.clientX - r.left) / r.width) * 2 - 1) * h * this.camera.aspect / 2; };
     let down = null, lastTap = 0, longT = null;
     cv.addEventListener('pointerdown', (e) => {
-      const part = pick(e);
-      down = { x: e.clientX, y: e.clientY, t: performance.now(), part, lastX: e.clientX, lastT: performance.now(), moved: false };
+      let part = pick(e), marble = null;
+      if (part && part.marble) { marble = part.marble; part = null; }
+      down = { x: e.clientX, y: e.clientY, t: performance.now(), part, marble, wx: worldX(e), lastX: e.clientX, lastT: performance.now(), moved: false };
       clearTimeout(longT);
-      if (part) longT = setTimeout(() => { if (down && !down.moved) { down.long = true; this.gesture('hug'); this.emit('hug'); } }, 650);
+      if (marble) longT = setTimeout(() => { if (down && !down.moved) { down.long = true; this.marbles.poke(marble); this.gesture('cheer'); this.emit('marbleOpen', marble.app); } }, 650);
+      else if (part) longT = setTimeout(() => { if (down && !down.moved) { down.long = true; this.gesture('hug'); this.emit('hug'); } }, 650);
       try { cv.setPointerCapture(e.pointerId); } catch {}
     });
     cv.addEventListener('pointermove', (e) => {
@@ -369,13 +381,14 @@ export class Mascot {
       const d = down; down = null;
       if (this.dragging) { this.dragging = false; this.spinVel = THREE.MathUtils.clamp(this.spinVel, -25, 25); if (Math.abs(this.spinVel) > 3) this.emit('spin'); return; }
       if (d.long) return;
+      if (d.marble) { this.marbles.poke(d.marble); this.emit('marble', d.marble.app); return; }
       const now = performance.now();
       if (now - lastTap < 320) { this.gesture('cheer'); this.emit('double'); lastTap = 0; return; }
       lastTap = now;
       const map = { handL: 'shakeL', handR: 'shakeR', head: 'giggle', cheek: 'blush', eye: 'squint', bolt: 'zap', mouth: 'munch', body: 'jump', arm: 'highfive' };
       const g = d.part && map[d.part];
       if (g) { this.action = null; this.gesture(g); if (g === 'zap' || g === 'highfive') this.burst(10); this.emit(d.part); }
-      else this.emit('none');
+      else { if (this.mood !== 'sleepy' && this.marbles.list.length < 10) { const b = this.marbles.drop(d.wx); this.emit('marbleDrop', b.app); } else this.emit('none'); }
     };
     cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
   }

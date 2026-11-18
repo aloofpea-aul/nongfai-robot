@@ -1,14 +1,14 @@
 // น้องมีไฟ — แอปหลัก: ฟังเสียงไทย → ถาม Gemini (สตรีม) → พูดตอบทีละประโยค + แสดงบนจอ
-import { Mascot } from './mascot.js?v=11182300';
-import { WavRecorder } from './recorder.js?v=11182300';
-import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary } from './tools.js?v=11182300';
-import { startPresence, stopPresence, presenceOn, someoneHere, setPresenceRate, status as camStatus } from './presence.js?v=11182300';
-import { startWatch, TOPICS, topicOn, alertLog, clearAlertLog } from './watch.js?v=11182300';
-import { SYS } from './systems.js?v=11182300';
-import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11182300';
+import { Mascot } from './mascot.js?v=11182345';
+import { WavRecorder } from './recorder.js?v=11182345';
+import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary } from './tools.js?v=11182345';
+import { startPresence, stopPresence, presenceOn, someoneHere, setPresenceRate, status as camStatus } from './presence.js?v=11182345';
+import { startWatch, TOPICS, topicOn, alertLog, clearAlertLog } from './watch.js?v=11182345';
+import { SYS } from './systems.js?v=11182345';
+import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11182345';
 
 const $ = (id) => document.getElementById(id);
-export const VERSION = '11182300';
+export const VERSION = '11182345';
 // อัปเดตตัวเอง: ถ้าบนเว็บมีเวอร์ชันใหม่กว่า ให้โหลดหน้าใหม่ทันที (กันไอโฟนจำไฟล์เก่า)
 fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json()).then((j) => {
   if (j.v && j.v !== VERSION && !sessionStorage.getItem('nf.reload.' + j.v)) {
@@ -171,6 +171,7 @@ $('dwgDlg').querySelectorAll('.dwg-tabs button').forEach((b) => (b.onclick = () 
 
 // ---------- มาสคอต ----------
 const mascot = new Mascot($('stage'));
+window.nfMascot = mascot; // ไว้ทดสอบท่าเล่นจากคอนโซล
 // ชี้ไปที่คำตอบ: จอกว้างการ์ดอยู่ทางขวา · มือถือการ์ดอยู่ด้านล่าง
 function pointAtAnswer() { mascot.pointSide = window.innerWidth > 820 ? 'right' : 'down'; mascot.gesture('point'); }
 
@@ -817,6 +818,7 @@ $('stage').addEventListener('pointermove', (e) => {
   mascot.lookAt(((e.clientX - r.left) / r.width) * 2 - 1, -(((e.clientY - r.top) / r.height) * 2 - 1));
 });
 // หยอกเล่นกับน้องมีไฟ: แตะมือ แตะหัว แก้ม ตา ปาก ตัว · ลากหมุน · แตะค้างกอด · แตะสองครั้งดีใจ
+// แตะที่ว่างบนจอ = ปล่อยลูกแก้วแอปลงมาให้เล่น
 const PLAY_SAY = {
   handL: ['ยินดีที่ได้รู้จักค่ะ', 'จับมือกันหน่อยค่ะ'], handR: ['ยินดีที่ได้รู้จักค่ะ', 'สวัสดีค่ะ จับมือกันค่ะ'],
   arm: ['ไฮไฟว์ค่ะ!', 'เย่!'], head: ['อิอิ จั๊กจี้ค่ะ', 'ลูบหัวน้องมีไฟเหรอคะ'], cheek: ['เขินจังค่ะ', 'อย่าแซวสิคะ'],
@@ -825,8 +827,22 @@ const PLAY_SAY = {
   spin: ['ว้าว หมุนได้ด้วย'], double: ['เย่!'],
 };
 let playSaidAt = 0;
-mascot.onTouch = (kind) => {
+let marbleTips = 0;
+mascot.onTouch = (kind, app) => {
   bumpIdle(); wakeUp && wakeUp();
+  // ลูกแก้วแอป: แตะ = บอกชื่อ · แตะค้าง = เปิดแอป (เฉพาะใช้ภายใน)
+  if (kind === 'marbleOpen' && app) {
+    if (OPS() && !busy()) { speak('เปิด ' + app.n + ' ค่ะ'); setTimeout(() => openApp(app.p, app.e + ' ' + app.n), 500); }
+    else if (!busy()) speak('นี่คือ ' + app.n + ' ค่ะ');
+    return;
+  }
+  if (kind === 'marble' && app) {
+    if (busy() || Date.now() - playSaidAt < 1500) return;
+    playSaidAt = Date.now();
+    speak(app.n + (OPS() && marbleTips++ < 2 ? ' ค่ะ แตะค้างไว้เพื่อเปิดแอปได้นะคะ' : ' ค่ะ'));
+    return;
+  }
+  if (kind === 'marbleDrop') return;
   const lines = PLAY_SAY[kind];
   if (!lines || busy() || Date.now() - playSaidAt < 2500) return;
   playSaidAt = Date.now();
