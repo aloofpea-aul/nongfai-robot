@@ -1,4 +1,4 @@
-import { loadNotices, ntState, ntArea, ntWhen, ntHm, ntDate } from './notices.js?v=11181401';
+import { loadNotices, ntState, ntArea, ntWhen, ntHm, ntDate } from './notices.js?v=11181402';
 // เครื่องมือให้น้องไฟดึงข้อมูลจากศูนย์รวมงาน กฟส.อ่าวลึก (Gemini function calling)
 // public = ใครถามก็ตอบได้ · internal = ต้องยืนยันตัวตนพนักงานก่อน (PIN)
 
@@ -340,9 +340,8 @@ async function powerNotices({ keyword }) {
   return withD({ จำนวน: list.length, ประกาศ: list.map(({ n, st }) => ({ ประเภท: n.type === 'emg' ? 'ดับไฟฉุกเฉิน' : 'งดจ่ายไฟตามแผน', วันเวลา: ntWhen(n), พื้นที่: ntArea(n) + (n.sub ? ' ' + n.sub : ''), เหตุผล: n.reason || '', ผู้ใช้ไฟ: n.cust || '', สถานะ: ST[st] || st })) },
     { source: 'ประกาศงดจ่ายไฟ · งานเวรแก้ไฟ', app: '/duty-roster/', items: list.map(({ n, st }) => {
       const d = days(n.date);
-      const vil = [...new Set((n.villages || []).map((v) => String(v).replace(/\(นำเข้าจาก\s*GIS\)/gi, '').trim()).filter(Boolean))];
       const fields = [['ประเภท', n.type === 'emg' ? 'ดับไฟฉุกเฉิน' : 'งดจ่ายไฟตามแผน'], ['วันเวลา', ntWhen(n)], ['สถานะ', ST[st] || st], ['พื้นที่', ntArea(n) + (n.sub ? ' ' + n.sub : '')],
-        ['หมู่บ้าน/ชุมชน', vil.join(', ')], ['เหตุผล', n.reason || ''], ['ผู้ใช้ไฟประมาณ', n.cust ? n.cust + ' ราย' : ''], ['ฟีดเดอร์', n.feeder || ''],
+['เหตุผล', n.reason || ''], ['ผู้ใช้ไฟประมาณ', n.cust ? n.cust + ' ราย' : ''], ['ฟีดเดอร์', n.feeder || ''],
         ['ดับจริง', n.actualOff ? ntHm(n.actualOff) + ' น.' : ''], ['ไฟมา', n.actualOn ? ntHm(n.actualOn) + ' น.' : ''], ['หนังสือประกาศ', n.type === 'emg' ? '' : n.doc ? 'แนบแล้ว (แสดงด้านบน)' : 'ยังไม่แนบ']].filter(([, v]) => v);
       return { title: (n.type === 'emg' ? 'ดับไฟฉุกเฉิน ' : 'งดจ่ายไฟ ') + ntDate(n.date) + ' ' + ntHm(n.actualOff || n.startAt) + (n.endAt ? '–' + ntHm(n.endAt) : '') + ' น.', sub: [ntArea(n), n.reason].filter(Boolean).join(' · '),
         fields, detail: n.doc && n.doc.fileId ? { kind: 'noticeDoc', fileId: n.doc.fileId } : null, link: '/duty-roster/?nt=' + encodeURIComponent(n.id),
@@ -403,7 +402,7 @@ async function drawingsBom({ keyword }) {
 // ---------- 20b) ค้นแบบมาตรฐาน กฟภ. พร้อมภาพ 2D / 3D (ดึงจากคลังแบบในศูนย์รวมงาน ไม่สร้างใหม่) ----------
 async function dwgCatalog() {
   // ดัชนีชื่อแบบ (สร้างจากคลังแบบ pea-drawings ด้วย scripts/build-dwg-index.py) — ภาพ/โมเดลเปิดจากหน้าแบบในคลังโดยตรง
-  return cached('dwgcat', 24 * 3600e3, async () => (await fetch('./dwg-index.json?v=11181401')).json());
+  return cached('dwgcat', 24 * 3600e3, async () => (await fetch('./dwg-index.json?v=11181402')).json());
 }
 const DWG_SYN = [[/สามเฟส|3เฟส/g, '3 เฟส'], [/หนึ่งเฟส|เฟสเดียว|1เฟส/g, '1 เฟส'], [/เสาคู่|สองเสา/g, 'นั่งร้าน'], [/(\d+)\s*เควี|(\d+)\s*kv/gi, '$1$2 kV'], [/ลูกถ้วย|ลูกถ้วยไฟ/g, 'ลูกถ้วย'], [/แรงต่ำ/g, 'แรงต่ำ']];
 const dwgNorm = (t) => { t = String(t || '').toLowerCase(); DWG_SYN.forEach(([a, b]) => { t = t.replace(a, b); }); return t; };
