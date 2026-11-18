@@ -1,7 +1,7 @@
 // แจ้งเตือนอัปเดตจากศูนย์รวมงาน (เกือบเรียลไทม์)
 // ถามตัวเฝ้า (Apps Script ระบบเรียนรู้) ทุก ~12 วิ ว่าไฟล์ของระบบไหนถูกแก้ → ดึงเฉพาะระบบนั้นมาเทียบกับครั้งก่อน
 // ครั้งแรกจำสถานะไว้เฉยๆ (ไม่ประกาศของเก่า) · ทำงานเฉพาะตอนเปิดแอปอยู่บนจอ
-import { DUTY_API, loadNotices, ntState, ntT, ntArea, ntWhen } from './notices.js?v=11181345';
+import { DUTY_API, loadNotices, ntState, ntT, ntArea, ntAreaSay, ntWhen } from './notices.js?v=11181400';
 const TMD_API = 'https://script.google.com/macros/s/AKfycbyF7Am81Ut4aUbzTbACUFpJhIQ2q3iKiiTxoLM8IoGvANQ8NQpaM5BvokCeyOWiAqrwNA/exec';
 const KEY = 'nongfai.watch';
 const S = JSON.parse(localStorage.getItem(KEY) || '{}'); // { ts:{}, tk:{id:st}, tmd:[keys], log:[] }
@@ -56,11 +56,11 @@ async function checkNotices() {
   const cur = {};
   const out = [], Q = 'ประกาศงดจ่ายไฟที่กำลังจะมาถึงมีอะไรบ้าง';
   for (const n of list) {
-    const st = ntState(n, now), p = prev[n.id] || {}, emg = n.type === 'emg', area = ntArea(n);
+    const st = ntState(n, now), p = prev[n.id] || {}, emg = n.type === 'emg', area = ntAreaSay(n);
     const soonMin = Math.round((ntT(n.startAt) - now) / 60e3);
     const c = cur[n.id] = { st, soon: p.soon || false };
     if (first) { c.soon = soonMin <= 30; continue; }
-    const card = (title, say, sub) => out.push({ topic: 'notices', title, text: area, sub: sub || ntWhen(n), say, q: Q });
+    const card = (title, say, sub) => out.push({ topic: 'notices', title, text: ntArea(n).slice(0, 140), sub: sub || ntWhen(n), say, q: Q });
     if (!prev[n.id]) {
       if (st === 'plan' || st === 'due' || st === 'live')
         card(emg ? 'ดับไฟฉุกเฉิน' : 'ประกาศงดจ่ายไฟใหม่', emg ? 'มีการดับไฟฉุกเฉิน ที่ ' + area + (n.reason ? ' เนื่องจาก' + n.reason : '') + 'ค่ะ' : 'มีประกาศงดจ่ายไฟใหม่ ' + ntWhen(n) + ' ที่ ' + area + 'ค่ะ');

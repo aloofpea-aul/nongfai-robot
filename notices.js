@@ -17,3 +17,8 @@ export async function loadNotices() {
   const j = await (await fetch(DUTY_API + '?action=notices')).json();
   return (j && j.notices || []).filter((n) => n && !n.draft);
 }
+// สำหรับพูด: ตัดพื้นที่ยาวๆ ให้เหลือ 3 จุดแรก
+export function ntAreaSay(n) {
+  const parts = ntArea(n).split(/\s*,\s*|\s*·\s*/).map((x) => x.trim()).filter(Boolean);
+  return parts.length > 3 ? parts.slice(0, 3).join(' ') + ' และพื้นที่ใกล้เคียง' : parts.join(' ');
+}
