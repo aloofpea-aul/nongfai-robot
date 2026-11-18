@@ -13,6 +13,11 @@ export class Mascot {
     this.nextBlink = 1.5;
     this.blinkT = -1;
     this.nextGlance = 3;
+    this.action = null;            // ท่าทางครั้งเดียว: wave | point | cheer | toss | spin | stretch | yawn
+    this.idlePlay = false;         // ให้เล่นเองยามว่าง (แอปเปิด/ปิดให้)
+    this.nextIdle = 12;
+    this.pointSide = 'right';      // ชี้ไปทางการ์ด: right (จอกว้าง) | down (มือถือ)
+    this.sparks = [];
 
     const r = this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     r.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
@@ -96,6 +101,30 @@ export class Mascot {
       this.root.add(c);
     });
 
+    // แขน 2 ข้าง: ไหล่ → แขนบน → ศอก → แขนล่าง → มือ (สร้างด้วยโค้ด)
+    const armMat = mat(0x9B6BD3, { emissive: 0x2a0f44, emissiveIntensity: 0.35 }), handMat = mat(0xF5B942, { emissive: 0x8a5a00, emissiveIntensity: 0.35 });
+    this.arms = [-1, 1].map((side) => {
+      const sh = new THREE.Group(); sh.position.set(side * 1.22, -0.55, 0.15);
+      const up = new THREE.Mesh(new THREE.CapsuleGeometry(0.12, 0.42, 6, 16), armMat); up.position.y = -0.27; sh.add(up);
+      const el = new THREE.Group(); el.position.y = -0.56; sh.add(el);
+      const lo = new THREE.Mesh(new THREE.CapsuleGeometry(0.11, 0.36, 6, 16), armMat); lo.position.y = -0.24; el.add(lo);
+      const hand = new THREE.Mesh(new THREE.SphereGeometry(0.19, 24, 16), handMat); hand.position.y = -0.52; el.add(hand);
+      this.root.add(sh);
+      return { side, sh, el, hand, a: 0.25, f: 0, e: -0.15 };
+    });
+    // โลโก้ กฟภ. สำหรับโยนเล่น (ใช้ไฟล์โลโก้ที่มีในระบบงานเวรแก้ไฟ)
+    const logoMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true });
+    new THREE.TextureLoader().load('/duty-roster/notice/pea.png', (tx) => { tx.colorSpace = THREE.SRGBColorSpace; logoMat.map = tx; logoMat.needsUpdate = true; }, undefined, () => {});
+    this.logo = new THREE.Group();
+    const disc = new THREE.Mesh(new THREE.CircleGeometry(0.42, 48), new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide }));
+    const face = new THREE.Mesh(new THREE.CircleGeometry(0.38, 48), logoMat); face.position.z = 0.01;
+    const back = face.clone(); back.rotation.y = Math.PI; back.position.z = -0.01;
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.035, 10, 60), new THREE.MeshBasicMaterial({ color: 0xF5B942 }));
+    this.logo.add(disc, face, back, rim); this.logo.visible = false;
+    this.scene.add(this.logo);
+    this.sparkGeo = new THREE.SphereGeometry(0.05, 8, 6);
+    this.sparkMat = new THREE.MeshBasicMaterial({ color: 0xF5B942, transparent: true });
+
     this.clock = new THREE.Clock();
     new ResizeObserver(() => this.resize()).observe(container);
     this.resize();
@@ -109,7 +138,7 @@ export class Mascot {
     this.renderer.domElement.style.height = '100%';
     this.camera.aspect = w / h;
     // ให้ทั้งตัวพอดีกรอบเสมอ ไม่ว่าจอจะแนวตั้งหรือแนวนอน
-    const fitH = 4.6, fitW = 3.6;
+    const fitH = 5.0, fitW = 4.6; // เผื่อที่ให้แขนกางและโยนโลโก้
     const dist = Math.max(fitH / (2 * Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2))),
       fitW / (2 * Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2))) / this.camera.aspect);
     this.camera.position.z = dist;
@@ -118,6 +147,22 @@ export class Mascot {
 
   setMood(m) { this.mood = m; }
   pulse() { this.pulseUntil = this.clock.elapsedTime + 0.18; }
+  gesture(name) {
+    if (this.action && this.action.name === name) return;
+    const dur = { wave: 1.9, point: 2.2, cheer: 1.6, toss: 2.6, spin: 1.5, stretch: 2.4, yawn: 2.2 }[name];
+    if (!dur) return;
+    this.action = { name, t0: this.clock.elapsedTime, dur };
+    if (name === 'cheer') this.burst(14);
+  }
+  burst(n) {
+    for (let i = 0; i < n; i++) {
+      const m = new THREE.Mesh(this.sparkGeo, this.sparkMat.clone());
+      m.position.set((Math.random() - 0.5) * 0.6, 1.4 + this.root.position.y, 0.6);
+      m.userData.v = new THREE.Vector3((Math.random() - 0.5) * 3, 2 + Math.random() * 2, (Math.random() - 0.2) * 1.5);
+      m.userData.life = 1.1;
+      this.scene.add(m); this.sparks.push(m);
+    }
+  }
   lookAt(x, y) { this.lookTarget.set(THREE.MathUtils.clamp(x, -1, 1), THREE.MathUtils.clamp(y, -1, 1)); }
 
   tick() {
@@ -170,6 +215,74 @@ export class Mascot {
     this.ring.scale.setScalar(1 + (this.mood === 'listening' ? Math.sin(t * 6) * 0.015 : 0));
     this.headMat.emissiveIntensity = sleepy ? 0.1 : 0.6;
 
+    this.animateArms(t, dt);
     this.renderer.render(this.scene, this.camera);
+  }
+
+  // ---------- ท่าทางแขน ----------
+  // ค่าท่าของแขนแต่ละข้าง: a = กางออก/ยกขึ้น (0 = ห้อย, π = ชูตรง), f = ยื่นมาข้างหน้า (ลบ = เข้าหากล้อง), e = งอศอก (ลบ = งอเข้าหาตัว)
+  animateArms(t, dt) {
+    const P = (a, f, e) => ({ a, f, e });
+    const sm = (x) => x * x * (3 - 2 * x);
+    let L = P(0.25, 0.05, -0.15), Rt = P(0.25, 0.05, -0.15), rate = 7;
+    const sleepy = this.mood === 'sleepy';
+    // ท่าตามอารมณ์
+    if (sleepy) { L = P(0.08, 0.15, 0); Rt = P(0.08, 0.15, 0); rate = 3; }
+    else if (this.mood === 'thinking') { Rt = P(2.25, -0.2, -2.05 + Math.sin(t * 14) * 0.12); L = P(0.55, -0.7, -1.3); }
+    else if (this.mood === 'listening') { L = P(2.15, -0.15, -2.0); Rt = P(0.35, -0.1, -0.3); }
+    else if (this.speaking) {
+      Rt = P(0.5 + Math.sin(t * 3.1) * 0.25, -0.35, -0.6 + Math.sin(t * 4.3) * 0.35);
+      L = P(0.45 + Math.sin(t * 2.6 + 1.3) * 0.22, -0.3, -0.55 + Math.sin(t * 3.7 + 0.6) * 0.3);
+    }
+    // ท่าครั้งเดียว
+    let spin = 0, extraMouth = 0, headTilt = 0;
+    const A = this.action;
+    if (A) {
+      const p = (t - A.t0) / A.dur;
+      if (p >= 1) { this.action = null; this.logo.visible = false; }
+      else {
+        rate = 12;
+        const k = A.name;
+        if (k === 'wave') Rt = P(2.55, -0.1, -0.35 + Math.sin(t * 11) * 0.5);
+        else if (k === 'point') { if (this.pointSide === 'down') Rt = P(0.55, -1.15, -0.05); else Rt = P(1.5, -0.25, 0.05); headTilt = 0.08; }
+        else if (k === 'cheer') { const b = Math.sin(t * 16) * 0.12; Rt = P(2.75 + b, -0.1, 0.2); L = P(2.75 - b, -0.1, 0.2); }
+        else if (k === 'spin') { Rt = P(1.45, 0, 0); L = P(1.45, 0, 0); spin = sm(Math.min(1, p / 0.9)) * Math.PI * 2; }
+        else if (k === 'stretch') { const h = p < 0.2 ? p / 0.2 : p > 0.8 ? (1 - p) / 0.2 : 1; Rt = P(3.0 * h + 0.25 * (1 - h), -0.05, 0); L = Rt; headTilt = Math.sin(t * 2) * 0.12 * h; }
+        else if (k === 'yawn') { Rt = P(1.0, -1.25, -1.65); extraMouth = p > 0.15 && p < 0.75 ? 0.32 : 0; }
+        else if (k === 'toss') {
+          // 0–0.2 ประคองโลโก้ · 0.2–0.85 โลโก้ลอยขึ้นแล้วตกกลับ · 0.85–1 รับไว้แล้วเก็บ
+          const hold = P(1.75, -0.75, -0.95), ready = P(2.15, -0.45, -0.55);
+          Rt = p < 0.2 || p > 0.85 ? hold : ready; L = Rt;
+          this.logo.visible = p < 0.95;
+          const base = new THREE.Vector3(0, 0.55 + this.root.position.y, 1.25);
+          if (p < 0.2 || p > 0.85) { this.logo.position.copy(base); this.logo.rotation.set(0, 0, 0); }
+          else { const q = (p - 0.2) / 0.65; this.logo.position.set(0, base.y + 4 * q * (1 - q) * 2.6, 1.25); this.logo.rotation.y = q * Math.PI * 4; }
+        }
+      }
+    }
+    // เล่นเองยามว่าง
+    if (!A && this.idlePlay && t > this.nextIdle) {
+      const opts = sleepy ? ['yawn'] : ['toss', 'toss', 'spin', 'stretch', 'wave', 'cheer'];
+      this.gesture(opts[Math.floor(Math.random() * opts.length)]);
+      this.nextIdle = t + 20 + Math.random() * 20;
+    } else if (!this.idlePlay && t > this.nextIdle) this.nextIdle = t + 8;
+    // ขยับไปหาท่าเป้าหมายแบบนุ่มๆ
+    const k = 1 - Math.exp(-dt * rate);
+    [[this.arms[0], L], [this.arms[1], Rt]].forEach(([arm, tg]) => {
+      arm.a += (tg.a - arm.a) * k; arm.f += (tg.f - arm.f) * k; arm.e += (tg.e - arm.e) * k;
+      arm.sh.rotation.x = arm.f;
+      arm.sh.rotation.z = arm.side * arm.a;
+      arm.el.rotation.z = arm.side * arm.e;
+    });
+    this.root.rotation.y = spin;
+    if (headTilt) this.head.rotation.z = headTilt; else this.head.rotation.z *= 0.9;
+    if (extraMouth) this.mouth.scale.y = Math.max(this.mouth.scale.y, extraMouth);
+    // ประกายดีใจ
+    for (let i = this.sparks.length - 1; i >= 0; i--) {
+      const m = this.sparks[i]; m.userData.life -= dt;
+      m.userData.v.y -= 6 * dt; m.position.addScaledVector(m.userData.v, dt);
+      m.material.opacity = Math.max(0, m.userData.life / 1.1);
+      if (m.userData.life <= 0) { this.scene.remove(m); m.material.dispose(); this.sparks.splice(i, 1); }
+    }
   }
 }

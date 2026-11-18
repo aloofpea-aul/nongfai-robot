@@ -1,13 +1,13 @@
 // น้องมีไฟ — แอปหลัก: ฟังเสียงไทย → ถาม Gemini (สตรีม) → พูดตอบทีละประโยค + แสดงบนจอ
-import { Mascot } from './mascot.js?v=11181510';
-import { WavRecorder } from './recorder.js?v=11181510';
-import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary } from './tools.js?v=11181510';
-import { startPresence, stopPresence, presenceOn } from './presence.js?v=11181510';
-import { startWatch, TOPICS, alertLog, clearAlertLog } from './watch.js?v=11181510';
-import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11181510';
+import { Mascot } from './mascot.js?v=11181540';
+import { WavRecorder } from './recorder.js?v=11181540';
+import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary } from './tools.js?v=11181540';
+import { startPresence, stopPresence, presenceOn, someoneHere } from './presence.js?v=11181540';
+import { startWatch, TOPICS, alertLog, clearAlertLog } from './watch.js?v=11181540';
+import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11181540';
 
 const $ = (id) => document.getElementById(id);
-export const VERSION = '11181510';
+export const VERSION = '11181540';
 // อัปเดตตัวเอง: ถ้าบนเว็บมีเวอร์ชันใหม่กว่า ให้โหลดหน้าใหม่ทันที (กันไอโฟนจำไฟล์เก่า)
 fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json()).then((j) => {
   if (j.v && j.v !== VERSION && !sessionStorage.getItem('nf.reload.' + j.v)) {
@@ -16,7 +16,7 @@ fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json(
   }
 }).catch(() => {});
 
-const DEFAULTS = { apiKey: '', model: 'gemini-3.5-flash-lite', voice: '', rate: 1.0, autoListen: true, hubUser: '', hubPass: '', staffPin: '', mode: 'ops', stt: 'gemini', budgetUser: '', budgetPass: '', officeCode: '', cclUser: '', cclPass: '', olUser: '', olPass: '', learnUrl: '', learnSecret: '', confirm: true, alertOn: true, alertVoice: true, quietOn: true, quietFrom: '22:00', quietTo: '06:00', alertTopics: {}, wakeFace: Math.min(screen.width, screen.height) >= 700, wakeSleep: true };
+const DEFAULTS = { apiKey: '', model: 'gemini-3.5-flash-lite', voice: '', rate: 1.0, autoListen: true, hubUser: '', hubPass: '', staffPin: '', mode: 'ops', stt: 'gemini', budgetUser: '', budgetPass: '', officeCode: '', cclUser: '', cclPass: '', olUser: '', olPass: '', learnUrl: '', learnSecret: '', confirm: true, alertOn: true, alertVoice: true, quietOn: true, quietFrom: '22:00', quietTo: '06:00', alertTopics: {}, wakeFace: Math.min(screen.width, screen.height) >= 700, wakeSleep: true, idlePlay: true };
 const cfg = { ...DEFAULTS, ...JSON.parse(localStorage.getItem('nongfai.cfg') || '{}') };
 const saveCfg = () => localStorage.setItem('nongfai.cfg', JSON.stringify(cfg));
 // ชื่อ/รหัสศูนย์รวมงาน: ถ้าเครื่องนี้เคยล็อกอินศูนย์รวมงานไว้ ใช้ชุดนั้นเลย (โดเมนเดียวกัน)
@@ -59,6 +59,7 @@ const el = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) 
 function clearResults() { document.getElementById('results').replaceChildren(); document.body.classList.remove('has-results'); }
 function showResults(d) {
   if (!d || (!(d.items || []).length && !(d.stats || []).length)) return;
+  pointAtAnswer();
   const box = el('section', 'rs');
   const head = el('div', 'rs-head'); head.append(el('span', null, 'ข้อมูลจาก ' + (d.source || '')));
   if (d.app) { const a = el('a', null, 'เปิดแอป'); a.href = d.app; a.target = '_blank'; a.rel = 'noopener'; head.append(a); }
@@ -145,6 +146,8 @@ $('dwgDlg').querySelectorAll('.dwg-tabs button').forEach((b) => (b.onclick = () 
 
 // ---------- มาสคอต ----------
 const mascot = new Mascot($('stage'));
+// ชี้ไปที่คำตอบ: จอกว้างการ์ดอยู่ทางขวา · มือถือการ์ดอยู่ด้านล่าง
+function pointAtAnswer() { mascot.pointSide = window.innerWidth > 820 ? 'right' : 'down'; mascot.gesture('point'); }
 
 // ---------- UI ----------
 function setMode(m) { document.body.className = 'mode-' + m + (OPS() ? ' ops' : ''); }
@@ -152,6 +155,7 @@ function setStatus(text, cls = '') { const s = $('status'); s.textContent = text
 function toast(msg, ms = 3500) { const t = $('toast'); t.textContent = msg; t.hidden = false; clearTimeout(toast.h); toast.h = setTimeout(() => (t.hidden = true), ms); }
 function showCard(title, items) {
   if (!items.length) { $('card').hidden = true; return; }
+  pointAtAnswer();
   $('cardTitle').textContent = title || '';
   $('cardList').replaceChildren(...items.map((x) => {
     const li = document.createElement('li'), m = x.match(/https?:\/\/\S+/);
@@ -566,6 +570,7 @@ async function fbSend(extra) {
   return cacheable;
 }
 $('fbOk').onclick = async () => {
+  mascot.gesture('cheer');
   fbDone('ขอบคุณค่ะ น้องมีไฟจำไว้แล้ว');
   const cacheable = await fbSend({ ok: true });
   if (cacheable) fbDone('ขอบคุณค่ะ ครั้งหน้าถามแบบนี้น้องมีไฟตอบได้ทันที');
@@ -642,7 +647,7 @@ $('alertTopics').replaceChildren(...Object.entries(TOPICS).map(([k, name]) => { 
 let sleeping = false;
 function sleepNow() {
   if (sleeping || busy() || anyDialogOpen()) return;
-  sleeping = true; $('sleepCover').hidden = false; mascot.setMood('sleepy');
+  sleeping = true; $('sleepCover').hidden = false; mascot.gesture('yawn'); setTimeout(() => { if (sleeping) mascot.setMood('sleepy'); }, 1800);
 }
 function wakeUp() { if (!sleeping) return; sleeping = false; $('sleepCover').hidden = true; mascot.setMood('normal'); bumpIdle(); }
 const anyDialogOpen = () => [...document.querySelectorAll('dialog')].some((d) => d.open) || document.body.classList.contains('confirming');
@@ -651,7 +656,7 @@ async function greetAndListen() {
   wakeUp();
   if (busy() || anyDialogOpen() || !document.body.classList.contains('mode-home')) return;
   const hi = OPS() ? 'สวัสดีค่ะ มีอะไรให้น้องมีไฟช่วยไหมคะ' : 'สวัสดีค่ะ ยินดีต้อนรับสู่การไฟฟ้าส่วนภูมิภาคสาขาอ่าวลึกค่ะ มีอะไรให้น้องมีไฟช่วยไหมคะ';
-  setStatus(hi); mascot.setMood('happy');
+  setStatus(hi); mascot.setMood('normal'); mascot.gesture('wave');
   await tapCue(hi);
   mascot.setMood('normal');
   if (!busy() && !anyDialogOpen() && useAudioAI()) listenAudio(true);
@@ -683,6 +688,8 @@ function armWake() {
 }
 $('wakeCover').onclick = () => { tapCue(' '); wav.prime(); startWake(); };
 armWake();
+// ท่าเล่นยามว่าง: เฉพาะหน้าแรก ไม่มีใครคุยอยู่ และไม่มีคนยืนหน้าจอ
+setInterval(() => { mascot.idlePlay = !!cfg.idlePlay && document.body.classList.contains('mode-home') && !busy() && !someoneHere() && !anyDialogOpen(); }, 1000);
 
 // ---------- ปุ่มต่างๆ ----------
 let unlocked = false;
@@ -757,6 +764,7 @@ function openSettings() {
   $('setMode').value = cfg.mode; $('setStt').value = cfg.stt;
   $('set_budgetUser').value = cfg.budgetUser; $('set_budgetPass').value = cfg.budgetPass; $('set_officeCode').value = cfg.officeCode; $('set_cclUser').value = cfg.cclUser; $('set_cclPass').value = cfg.cclPass; $('set_olUser').value = cfg.olUser; $('set_olPass').value = cfg.olPass;
   $('setHubUser').value = cfg.hubUser; $('setHubPass').value = cfg.hubPass; $('setPin').value = cfg.staffPin;
+  $('setIdlePlay').checked = cfg.idlePlay;
   $('setWakeFace').checked = cfg.wakeFace; $('setWakeSleep').checked = cfg.wakeSleep;
   $('setAlertOn').checked = cfg.alertOn; $('setAlertVoice').checked = cfg.alertVoice; $('setQuiet').checked = cfg.quietOn; $('setQuietFrom').value = cfg.quietFrom; $('setQuietTo').value = cfg.quietTo;
   Object.keys(TOPICS).forEach((k) => { $('top_' + k).checked = cfg.alertTopics[k] !== false; });
@@ -786,7 +794,7 @@ $('btnPaste').onclick = async () => {
 };
 // วางลิงก์จาก QR (มี #lu=…&ls=…) แล้วแยกลิงก์กับรหัสลับให้เอง
 // ย้ายการตั้งค่าทั้งหมดข้ามเครื่อง (API key, รหัสศูนย์รวมงาน, รหัสระบบอื่น, ระบบเรียนรู้, แจ้งเตือน)
-const SHARE_KEYS = ['apiKey', 'model', 'rate', 'mode', 'stt', 'hubUser', 'hubPass', 'staffPin', 'budgetUser', 'budgetPass', 'officeCode', 'cclUser', 'cclPass', 'olUser', 'olPass', 'learnUrl', 'learnSecret', 'confirm', 'alertOn', 'alertVoice', 'quietOn', 'quietFrom', 'quietTo', 'alertTopics', 'wakeSleep'];
+const SHARE_KEYS = ['apiKey', 'model', 'rate', 'mode', 'stt', 'hubUser', 'hubPass', 'staffPin', 'budgetUser', 'budgetPass', 'officeCode', 'cclUser', 'cclPass', 'olUser', 'olPass', 'learnUrl', 'learnSecret', 'confirm', 'alertOn', 'alertVoice', 'quietOn', 'quietFrom', 'quietTo', 'alertTopics', 'wakeSleep', 'idlePlay'];
 function packCfg(o) { return btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
 function unpackCfg(t) { try { return JSON.parse(decodeURIComponent(escape(atob(t.replace(/-/g, '+').replace(/_/g, '/'))))); } catch { return null; } }
 function importCfg(o) {
@@ -823,7 +831,7 @@ $('settings').addEventListener('close', () => {
   const relearn = lu !== cfg.learnUrl || ls !== cfg.learnSecret;
   cfg.learnUrl = lu; cfg.learnSecret = ls; cfg.confirm = $('setConfirm').checked;
   const wf = $('setWakeFace').checked, wfChanged = wf !== cfg.wakeFace;
-  cfg.wakeFace = wf; cfg.wakeSleep = $('setWakeSleep').checked;
+  cfg.wakeFace = wf; cfg.wakeSleep = $('setWakeSleep').checked; cfg.idlePlay = $('setIdlePlay').checked;
   if (wfChanged) setTimeout(() => { if (cfg.wakeFace) { tapCue(' '); wav.prime(); startWake(); } else armWake(); }, 0);
   cfg.alertOn = $('setAlertOn').checked; cfg.alertVoice = $('setAlertVoice').checked; cfg.quietOn = $('setQuiet').checked; cfg.quietFrom = $('setQuietFrom').value || '22:00'; cfg.quietTo = $('setQuietTo').value || '06:00';
   cfg.alertTopics = Object.fromEntries(Object.keys(TOPICS).map((k) => [k, $('top_' + k).checked]));
