@@ -1,8 +1,9 @@
 // แจ้งเตือนอัปเดตจากศูนย์รวมงาน (เกือบเรียลไทม์)
 // ถามตัวเฝ้า (Apps Script ระบบเรียนรู้) ทุก ~12 วิ ว่าไฟล์ของระบบไหนถูกแก้ → ดึงเฉพาะระบบนั้นมาเทียบกับครั้งก่อน
 // ครั้งแรกจำสถานะไว้เฉยๆ (ไม่ประกาศของเก่า) · ทำงานเฉพาะตอนเปิดแอปอยู่บนจอ
-import { runTool } from './tools.js?v=11182140';
-import { DUTY_API, loadNotices, ntState, ntT, ntArea, ntAreaSay, ntWhen } from './notices.js?v=11182140';
+import { runTool } from './tools.js?v=11182300';
+import { startEvents, eventsLive } from './events.js?v=11182300';
+import { DUTY_API, loadNotices, ntState, ntT, ntArea, ntAreaSay, ntWhen } from './notices.js?v=11182300';
 const TMD_API = 'https://script.google.com/macros/s/AKfycbyF7Am81Ut4aUbzTbACUFpJhIQ2q3iKiiTxoLM8IoGvANQ8NQpaM5BvokCeyOWiAqrwNA/exec';
 const KEY = 'nongfai.watch';
 const S = JSON.parse(localStorage.getItem(KEY) || '{}'); // { ts:{}, tk:{id:st}, tmd:[keys], log:[] }
@@ -25,9 +26,12 @@ const GEN = {
   booknum: { tool: 'book_numbers', name: 'ออกเลขหนังสือ', q: 'เลขหนังสือล่าสุดคืออะไร', off: true },
   checkin: { tool: 'checkin_today', name: 'เช็กอินเข้างาน', q: 'วันนี้ใครเช็กอินแล้วบ้าง', off: true },
 };
-export const TOPICS = { notices: 'ประกาศงดจ่ายไฟ', tickets: 'รับแจ้งไฟดับ', tmd: 'เตือนภัยกรมอุตุ', ...Object.fromEntries(Object.entries(GEN).map(([k, g]) => [k, g.name])) };
+// ระบบที่มีเฉพาะในสมุดเหตุการณ์ (ไม่มีเครื่องมือเทียบรายการ)
+const EV_ONLY = { medical: 'ใบเบิกค่ารักษา', survey: 'สำรวจงานก่อสร้าง', stock: 'คลังพัสดุ', teamplan: 'แผนงานระดมทีม', kpi: 'KPI / Report50', k04: 'K04 แผนปฏิบัติการ', load01: 'Load01 (โหลดฟีดเดอร์)', regs: 'ระเบียบ กฟภ.' };
+const OFF = new Set(['safety', 'booknum', 'checkin', 'load01', 'regs']);
+export const TOPICS = { notices: 'ประกาศงดจ่ายไฟ', tickets: 'รับแจ้งไฟดับ', tmd: 'เตือนภัยกรมอุตุ', ...Object.fromEntries(Object.entries(GEN).map(([k, g]) => [k, g.name])), ...EV_ONLY };
 // ค่าเริ่มต้น: เปิดทุกระบบ ยกเว้นที่ข้อมูลเปลี่ยนบ่อยจนรบกวน (เช็กอิน, ออกเลขหนังสือ, Safety Talk)
-export const topicOn = (cfg, k) => (cfg.alertTopics && k in cfg.alertTopics ? !!cfg.alertTopics[k] : !(GEN[k] && GEN[k].off));
+export const topicOn = (cfg, k) => (cfg.alertTopics && k in cfg.alertTopics ? !!cfg.alertTopics[k] : !OFF.has(k));
 const FILE_OF = { notices: 'tickets', tickets: 'tickets', tmd: 'tmd' }; // ประกาศงดจ่ายไฟอยู่ในไฟล์เดียวกับงานเวรแก้ไฟ
 const FULL_EVERY = 3 * 60e3; // ดึงเต็มทุก 3 นาทีด้วย เผื่อเวลาไฟล์ใน Drive อัปเดตช้า
 
@@ -124,7 +128,8 @@ async function checkGeneric(k, ctx) {
 let genIdx = 0;
 const genLast = {};
 async function nextGeneric(ctx, cfg) {
-  const keys = Object.keys(GEN).filter((k) => topicOn(cfg, k));
+  // สมุดเหตุการณ์ทำงานอยู่ = รู้ทุกการเปลี่ยนแปลงแล้ว ไม่ต้องดึงเทียบเอง (เหลือเวรแก้ไฟที่อ่านง่ายกว่าแบบเดิม)
+  const keys = Object.keys(GEN).filter((k) => topicOn(cfg, k) && (!eventsLive() || k === 'duty'));
   for (let i = 0; i < keys.length; i++) {
     const k = keys[(genIdx + i) % keys.length];
     if (Date.now() - (genLast[k] || 0) < 170e3) continue;
@@ -163,17 +168,20 @@ async function tick() {
     for (const k of changed) { try { found.push(...await CHECK[k](ctx)); } catch (e) { console.warn('watch', k, e); } }
     found.push(...await nextGeneric(ctx, cfg)); // ระบบอื่น: ทีละระบบต่อรอบ (ทุกระบบวนครบใน ~3 นาที)
     save();
-    if (found.length) {
-      const at = Date.now();
-      found.forEach((f) => { f.at = at; f.time = hhmm(at); });
-      S.log = [...found.reverse(), ...S.log].slice(0, 30); save();
-      ctx.onAlerts(found);
-    }
+    if (found.length) push(found.reverse());
   } catch (e) { console.warn('watch', e); }
   finally { running = false; }
 }
+function push(found) {
+  const ctx = ctxRef; if (!ctx || !found.length) return;
+  const at = Date.now();
+  found.forEach((f) => { f.at = f.at || at; f.time = hhmm(f.at); });
+  S.log = [...found, ...S.log].slice(0, 40); save();
+  ctx.onAlerts(found);
+}
 export function startWatch(ctx) {
   ctxRef = ctx;
+  startEvents({ cfg: ctx.cfg, learn: ctx.learn, topicOn, push });
   clearInterval(timer);
   timer = setInterval(tick, 12000);
   setTimeout(tick, 3000);

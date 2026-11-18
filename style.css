@@ -244,3 +244,16 @@ a.tel{color:var(--purple);font-weight:600;text-decoration:underline}
 @keyframes micp{50%{transform:scale(1.12);box-shadow:0 0 0 12px rgba(91,45,142,.25)}}
 .camdot{width:12px;height:12px;border-radius:50%;background:#8fd19e;align-self:center;margin-right:4px;box-shadow:0 0 0 2px rgba(255,255,255,.35)}.camdot.face{background:#4fc3ff;box-shadow:0 0 0 4px rgba(79,195,255,.45)}
 .cover.sleep.deep{background:rgba(8,4,16,.93)}
+
+/* แจ้งเตือนแยกสีตามระบบ + ตัวเชื่อม + เปิดแอปในน้องมีไฟ */
+.al-icon{font-size:22px;line-height:1;flex:none}
+.alertcard{border-color:var(--al-c,#e24b4a)}
+.alertcard .al-head b{color:var(--al-c,var(--purple-dk))}
+.al-ents,.rs-chips{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}
+.al-ents button,.rs-chips button{border:1.5px solid var(--purple);background:#f6f2ff;color:var(--purple-dk);border-radius:999px;padding:4px 12px;min-height:36px;font-family:Prompt,sans-serif;font-size:15px}
+.al-ents span{font-size:14px;color:#777;align-self:center}
+#alList li .li-ic{margin-right:6px}
+#alList li .li-open{float:right;border:0;background:transparent;color:var(--purple);font-family:Prompt,sans-serif;font-size:15px;min-height:32px}
+.appv .dt-head span{flex:1}
+.app-loading{position:absolute;top:50%;left:0;right:0;text-align:center;color:#777;font-size:18px;pointer-events:none}
+.appv{position:fixed}

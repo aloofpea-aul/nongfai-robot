@@ -1,13 +1,14 @@
 // น้องมีไฟ — แอปหลัก: ฟังเสียงไทย → ถาม Gemini (สตรีม) → พูดตอบทีละประโยค + แสดงบนจอ
-import { Mascot } from './mascot.js?v=11182140';
-import { WavRecorder } from './recorder.js?v=11182140';
-import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary } from './tools.js?v=11182140';
-import { startPresence, stopPresence, presenceOn, someoneHere, setPresenceRate, status as camStatus } from './presence.js?v=11182140';
-import { startWatch, TOPICS, topicOn, alertLog, clearAlertLog } from './watch.js?v=11182140';
-import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11182140';
+import { Mascot } from './mascot.js?v=11182300';
+import { WavRecorder } from './recorder.js?v=11182300';
+import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary } from './tools.js?v=11182300';
+import { startPresence, stopPresence, presenceOn, someoneHere, setPresenceRate, status as camStatus } from './presence.js?v=11182300';
+import { startWatch, TOPICS, topicOn, alertLog, clearAlertLog } from './watch.js?v=11182300';
+import { SYS } from './systems.js?v=11182300';
+import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11182300';
 
 const $ = (id) => document.getElementById(id);
-export const VERSION = '11182140';
+export const VERSION = '11182300';
 // อัปเดตตัวเอง: ถ้าบนเว็บมีเวอร์ชันใหม่กว่า ให้โหลดหน้าใหม่ทันที (กันไอโฟนจำไฟล์เก่า)
 fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json()).then((j) => {
   if (j.v && j.v !== VERSION && !sessionStorage.getItem('nf.reload.' + j.v)) {
@@ -41,7 +42,9 @@ const SYSTEM_BASE = `คุณคือ "น้องมีไฟ" (ชื่อ
 const OPS_NOTE = `
 โหมดใช้งานตอนนี้: ใช้ภายในแผนกปฏิบัติการระบบไฟฟ้า (ผปร.) กฟส.อ่าวลึก ผู้ที่คุยด้วยคือพนักงานและคนงานในแผนก ไม่ใช่ลูกค้า
 ให้พูดแบบเพื่อนร่วมงานที่สุภาพ เรียกว่า "พี่" ได้ ตอบตรงประเด็นงาน ใช้เครื่องมือข้อมูลภายในได้ทุกตัวโดยไม่ต้องยืนยันตัวตน
-ตอบตัวเลขและชื่อให้ครบถ้วน ถ้ารายการยาวให้สรุปที่สำคัญเป็นคำพูด แล้วใส่รายละเอียดในการ์ด`;
+ตอบตัวเลขและชื่อให้ครบถ้วน ถ้ารายการยาวให้สรุปที่สำคัญเป็นคำพูด แล้วใส่รายละเอียดในการ์ด
+คำถามว่า "มีอะไรเปลี่ยน/เคลื่อนไหว/อัปเดตบ้าง" "วันนี้ทั้งสาขามีอะไรเกิดขึ้น" หรือถามเรื่องเดียวข้ามหลายระบบ (เช่น ฟีดเดอร์ ALA01 ทะเบียนรถ หมู่บ้าน) ให้ใช้ activity_log ก่อน
+แล้วสรุปแบบเข้าใจง่าย: รวมกี่เรื่อง ระบบไหนบ้าง เรื่องสำคัญ (รายการใหม่ เปลี่ยนขั้นตอน) และบอกความเชื่อมโยงข้ามระบบถ้ามี ถ้าต้องการข้อมูลปัจจุบันของระบบนั้นเพิ่ม ให้เรียกเครื่องมือของระบบนั้นต่อได้`;
 function systemText() {
   const n = bkkNow(), wd = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์'][n.getUTCDay()];
   return SYSTEM_BASE + (OPS() ? OPS_NOTE : '') + `\nวันเวลาปัจจุบัน: วัน${wd}ที่ ${n.toISOString().slice(0, 16).replace('T', ' ')} (เวลาไทย)` +
@@ -52,7 +55,7 @@ function systemText() {
 let staffUntil = 0, wantVerify = false, lastAsk = null;
 const OPS = () => cfg.mode !== 'customer';   // ช่วงทดสอบใช้ในแผนก ผปร. = ถือว่าเป็นเจ้าหน้าที่ทุกคน
 const staffOn = () => OPS() || Date.now() < staffUntil;
-const toolCtx = { staff: staffOn, show: (d) => showResults(d), needVerify: () => { wantVerify = true; }, creds: () => ({ user: cfg.hubUser, pass: cfg.hubPass, budgetUser: cfg.budgetUser, budgetPass: cfg.budgetPass, officeCode: cfg.officeCode, cclUser: cfg.cclUser, cclPass: cfg.cclPass, olUser: cfg.olUser, olPass: cfg.olPass }) };
+const toolCtx = { staff: staffOn, show: (d) => showResults(d), needVerify: () => { wantVerify = true; }, creds: () => ({ user: cfg.hubUser, pass: cfg.hubPass, budgetUser: cfg.budgetUser, budgetPass: cfg.budgetPass, officeCode: cfg.officeCode, cclUser: cfg.cclUser, cclPass: cfg.cclPass, olUser: cfg.olUser, olPass: cfg.olPass, learnUrl: cfg.learnUrl, learnSecret: cfg.learnSecret }) };
 
 // ---------- ผลค้นหา: สรุปตัวเลข + รายการพร้อมรูป + หน้ารายละเอียด ----------
 const el = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
@@ -62,11 +65,12 @@ function showResults(d) {
   pointAtAnswer();
   const box = el('section', 'rs');
   const head = el('div', 'rs-head'); head.append(el('span', null, 'ข้อมูลจาก ' + (d.source || '')));
-  if (d.app) { const a = el('a', null, 'เปิดแอป'); a.href = d.app; a.target = '_blank'; a.rel = 'noopener'; head.append(a); }
+  if (d.app) { const a = el('a', null, 'เปิดแอป'); a.href = d.app; a.onclick = (e) => { if (openApp(d.app, d.source)) e.preventDefault(); }; head.append(a); }
   box.append(head);
   if ((d.stats || []).length) { const g = el('div', 'rs-stats'); d.stats.forEach((s) => { const c = el('div', 'st' + (s.t ? ' ' + s.t : '')); c.append(el('b', null, s.v == null ? '-' : String(s.v)), el('span', null, s.l)); g.append(c); }); box.append(g); }
   const items = d.items || [], list = el('div', 'rs');
   const renderItems = (n) => { list.replaceChildren(...items.slice(0, n).map((it) => itemRow(it, d))); };
+  if ((d.chips || []).length) { const cw = el('div', 'rs-chips'); cw.append(el('span', null, 'เกี่ยวข้อง:')); d.chips.forEach((c) => { const b = el('button', null, c.t); b.type = 'button'; b.onclick = () => { stopSpeaking(); tapCue('ได้เลยค่ะ'); ask(c.q, null, true); }; cw.append(b); }); box.append(cw); }
   renderItems(8); box.append(list);
   if (items.length > 8) { const more = el('button', 'rs-more', 'ดูทั้งหมด ' + items.length + ' รายการ'); more.type = 'button'; more.onclick = () => { renderItems(items.length); more.remove(); }; box.append(more); }
   const r = document.getElementById('results'); r.append(box); document.body.classList.add('has-results');
@@ -98,7 +102,7 @@ async function openDetail(it, d) {
   setImgs(it.images); setFields(it.fields);
   const lat = Number(it.lat), lon = Number(it.lon);
   $('dtMap').hidden = !(lat && lon); if (lat && lon) $('dtMap').href = 'https://www.google.com/maps/search/?api=1&query=' + lat + ',' + lon;
-  const app = it.link || d.app; $('dtOpen').hidden = !app; if (app) { $('dtOpen').href = app; $('dtOpen').textContent = it.link && !/^\/[\w-]+\/(\?|$)/.test(it.link) ? 'เปิดเอกสาร' : 'เปิดในแอป'; }
+  const app = it.link || it.app || d.app; $('dtOpen').hidden = !app; $('dtOpen').onclick = (e) => { if (openApp($('dtOpen').getAttribute('href'), it.title)) { e.preventDefault(); $('detailDlg').close(); } }; if (app) { $('dtOpen').href = app; $('dtOpen').textContent = it.link && !/^\/[\w-]+\/(\?|$)/.test(it.link) ? 'เปิดเอกสาร' : 'เปิดในแอป'; }
   $('detailDlg').showModal();
   if (it.detail) {
     $('dtLoading').hidden = false;
@@ -132,6 +136,27 @@ function openDwg(g) {
   $('dwgFrame').src = g.page;
   $('dwgDlg').showModal();
 }
+// ---------- เปิดแอปในศูนย์รวมงานภายในน้องมีไฟ (ไม่ต้องออกไปเบราว์เซอร์) ----------
+// แอปอยู่โดเมนเดียวกัน (aloofpea-aul.github.io) → ใช้ชื่อ/รหัสที่ตั้งไว้ล็อกอินให้อัตโนมัติ
+const HUB_PATH = /^\/(?!nongfai-robot\/)[\w-]+\/[^\s]*$/;
+function openApp(path, title) {
+  if (!path || !HUB_PATH.test(path) || /\.pdf($|\?)/i.test(path)) return false;
+  try {
+    if (cfg.hubUser && cfg.hubPass && !localStorage.getItem('pea_aoluek_password')) {
+      localStorage.setItem('pea_aoluek_username', cfg.hubUser); localStorage.setItem('pea_aoluek_password', cfg.hubPass);
+    }
+  } catch {}
+  const url = path + (path.includes('?') ? '&' : '?') + 'from=nongfai';
+  $('appTitle').textContent = title || 'แอปในศูนย์รวมงาน';
+  $('appLoading').hidden = false;
+  $('appFrame').onload = () => { $('appLoading').hidden = true; };
+  $('appFrame').src = url;
+  if (!$('appDlg').open) $('appDlg').showModal();
+  stopSpeaking();
+  return true;
+}
+$('appBack').onclick = () => { $('appDlg').close(); $('appFrame').src = 'about:blank'; };
+$('appReload').onclick = () => { try { $('appFrame').contentWindow.location.reload(); } catch { $('appFrame').src = $('appFrame').src; } };
 $('dwgBack').onclick = () => { $('dwgDlg').close(); $('dwgFrame').src = 'about:blank'; };
 $('dwgDlg').querySelectorAll('.dwg-tabs button').forEach((b) => (b.onclick = () => {
   const go = b.dataset.go;
@@ -601,12 +626,25 @@ function quietNow() {
   const a = t(cfg.quietFrom), b = t(cfg.quietTo);
   return a <= b ? m >= a && m < b : m >= a || m < b;
 }
+// ลิงก์แอปของการแจ้งเตือนแบบเดิม (ตามหัวข้อ)
+const TOPIC_APP = { notices: '/duty-roster/', tickets: '/duty-roster/', tmd: '/tmd/', ...Object.fromEntries(Object.values(SYS).map((x) => [x.k, x.app])) };
+const TOPIC_ICON = { notices: '📢', tickets: '☎️', tmd: '⛈️', test: '🔔', ...Object.fromEntries(Object.values(SYS).map((x) => [x.k, x.icon])) };
+const TOPIC_COLOR = Object.fromEntries(Object.values(SYS).map((x) => [x.k, x.color]));
+const alApp = (a) => a.app || TOPIC_APP[a.topic] || '';
 function showAlert(a) {
   alertNow = a;
+  $('alIcon').textContent = a.icon || TOPIC_ICON[a.topic] || '🔔';
+  $('alertCard').style.setProperty('--al-c', a.color || TOPIC_COLOR[a.topic] || '#e24b4a');
   $('alTitle').textContent = a.title; $('alTime').textContent = a.time || '';
   $('alText').textContent = a.text || ''; $('alSub').textContent = a.sub || '';
+  const ents = a.ents || [];
+  $('alEnts').hidden = !ents.length;
+  $('alEnts').replaceChildren(...(ents.length ? [el('span', null, 'เกี่ยวข้อง:'), ...ents.map((x) => { const b = el('button', null, x); b.type = 'button'; b.onclick = () => { $('alAck').onclick(); stopSpeaking(); tapCue('ได้เลยค่ะ'); ask(x + ' มีความเคลื่อนไหวอะไรบ้างในทุกระบบ', null, true); }; return b; })] : []));
+  $('alOpen').hidden = !alApp(a) || !OPS();
+  $('alMore').hidden = !a.q;
   $('alertCard').hidden = false; $('alerts').hidden = false;
 }
+$('alOpen').onclick = () => { const a = alertNow; if (!a) return; const app = alApp(a); $('alAck').onclick(); openApp(app, (a.icon || TOPIC_ICON[a.topic] || '') + ' ' + (a.sys || a.title.split(' · ')[0])); };
 function setBell() { $('bellCount').textContent = alertUnseen > 9 ? '9+' : alertUnseen; $('bellCount').hidden = !alertUnseen; }
 function onAlerts(list) {
   if (!OPS()) { list = list.filter((a) => a.topic === 'notices' || a.topic === 'test'); if (!list.length) return; } // โหมดลูกค้า: ไม่แสดงข้อมูลภายในบนจอ
@@ -631,7 +669,12 @@ $('btnBell').onclick = () => {
   const h = $('alHist');
   if (!h.hidden) { h.hidden = true; if ($('alertCard').hidden) $('alerts').hidden = true; return; }
   const log = alertLog();
-  $('alList').replaceChildren(...(log.length ? log.slice(0, 20).map((a) => { const li = el('li', null, a.title + ' · ' + (a.text || '')); li.append(el('small', null, [a.time, a.sub].filter(Boolean).join(' · '))); li.onclick = () => { stopSpeaking(); tapCue('ได้เลยค่ะ'); ask(a.q, null, true); h.hidden = true; }; return li; }) : [el('li', null, 'ยังไม่มีอัปเดตค่ะ')]));
+  $('alList').replaceChildren(...(log.length ? log.slice(0, 30).map((a) => {
+    const li = el('li'); li.append(el('span', 'li-ic', a.icon || TOPIC_ICON[a.topic] || '🔔'), a.title + ' · ' + (a.text || ''));
+    const app = alApp(a);
+    if (app && OPS()) { const ob = el('button', 'li-open', 'เปิดแอป'); ob.type = 'button'; ob.onclick = (e) => { e.stopPropagation(); h.hidden = true; $('alerts').hidden = $('alertCard').hidden; openApp(app, a.sys || a.title.split(' · ')[0]); }; li.append(ob); }
+    li.append(el('small', null, [a.time, a.sub].filter(Boolean).join(' · ')));
+    li.onclick = () => { if (!a.q) return; stopSpeaking(); tapCue('ได้เลยค่ะ'); ask(a.q, null, true); h.hidden = true; }; return li; }) : [el('li', null, 'ยังไม่มีอัปเดตค่ะ')]));
   h.hidden = false; $('alerts').hidden = false; alertUnseen = 0; setBell();
 };
 $('btnTestAlert').onclick = () => {

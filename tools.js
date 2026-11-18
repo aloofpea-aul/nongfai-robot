@@ -1,4 +1,6 @@
-import { loadNotices, ntState, ntArea, ntWhen, ntHm, ntDate } from './notices.js?v=11182140';
+import { findEvents } from './events.js?v=11182300';
+import { describe, sysInfo, SYS } from './systems.js?v=11182300';
+import { loadNotices, ntState, ntArea, ntWhen, ntHm, ntDate } from './notices.js?v=11182300';
 // เครื่องมือให้น้องมีไฟดึงข้อมูลจากศูนย์รวมงาน กฟส.อ่าวลึก (Gemini function calling)
 // public = ใครถามก็ตอบได้ · internal = ต้องยืนยันตัวตนพนักงานก่อน (PIN)
 
@@ -402,7 +404,7 @@ async function drawingsBom({ keyword }) {
 // ---------- 20b) ค้นแบบมาตรฐาน กฟภ. พร้อมภาพ 2D / 3D (ดึงจากคลังแบบในศูนย์รวมงาน ไม่สร้างใหม่) ----------
 async function dwgCatalog() {
   // ดัชนีชื่อแบบ (สร้างจากคลังแบบ pea-drawings ด้วย scripts/build-dwg-index.py) — ภาพ/โมเดลเปิดจากหน้าแบบในคลังโดยตรง
-  return cached('dwgcat', 24 * 3600e3, async () => (await fetch('./dwg-index.json?v=11182140')).json());
+  return cached('dwgcat', 24 * 3600e3, async () => (await fetch('./dwg-index.json?v=11182300')).json());
 }
 const DWG_SYN = [[/สามเฟส|3เฟส/g, '3 เฟส'], [/หนึ่งเฟส|เฟสเดียว|1เฟส/g, '1 เฟส'], [/เสาคู่|สองเสา/g, 'นั่งร้าน'], [/(\d+)\s*เควี|(\d+)\s*kv/gi, '$1$2 kV'], [/ลูกถ้วย|ลูกถ้วยไฟ/g, 'ลูกถ้วย'], [/แรงต่ำ/g, 'แรงต่ำ']];
 const dwgNorm = (t) => { t = String(t || '').toLowerCase(); DWG_SYN.forEach(([a, b]) => { t = t.replace(a, b); }); return t; };
@@ -502,6 +504,34 @@ function autoDisplay(name, r) {
   return { source: NAMES[name] || name, app: APPS[name], stats: [{ l: 'รายการ', v: best.length }],
     items: best.slice(0, 30).map((o) => { const f = F(o); return { title: f[0] ? f[0][1] : '-', sub: f.slice(1, 3).map((x) => x[1]).join(' · '), fields: f }; }) };
 }
+
+// ---------- ความเคลื่อนไหวข้ามระบบ (สมุดเหตุการณ์) + ความสัมพันธ์ ----------
+const thDT = (t) => new Date(t).toLocaleString('th-TH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Bangkok' });
+async function activityLog(a, c) {
+  const days = Number(a.days) || 7;
+  const sysArg = String(a.system || '').trim();
+  const sys = sysArg ? (Object.keys(SYS).find((k) => k.includes(sysArg) || sysArg.includes(k.split(' ')[0])) || sysArg) : '';
+  const j = await findEvents({ url: c.learnUrl, secret: c.learnSecret }, { q: a.keyword || '', sys, days, type: a.type || '', limit: 60 });
+  const evs = j.events || [];
+  const cards = evs.map((e) => ({ e, d: describe(e) }));
+  const bySys = Object.entries(j.bySys || {}).sort((x, y) => y[1] - x[1]);
+  const ents = Object.entries(j.ents || {}).filter(([k]) => !a.keyword || k.toLowerCase() !== String(a.keyword).toLowerCase()).slice(0, 8);
+  const ai = {
+    ช่วงเวลา: 'ย้อนหลัง ' + j.days + ' วัน', คำค้น: a.keyword || '(ทั้งหมด)', ระบบ: sys || '(ทุกระบบ)',
+    พบทั้งหมด: j.total, แยกตามระบบ: Object.fromEntries(bySys), แยกตามชนิด: j.byType,
+    สิ่งที่เกี่ยวข้องบ่อย: Object.fromEntries(ents),
+    เหตุการณ์ล่าสุด: cards.slice(0, 40).map(({ e, d }) => ({ เวลา: thDT(e.at), ระบบ: e.sys, ชนิด: e.type, รายการ: d.text, รายละเอียด: d.sub, ช่องที่เปลี่ยน: (e.ch || []).slice(0, 4).map((x) => x.c + ': ' + (x.o || '(ว่าง)') + ' → ' + (x.n || '(ว่าง)')) })),
+    คำแนะนำการตอบ: 'สรุปเป็นภาษาพูด: มีกี่เรื่อง ระบบไหนบ้าง เรื่องสำคัญ (เปลี่ยนขั้นตอน/รายการใหม่) และความเชื่อมโยงข้ามระบบถ้ามี ห้ามแต่งข้อมูลนอกเหนือจากนี้',
+  };
+  const tone = { 'เพิ่ม': 'green', 'ลบ': 'red', 'แก้': 'amber', 'อัปเดต': '' };
+  const D = { source: 'สมุดเหตุการณ์ทุกระบบ · ' + (a.keyword ? '"' + a.keyword + '" · ' : '') + j.days + ' วัน', app: '',
+    stats: [{ l: 'ความเคลื่อนไหว', v: j.total }, ...bySys.slice(0, 3).map(([k, v]) => ({ l: sysInfo(k).icon + ' ' + k, v }))],
+    items: cards.map(({ e, d }) => ({ title: d.icon + ' ' + d.text, sub: thDT(e.at) + ' · ' + d.title + (d.sub ? ' · ' + d.sub : ''), badge: e.type, tone: tone[e.type] || '', app: d.app,
+      text: e.text, fields: [['ระบบ', e.sys], ['ชีต', e.sheet], ['เวลา', thDT(e.at)], ...(e.ch || []).slice(0, 8).map((x) => [x.c, (x.o || '(ว่าง)') + ' → ' + (x.n || '(ว่าง)')]), ...(d.ents.length ? [['เกี่ยวข้อง', d.ents.join(', ')]] : []), ...Object.entries(e.row || {}).slice(0, 10).map(([k, v]) => [k, String(v)])] })),
+    chips: ents.map(([k, v]) => ({ t: k + ' (' + v + ')', q: k + ' มีความเคลื่อนไหวอะไรบ้างในทุกระบบ' })) };
+  return withD(ai, D);
+}
+
 export async function loadDetail(det, c) {
   if (det.kind === 'patrol') {
     const j = await postJSON(HUB_GAS, { action: 'patrolDetail', changedBy: c.user, changedByPassword: c.pass, findingId: det.id });
@@ -529,6 +559,7 @@ export async function glossary() {
 
 // ---------- ประกาศให้ Gemini รู้จักเครื่องมือ ----------
 export const TOOLS = {
+  activity_log: { access: 'internal', run: activityLog, decl: { name: 'activity_log', description: 'สมุดเหตุการณ์ของทุกระบบในศูนย์รวมงาน: ใครเพิ่ม/แก้/ลบอะไร เปลี่ยนขั้นตอนเมื่อไหร่ ย้อนหลังได้ และเชื่อมความสัมพันธ์ข้ามระบบด้วยตัวเชื่อม เช่น ฟีดเดอร์ (ALA01) รหัสอุปกรณ์ ทะเบียนรถ หมู่บ้าน ใช้เมื่อถามว่า "มีอะไรเปลี่ยน/เคลื่อนไหว/อัปเดต" "X สัปดาห์นี้มีอะไรบ้าง" "เกี่ยวข้องกับอะไรบ้าง" หรือสรุปความเคลื่อนไหวทั้งสาขา', parameters: { type: 'OBJECT', properties: { keyword: { type: 'STRING', description: 'คำค้น/ตัวเชื่อม เช่น ALA01, กข1234, บ้านแหลมสัก ว่างได้ = ทุกเรื่อง' }, system: { type: 'STRING', description: 'ชื่อระบบ เช่น ยานพาหนะ งานจัดซื้อ Patrol ตัดงบ ว่างได้ = ทุกระบบ' }, days: { type: 'NUMBER', description: 'ย้อนหลังกี่วัน (วันนี้=1 สัปดาห์นี้=7 เดือนนี้=30)' }, type: { type: 'STRING', description: 'เพิ่ม | แก้ | ลบ | อัปเดต ว่างได้' } } } } },
   standard_drawing: { access: 'public', run: standardDrawing, decl: { name: 'standard_drawing', description: 'ค้นแบบก่อสร้างมาตรฐาน กฟภ. และแสดงภาพ 2D / โมเดล 3D / PDF บนจอ เช่น แบบติดตั้งหม้อแปลง คอนสาย ลูกถ้วย เสา หรือเลขแบบ เช่น 6201 (ใช้เมื่อผู้ใช้อยากดูแบบหรือรูป)', parameters: { type: 'OBJECT', properties: { keyword: { type: 'STRING', description: 'ชื่อแบบ อุปกรณ์ หรือเลขการประกอบ' } }, required: ['keyword'] } } },
   weather_now: { access: 'public', run: weatherNow, decl: { name: 'weather_now', description: 'สภาพอากาศตอนนี้ที่อ่าวลึก และระดับความเสี่ยงไฟดับจากฝน/ลม', parameters: { type: 'OBJECT', properties: {} } } },
   weather_warnings: { access: 'public', run: weatherWarnings, decl: { name: 'weather_warnings', description: 'ประกาศเตือนภัยกรมอุตุนิยมวิทยารายวันของเดือน (เฉพาะที่เกี่ยวกับกระบี่และทั่วไป)', parameters: { type: 'OBJECT', properties: { month: { type: 'STRING', description: 'YYYY-MM ว่างได้ = เดือนนี้' } } } } },

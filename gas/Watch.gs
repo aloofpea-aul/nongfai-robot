@@ -188,3 +188,34 @@ function setupWatch() {
   ScriptApp.newTrigger('watchTick').timeBased().everyMinutes(1).create();
   return 'ติดตั้งแล้ว: สมุดเหตุการณ์ ' + SpreadsheetApp.openById(PropertiesService.getScriptProperties().getProperty('EVENTS_ID')).getUrl();
 }
+
+// ค้นเหตุการณ์ข้ามระบบ (ให้น้องมีไฟตอบคำถาม เช่น "ALA01 สัปดาห์นี้มีอะไรบ้าง")
+// q = คำค้น (หลายคำคั่นด้วยช่องว่าง ต้องพบทุกคำ) · sys = ชื่อระบบบางส่วน · days = ย้อนหลังกี่วัน · type = เพิ่ม/แก้/ลบ/อัปเดต
+function findEvents_(o) {
+  const sh = evSheet_(), n = sh.getLastRow() - 1;
+  if (n < 1) return { total: 0, events: [], bySys: {}, byType: {}, ents: {} };
+  const days = Math.min(Math.max(Number(o.days) || 7, 1), 120), since = Date.now() - days * 864e5;
+  const terms = String(o.q || '').toLowerCase().split(/\s+/).filter(Boolean), sys = String(o.sys || '').toLowerCase(), type = String(o.type || '');
+  const take = Math.min(n, KEEP_EVENTS + 200), first = sh.getLastRow() - take + 1;
+  const vals = sh.getRange(first, 1, take, 9).getValues();
+  const hit = [];
+  for (let i = vals.length - 1; i >= 0; i--) {
+    const r = vals[i], t = r[1] instanceof Date ? r[1].getTime() : Date.parse(r[1]);
+    if (t < since) break;
+    if (sys && String(r[2]).toLowerCase().indexOf(sys) < 0) continue;
+    if (type && r[5] !== type) continue;
+    if (terms.length) { const hay = r.slice(2).join(' ').toLowerCase(); if (!terms.every((w) => hay.indexOf(w) >= 0)) continue; }
+    hit.push([first + i, r, t]);
+  }
+  const bySys = {}, byType = {}, ents = {};
+  hit.forEach(([, r]) => { bySys[r[2]] = (bySys[r[2]] || 0) + 1; byType[r[5]] = (byType[r[5]] || 0) + 1; String(r[8] || '').split(' ').filter(Boolean).forEach((e) => { ents[e] = (ents[e] || 0) + 1; }); });
+  const top = hit.slice(0, Math.min(Number(o.limit) || 60, 150));
+  let rowJ = {};
+  if (top.length) { // ข้อมูลแถวเต็ม (เฉพาะรายการที่จะส่ง) อ่านช่วงเดียวถ้าไม่ไกลเกินไป
+    const lo = top[top.length - 1][0], hi = top[0][0];
+    if (hi - lo < 1500) { const j = sh.getRange(lo, 10, hi - lo + 1, 1).getValues(); top.forEach(([row]) => { rowJ[row] = j[row - lo][0]; }); }
+  }
+  const events = top.map(([row, r, t]) => ({ id: Number(r[0]), at: t, sys: r[2], sheet: r[3], key: String(r[4]), type: r[5], text: r[6], ch: r[7] ? JSON.parse(r[7]) : [], ent: String(r[8] || ''), row: rowJ[row] ? JSON.parse(rowJ[row]) : null }));
+  const topEnts = Object.fromEntries(Object.entries(ents).sort((a, b) => b[1] - a[1]).slice(0, 15));
+  return { total: hit.length, days, events, bySys, byType, ents: topEnts };
+}

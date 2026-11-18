@@ -1,0 +1,60 @@
+// แจ้งเตือนจาก "สมุดเหตุการณ์" (ตัวเฝ้าฐานข้อมูลทุกระบบ ฝั่ง Apps Script)
+// ถามหาเหตุการณ์ใหม่ทุก 20 วิ เฉพาะตอนแอปเปิดอยู่บนจอ · ส่งแค่เลขล่าสุดที่เคยเห็น จึงเบาทั้งเครื่องและเซิร์ฟเวอร์
+// ครั้งแรกจำเลขล่าสุดไว้เฉยๆ ไม่ประกาศของเก่า
+import { describe, isNoise, sysInfo } from './systems.js?v=11182300';
+const KEY = 'nongfai.events';
+const S = JSON.parse(localStorage.getItem(KEY) || '{}');
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch {} };
+// ระบบที่มีตัวแจ้งเตือนเฉพาะอยู่แล้ว (ข้อความละเอียดกว่า) → ไม่แจ้งซ้ำ แต่ยังเก็บไว้ตอบคำถาม
+const OWN = new Set(['งานเวรแก้ไฟ', 'เตือนภัยกรมอุตุ']);
+let live = false, timer = null, ctxRef = null, running = false;
+export const eventsLive = () => live;
+
+async function post(L, body) {
+  const r = await fetch(L.url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ ...body, secret: L.secret }) });
+  return r.json();
+}
+// ค้นเหตุการณ์ข้ามระบบ (ใช้ในเครื่องมือตอบคำถาม)
+export async function findEvents(L, args) {
+  if (!L || !L.url || !L.secret) throw new Error('ยังไม่ได้ตั้งค่าระบบเรียนรู้ (ลิงก์/รหัสลับ) ในหน้าตั้งค่า');
+  const j = await post(L, { action: 'find', ...args });
+  if (!j || !j.ok) throw new Error((j && j.error) || 'สมุดเหตุการณ์ไม่ตอบ');
+  return j;
+}
+
+async function tick() {
+  const ctx = ctxRef; if (!ctx || running) return;
+  const cfg = ctx.cfg(), L = ctx.learn();
+  if (!L.url || !L.secret || document.visibilityState !== 'visible') return;
+  running = true;
+  try {
+    const first = S.last == null;
+    const j = await post(L, { action: 'events', since: S.last || 0, limit: 60 });
+    if (!j || !j.ok) { live = false; return; }
+    live = true;
+    if (first) { S.last = j.last || 0; save(); return; }
+    const evs = (j.events || []).filter((e) => e.id > (S.last || 0));
+    if (j.last) S.last = Math.max(S.last || 0, j.last); save();
+    if (!cfg.alertOn) return;
+    const cards = evs.filter((e) => !OWN.has(e.sys) && !isNoise(e)).map(describe).filter((c) => ctx.topicOn(cfg, c.topic));
+    if (!cards.length) return;
+    // ระบบเดียวเปลี่ยนเยอะในรอบเดียว = สรุปรวบ ไม่ประกาศทีละรายการ
+    const by = {}; cards.forEach((c) => (by[c.sys] = by[c.sys] || []).push(c));
+    const out = [];
+    for (const [sys, list] of Object.entries(by)) {
+      if (list.length <= 3) { out.push(...list); continue; }
+      const s = sysInfo(sys), names = [...new Set(list.map((c) => c.text))];
+      out.push({ ...list[0], title: sys + ' · ความเคลื่อนไหว ' + list.length + ' รายการ', text: names.slice(0, 3).join(', ') + (names.length > 3 ? ' …' : ''), sub: [...new Set(list.map((c) => c.title.split(' · ')[1]))].join(' · '), say: sys + ' มีความเคลื่อนไหว ' + list.length + ' รายการค่ะ', q: sys + ' วันนี้มีความเคลื่อนไหวอะไรบ้าง', ents: [...new Set(list.flatMap((c) => c.ents))].slice(0, 4), icon: s.icon, color: s.color });
+    }
+    ctx.push(out.reverse());
+  } catch (e) { live = false; console.warn('events', e); }
+  finally { running = false; }
+}
+export function startEvents(ctx) {
+  ctxRef = ctx;
+  clearInterval(timer);
+  timer = setInterval(tick, 20000);
+  setTimeout(tick, 4000);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') setTimeout(tick, 2000); });
+}
+export const eventsNow = () => tick();
