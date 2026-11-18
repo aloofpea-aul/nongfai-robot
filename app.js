@@ -1,12 +1,12 @@
 // น้องไฟ — แอปหลัก: ฟังเสียงไทย → ถาม Gemini (สตรีม) → พูดตอบทีละประโยค + แสดงบนจอ
-import { Mascot } from './mascot.js?v=11180840';
-import { WavRecorder } from './recorder.js?v=11180840';
-import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary } from './tools.js?v=11180840';
-import { startWatch, TOPICS, alertLog, clearAlertLog } from './watch.js?v=11180840';
-import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11180840';
+import { Mascot } from './mascot.js?v=11180910';
+import { WavRecorder } from './recorder.js?v=11180910';
+import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary } from './tools.js?v=11180910';
+import { startWatch, TOPICS, alertLog, clearAlertLog } from './watch.js?v=11180910';
+import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11180910';
 
 const $ = (id) => document.getElementById(id);
-export const VERSION = '11180840';
+export const VERSION = '11180910';
 // อัปเดตตัวเอง: ถ้าบนเว็บมีเวอร์ชันใหม่กว่า ให้โหลดหน้าใหม่ทันที (กันไอโฟนจำไฟล์เก่า)
 fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json()).then((j) => {
   if (j.v && j.v !== VERSION && !sessionStorage.getItem('nf.reload.' + j.v)) {
@@ -695,12 +695,13 @@ function importCfg(o) {
 function fillLearn(v) {
   const i = v.indexOf('#'), h = new URLSearchParams(i >= 0 ? v.slice(i + 1) : '');
   if (h.get('cfg') && importCfg(unpackCfg(h.get('cfg')))) { openSettings(); toast('นำเข้าการตั้งค่าทั้งหมดแล้วค่ะ', 5000); return true; }
+  if (h.get('key')) { cfg.apiKey = h.get('key'); saveCfg(); $('setKey').value = cfg.apiKey; }
   if (h.get('lu') && h.get('ls')) { $('setLearnUrl').value = h.get('lu'); $('setLearnSecret').value = h.get('ls'); toast('ใส่ลิงก์และรหัสลับให้แล้ว กดบันทึกได้เลยค่ะ', 5000); return true; }
   return false;
 }
 ['input', 'change', 'paste'].forEach((ev) => $('setLearnUrl').addEventListener(ev, () => setTimeout(() => fillLearn($('setLearnUrl').value), 0)));
 $('btnPasteLearn').onclick = async () => {
-  try { const t = (await navigator.clipboard.readText()).trim(); if (!t) return toast('คลิปบอร์ดว่างค่ะ'); if (!fillLearn(t)) $('setLearnUrl').value = t; }
+  try { const t = (await navigator.clipboard.readText()).trim(); if (!t) return toast('คลิปบอร์ดว่างค่ะ'); if (!fillLearn(t)) { $('setLearnUrl').value = t; toast('สิ่งที่วางไม่ใช่ลิงก์ตั้งค่าจาก QR ค่ะ ลองแตะ "แตะเพื่อคัดลอก" ใน Safari อีกครั้ง', 7000); } }
   catch { toast('วางไม่ได้ ลองกดค้างที่ช่องแล้วเลือก "วาง" นะคะ'); }
 };
 $('setRate').oninput = (e) => ($('rateVal').textContent = e.target.value + 'x');
