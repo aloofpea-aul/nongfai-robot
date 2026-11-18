@@ -1,14 +1,33 @@
 // แจ้งเตือนอัปเดตจากศูนย์รวมงาน (เกือบเรียลไทม์)
 // ถามตัวเฝ้า (Apps Script ระบบเรียนรู้) ทุก ~12 วิ ว่าไฟล์ของระบบไหนถูกแก้ → ดึงเฉพาะระบบนั้นมาเทียบกับครั้งก่อน
 // ครั้งแรกจำสถานะไว้เฉยๆ (ไม่ประกาศของเก่า) · ทำงานเฉพาะตอนเปิดแอปอยู่บนจอ
-import { DUTY_API, loadNotices, ntState, ntT, ntArea, ntAreaSay, ntWhen } from './notices.js?v=11181940';
+import { runTool } from './tools.js?v=11182140';
+import { DUTY_API, loadNotices, ntState, ntT, ntArea, ntAreaSay, ntWhen } from './notices.js?v=11182140';
 const TMD_API = 'https://script.google.com/macros/s/AKfycbyF7Am81Ut4aUbzTbACUFpJhIQ2q3iKiiTxoLM8IoGvANQ8NQpaM5BvokCeyOWiAqrwNA/exec';
 const KEY = 'nongfai.watch';
 const S = JSON.parse(localStorage.getItem(KEY) || '{}'); // { ts:{}, tk:{id:st}, tmd:[keys], log:[] }
 S.ts = S.ts || {}; S.log = S.log || [];
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch {} };
 
-export const TOPICS = { notices: 'ประกาศงดจ่ายไฟ', tickets: 'รับแจ้งไฟดับ', tmd: 'เตือนภัยกรมอุตุ' };
+// แอปในศูนย์รวมงานที่แจ้งเตือนได้: 3 ระบบแรกเกือบเรียลไทม์ (มีตัวเฝ้าไฟล์) ที่เหลือเช็กทุก ~3 นาที
+// ระบบอื่นใช้ "เครื่องมือ" ตัวเดียวกับที่น้องมีไฟใช้ตอบคำถาม แล้วเทียบรายการกับครั้งก่อน
+const GEN = {
+  duty: { tool: 'duty_roster', name: 'เวรแก้ไฟวันนี้', q: 'วันนี้ใครเข้าเวรแก้ไฟบ้าง' },
+  patrol: { tool: 'patrol_findings', name: 'Patrol ระบบจำหน่าย', q: 'จุดบกพร่อง Patrol ล่าสุดมีอะไรบ้าง' },
+  vehicles: { tool: 'vehicles', name: 'ยานพาหนะ', q: 'ตอนนี้รถคันไหนว่างบ้าง' },
+  procure: { tool: 'procure_jobs', name: 'งานจัดซื้อ', q: 'งานจัดซื้อล่าสุดมีอะไรบ้าง' },
+  tfbuy: { tool: 'tf_purchase_jobs', name: 'งานซื้อ/ขายหม้อแปลง', q: 'งานซื้อหม้อแปลงล่าสุดมีอะไรบ้าง' },
+  budget: { tool: 'budget', name: 'ตัดงบทำการ', q: 'รายการขอใช้งบล่าสุดมีอะไรบ้าง' },
+  ccl: { tool: 'ccl', name: 'CCL งานก่อสร้าง', q: 'งานก่อสร้างใน CCL ล่าสุดเป็นอย่างไร' },
+  officelove: { tool: 'office_love', name: 'Office Love (รปภ.)', q: 'Office Love วันนี้มีเหตุผิดปกติไหม' },
+  tree: { tool: 'tree_cutting', name: 'งานตัดต้นไม้', q: 'งานตัดต้นไม้ล่าสุดเป็นอย่างไร' },
+  safety: { tool: 'safety_talk', name: 'Safety Talk', q: 'Safety Talk ล่าสุดเป็นอย่างไร', off: true },
+  booknum: { tool: 'book_numbers', name: 'ออกเลขหนังสือ', q: 'เลขหนังสือล่าสุดคืออะไร', off: true },
+  checkin: { tool: 'checkin_today', name: 'เช็กอินเข้างาน', q: 'วันนี้ใครเช็กอินแล้วบ้าง', off: true },
+};
+export const TOPICS = { notices: 'ประกาศงดจ่ายไฟ', tickets: 'รับแจ้งไฟดับ', tmd: 'เตือนภัยกรมอุตุ', ...Object.fromEntries(Object.entries(GEN).map(([k, g]) => [k, g.name])) };
+// ค่าเริ่มต้น: เปิดทุกระบบ ยกเว้นที่ข้อมูลเปลี่ยนบ่อยจนรบกวน (เช็กอิน, ออกเลขหนังสือ, Safety Talk)
+export const topicOn = (cfg, k) => (cfg.alertTopics && k in cfg.alertTopics ? !!cfg.alertTopics[k] : !(GEN[k] && GEN[k].off));
 const FILE_OF = { notices: 'tickets', tickets: 'tickets', tmd: 'tmd' }; // ประกาศงดจ่ายไฟอยู่ในไฟล์เดียวกับงานเวรแก้ไฟ
 const FULL_EVERY = 3 * 60e3; // ดึงเต็มทุก 3 นาทีด้วย เผื่อเวลาไฟล์ใน Drive อัปเดตช้า
 
@@ -79,18 +98,53 @@ async function checkNotices() {
 }
 const CHECK = { notices: checkNotices, tickets: checkTickets, tmd: checkTmd };
 
+// ---------- ระบบอื่นๆ: เทียบรายการจากเครื่องมือกับครั้งก่อน ----------
+const bkkDay = () => new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10);
+async function checkGeneric(k, ctx) {
+  const g = GEN[k];
+  let shown = null;
+  const tctx = { ...ctx.toolCtx(), staff: () => true, show: (d) => { shown = d; }, needVerify: () => {} };
+  const r = await runTool(g.tool, {}, tctx);
+  if (!shown || !(shown.items || []).length || (r && (r.error || r.need_verify))) return [];
+  const key = (it) => String(it.title || '') + '|' + String(it.sub || '').split('·')[0].trim();
+  const now = {}; shown.items.forEach((it) => { now[key(it)] = { b: String(it.badge || ''), t: it.title || '', s: it.sub || '' }; });
+  S.g = S.g || {};
+  const prev = S.g[k], day = bkkDay();
+  S.g[k] = { day, items: Object.fromEntries(Object.entries(now).map(([kk, v]) => [kk, v.b])) };
+  if (!prev || prev.day !== day) return []; // ครั้งแรก หรือขึ้นวันใหม่ = จำไว้เฉยๆ ไม่ประกาศ
+  const out = [];
+  for (const [kk, v] of Object.entries(now)) {
+    if (!(kk in prev.items)) out.push({ topic: k, title: g.name + ' · รายการใหม่', text: v.t, sub: [v.s, v.b].filter(Boolean).join(' · '), say: g.name + ' มีรายการใหม่ ' + v.t + (v.b ? ' ' + v.b : '') + 'ค่ะ', q: g.q });
+    else if (v.b && prev.items[kk] && prev.items[kk] !== v.b) out.push({ topic: k, title: g.name + ' · อัปเดต', text: v.t, sub: prev.items[kk] + ' → ' + v.b, say: g.name + ' ' + v.t + ' เปลี่ยนเป็น ' + v.b + 'ค่ะ', q: g.q });
+  }
+  // เปลี่ยนพร้อมกันเยอะ = สรุปรวบเดียว ไม่ประกาศทีละรายการ
+  if (out.length > 4) return [{ topic: k, title: g.name + ' · อัปเดต ' + out.length + ' รายการ', text: out.slice(0, 3).map((o) => o.text).join(', ') + ' …', sub: '', say: g.name + ' มีอัปเดต ' + out.length + ' รายการค่ะ', q: g.q }];
+  return out;
+}
+let genIdx = 0;
+const genLast = {};
+async function nextGeneric(ctx, cfg) {
+  const keys = Object.keys(GEN).filter((k) => topicOn(cfg, k));
+  for (let i = 0; i < keys.length; i++) {
+    const k = keys[(genIdx + i) % keys.length];
+    if (Date.now() - (genLast[k] || 0) < 170e3) continue;
+    genIdx = (genIdx + i + 1) % keys.length; genLast[k] = Date.now();
+    try { return await checkGeneric(k, ctx); } catch (e) { console.warn('watch', k, e); return []; }
+  }
+  return [];
+}
+
 // ---------- วนเช็ก ----------
 let timer = null, running = false, lastFull = 0, ctxRef = null;
 export const alertLog = () => S.log;
 export function clearAlertLog() { S.log = []; save(); }
-export function resetWatchBaseline() { delete S.tk; delete S.tmd; delete S.nt; S.ts = {}; save(); }
+export function resetWatchBaseline() { delete S.tk; delete S.tmd; delete S.nt; delete S.g; S.ts = {}; save(); }
 
 async function tick() {
   const ctx = ctxRef; if (!ctx || running) return;
   const cfg = ctx.cfg();
   if (!cfg.alertOn || document.visibilityState !== 'visible') return;
-  const topics = Object.keys(CHECK).filter((k) => cfg.alertTopics?.[k] !== false);
-  if (!topics.length) return;
+  const topics = Object.keys(CHECK).filter((k) => topicOn(cfg, k));
   running = true;
   try {
     let changed = [];
@@ -103,9 +157,11 @@ async function tick() {
         topics.forEach((k) => { const t = w.t[FILE_OF[k]]; if (t) S.ts[k] = t; });
       } else changed = topics; // ตัวเฝ้าใช้ไม่ได้ → ดึงตรงทุกรอบแทน (ช้ากว่าแต่ยังทำงาน)
     } else changed = topics;
+    if (!topics.length) changed = [];
     if (full) lastFull = Date.now();
     const found = [];
     for (const k of changed) { try { found.push(...await CHECK[k](ctx)); } catch (e) { console.warn('watch', k, e); } }
+    found.push(...await nextGeneric(ctx, cfg)); // ระบบอื่น: ทีละระบบต่อรอบ (ทุกระบบวนครบใน ~3 นาที)
     save();
     if (found.length) {
       const at = Date.now();

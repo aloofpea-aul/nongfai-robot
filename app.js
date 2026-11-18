@@ -1,13 +1,13 @@
 // น้องมีไฟ — แอปหลัก: ฟังเสียงไทย → ถาม Gemini (สตรีม) → พูดตอบทีละประโยค + แสดงบนจอ
-import { Mascot } from './mascot.js?v=11181940';
-import { WavRecorder } from './recorder.js?v=11181940';
-import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary } from './tools.js?v=11181940';
-import { startPresence, stopPresence, presenceOn, someoneHere, setPresenceRate, status as camStatus } from './presence.js?v=11181940';
-import { startWatch, TOPICS, alertLog, clearAlertLog } from './watch.js?v=11181940';
-import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11181940';
+import { Mascot } from './mascot.js?v=11182140';
+import { WavRecorder } from './recorder.js?v=11182140';
+import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary } from './tools.js?v=11182140';
+import { startPresence, stopPresence, presenceOn, someoneHere, setPresenceRate, status as camStatus } from './presence.js?v=11182140';
+import { startWatch, TOPICS, topicOn, alertLog, clearAlertLog } from './watch.js?v=11182140';
+import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11182140';
 
 const $ = (id) => document.getElementById(id);
-export const VERSION = '11181940';
+export const VERSION = '11182140';
 // อัปเดตตัวเอง: ถ้าบนเว็บมีเวอร์ชันใหม่กว่า ให้โหลดหน้าใหม่ทันที (กันไอโฟนจำไฟล์เก่า)
 fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json()).then((j) => {
   if (j.v && j.v !== VERSION && !sessionStorage.getItem('nf.reload.' + j.v)) {
@@ -609,6 +609,7 @@ function showAlert(a) {
 }
 function setBell() { $('bellCount').textContent = alertUnseen > 9 ? '9+' : alertUnseen; $('bellCount').hidden = !alertUnseen; }
 function onAlerts(list) {
+  if (!OPS()) { list = list.filter((a) => a.topic === 'notices' || a.topic === 'test'); if (!list.length) return; } // โหมดลูกค้า: ไม่แสดงข้อมูลภายในบนจอ
   wakeUp();
   showAlert(list[0]);
   alertUnseen += list.length; setBell();
@@ -639,7 +640,7 @@ $('btnTestAlert').onclick = () => {
   setTimeout(() => onAlerts([{ topic: 'test', title: 'ทดสอบแจ้งเตือน', text: 'นี่คือตัวอย่างการ์ดแจ้งเตือนจากศูนย์รวมงาน', sub: 'ไม่ใช่ข้อมูลจริง', say: 'ทดสอบแจ้งเตือนจากศูนย์รวมงานค่ะ ถ้าได้ยินเสียงนี้ แปลว่าใช้งานได้ค่ะ', q: '', time: new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) }]), 1500);
 };
 $('alClose').onclick = () => { $('alHist').hidden = true; if ($('alertCard').hidden) $('alerts').hidden = true; };
-startWatch({ cfg: () => cfg, creds: () => ({ user: cfg.hubUser, pass: cfg.hubPass }), learn: () => ({ url: cfg.learnUrl, secret: cfg.learnSecret }), onAlerts });
+startWatch({ cfg: () => cfg, toolCtx: () => toolCtx, creds: () => ({ user: cfg.hubUser, pass: cfg.hubPass }), learn: () => ({ url: cfg.learnUrl, secret: cfg.learnSecret }), onAlerts });
 $('alertTopics').replaceChildren(...Object.entries(TOPICS).map(([k, name]) => { const l = el('label', 'check'); const c = Object.assign(document.createElement('input'), { type: 'checkbox', id: 'top_' + k }); l.append(c, ' ' + name); return l; }));
 
 
@@ -801,7 +802,7 @@ function openSettings() {
   showCamStatus();
   $('setWakeFace').checked = cfg.wakeFace; $('setWakeSleep').checked = cfg.wakeSleep;
   $('setAlertOn').checked = cfg.alertOn; $('setAlertVoice').checked = cfg.alertVoice; $('setQuiet').checked = cfg.quietOn; $('setQuietFrom').value = cfg.quietFrom; $('setQuietTo').value = cfg.quietTo;
-  Object.keys(TOPICS).forEach((k) => { $('top_' + k).checked = cfg.alertTopics[k] !== false; });
+  Object.keys(TOPICS).forEach((k) => { $('top_' + k).checked = topicOn(cfg, k); });
   $('setLearnUrl').value = cfg.learnUrl; $('setLearnSecret').value = cfg.learnSecret; $('setConfirm').checked = cfg.confirm;
   const st = learnStats();
   $('learnInfo').textContent = (st.online ? 'เชื่อม Sheet แล้ว ✓ · ' : st.configured ? 'ใส่ค่าแล้วแต่เชื่อม Sheet ไม่สำเร็จ · ' : 'ยังไม่เชื่อม Sheet (เก็บในเครื่องนี้) · ') + `จำคำ ${st.corr} · คำตอบยืนยัน ${st.verified} · ตัวอย่าง ${st.examples}`;
