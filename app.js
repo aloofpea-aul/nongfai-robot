@@ -1,12 +1,13 @@
 // น้องไฟ — แอปหลัก: ฟังเสียงไทย → ถาม Gemini (สตรีม) → พูดตอบทีละประโยค + แสดงบนจอ
-import { Mascot } from './mascot.js?v=11181405';
-import { WavRecorder } from './recorder.js?v=11181405';
-import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary } from './tools.js?v=11181405';
-import { startWatch, TOPICS, alertLog, clearAlertLog } from './watch.js?v=11181405';
-import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11181405';
+import { Mascot } from './mascot.js?v=11181420';
+import { WavRecorder } from './recorder.js?v=11181420';
+import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary } from './tools.js?v=11181420';
+import { startPresence, stopPresence, presenceOn } from './presence.js?v=11181420';
+import { startWatch, TOPICS, alertLog, clearAlertLog } from './watch.js?v=11181420';
+import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11181420';
 
 const $ = (id) => document.getElementById(id);
-export const VERSION = '11181405';
+export const VERSION = '11181420';
 // อัปเดตตัวเอง: ถ้าบนเว็บมีเวอร์ชันใหม่กว่า ให้โหลดหน้าใหม่ทันที (กันไอโฟนจำไฟล์เก่า)
 fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json()).then((j) => {
   if (j.v && j.v !== VERSION && !sessionStorage.getItem('nf.reload.' + j.v)) {
@@ -15,7 +16,7 @@ fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json(
   }
 }).catch(() => {});
 
-const DEFAULTS = { apiKey: '', model: 'gemini-3.5-flash-lite', voice: '', rate: 1.0, autoListen: true, hubUser: '', hubPass: '', staffPin: '', mode: 'ops', stt: 'gemini', budgetUser: '', budgetPass: '', officeCode: '', cclUser: '', cclPass: '', olUser: '', olPass: '', learnUrl: '', learnSecret: '', confirm: true, alertOn: true, alertVoice: true, quietOn: true, quietFrom: '22:00', quietTo: '06:00', alertTopics: {} };
+const DEFAULTS = { apiKey: '', model: 'gemini-3.5-flash-lite', voice: '', rate: 1.0, autoListen: true, hubUser: '', hubPass: '', staffPin: '', mode: 'ops', stt: 'gemini', budgetUser: '', budgetPass: '', officeCode: '', cclUser: '', cclPass: '', olUser: '', olPass: '', learnUrl: '', learnSecret: '', confirm: true, alertOn: true, alertVoice: true, quietOn: true, quietFrom: '22:00', quietTo: '06:00', alertTopics: {}, wakeFace: Math.min(screen.width, screen.height) >= 700, wakeSleep: true };
 const cfg = { ...DEFAULTS, ...JSON.parse(localStorage.getItem('nongfai.cfg') || '{}') };
 const saveCfg = () => localStorage.setItem('nongfai.cfg', JSON.stringify(cfg));
 // ชื่อ/รหัสศูนย์รวมงาน: ถ้าเครื่องนี้เคยล็อกอินศูนย์รวมงานไว้ ใช้ชุดนั้นเลย (โดเมนเดียวกัน)
@@ -264,11 +265,15 @@ function setAudioMode(type) { try { if (navigator.audioSession && type === 'auto
 function micOn() { listening = true; $('btnMic').classList.add('listening'); mascot.setMood('listening'); setStatus('กำลังฟังอยู่ค่ะ…', 'listening'); }
 function micOff() { listening = false; $('btnMic').classList.remove('listening'); mascot.setMood('normal'); }
 
-async function listenAudio() {
+async function listenAudio(auto) {
   if (wav.active) { wav.stop(); return; }
   stopSpeaking(); abortAsk();
   setAudioMode('auto');
   wav.prime();
+  if (auto) { // เปิดฟังเองตอนเห็นคน: ถ้าเครื่องยังไม่ยอมให้เปิดเสียง (ต้องแตะก่อน) ให้รอแตะไมค์แทน
+    await new Promise((r) => setTimeout(r, 250));
+    if (!wav.ctx || wav.ctx.state !== 'running') { try { wav.ctx && wav.ctx.close(); } catch {} wav.ctx = null; setStatus('แตะปุ่มไมค์แล้วพูดได้เลยค่ะ'); $('btnMic').classList.add('pulse'); setTimeout(() => $('btnMic').classList.remove('pulse'), 8000); return; }
+  }
   micOn();
   bumpIdle();
   await tapCue('ค่ะ'); // ตอบรับก่อนเริ่มฟัง และปลดล็อกเสียงพูดบนไอโฟน
@@ -599,6 +604,7 @@ function showAlert(a) {
 }
 function setBell() { $('bellCount').textContent = alertUnseen > 9 ? '9+' : alertUnseen; $('bellCount').hidden = !alertUnseen; }
 function onAlerts(list) {
+  wakeUp();
   showAlert(list[0]);
   alertUnseen += list.length; setBell();
   mascot.pulse();
@@ -630,6 +636,52 @@ $('btnTestAlert').onclick = () => {
 $('alClose').onclick = () => { $('alHist').hidden = true; if ($('alertCard').hidden) $('alerts').hidden = true; };
 startWatch({ cfg: () => cfg, creds: () => ({ user: cfg.hubUser, pass: cfg.hubPass }), learn: () => ({ url: cfg.learnUrl, secret: cfg.learnSecret }), onAlerts });
 $('alertTopics').replaceChildren(...Object.entries(TOPICS).map(([k, name]) => { const l = el('label', 'check'); const c = Object.assign(document.createElement('input'), { type: 'checkbox', id: 'top_' + k }); l.append(c, ' ' + name); return l; }));
+
+
+// ---------- โหมดรอ: เห็นคนเข้ามา → ทักและฟังเอง ----------
+let sleeping = false;
+function sleepNow() {
+  if (sleeping || busy() || anyDialogOpen()) return;
+  sleeping = true; $('sleepCover').hidden = false; mascot.setMood('sleepy');
+}
+function wakeUp() { if (!sleeping) return; sleeping = false; $('sleepCover').hidden = true; mascot.setMood('normal'); bumpIdle(); }
+const anyDialogOpen = () => [...document.querySelectorAll('dialog')].some((d) => d.open) || document.body.classList.contains('confirming');
+$('sleepCover').onclick = () => { wakeUp(); };
+async function greetAndListen() {
+  wakeUp();
+  if (busy() || anyDialogOpen() || !document.body.classList.contains('mode-home')) return;
+  const hi = OPS() ? 'สวัสดีค่ะ มีอะไรให้น้องไฟช่วยไหมคะ' : 'สวัสดีค่ะ ยินดีต้อนรับสู่การไฟฟ้าส่วนภูมิภาคสาขาอ่าวลึกค่ะ มีอะไรให้น้องไฟช่วยไหมคะ';
+  setStatus(hi); mascot.setMood('happy');
+  await tapCue(hi);
+  mascot.setMood('normal');
+  if (!busy() && !anyDialogOpen() && useAudioAI()) listenAudio(true);
+  else if (!busy() && !anyDialogOpen()) listen();
+}
+async function startWake() {
+  $('wakeCover').hidden = true;
+  try {
+    await startPresence({
+      minSize: () => 0.12,
+      gapMs: () => 60e3,
+      sleepMs: () => 120e3,
+      onLook: (x, y) => { if (!sleeping) mascot.lookAt(x * 0.9, y * 0.6); },
+      onPresence: (here) => { if (here) wakeUp(); },
+      onArrive: greetAndListen,
+      onIdle: () => { if (cfg.wakeSleep) sleepNow(); },
+    });
+    toast('โหมดรอเปิดแล้ว เดินเข้ามาหน้าจอ น้องไฟจะทักเองค่ะ', 4000);
+  } catch (e) {
+    toast(e && e.name === 'NotAllowedError' ? 'ต้องอนุญาตให้ใช้กล้องก่อนค่ะ' : 'เปิดโหมดรอไม่ได้: ' + String(e && e.message || e).slice(0, 80), 7000);
+  }
+}
+// ไอโฟน/ไอแพดต้องแตะหน้าจอ 1 ครั้งหลังเปิดแอป จึงจะเปิดกล้อง ไมค์ และเสียงพูดเองได้
+function armWake() {
+  if (!cfg.wakeFace) { stopPresence(); $('wakeCover').hidden = true; return; }
+  if (presenceOn()) return;
+  $('wakeCover').hidden = false;
+}
+$('wakeCover').onclick = () => { tapCue(' '); wav.prime(); startWake(); };
+armWake();
 
 // ---------- ปุ่มต่างๆ ----------
 let unlocked = false;
@@ -704,6 +756,7 @@ function openSettings() {
   $('setMode').value = cfg.mode; $('setStt').value = cfg.stt;
   $('set_budgetUser').value = cfg.budgetUser; $('set_budgetPass').value = cfg.budgetPass; $('set_officeCode').value = cfg.officeCode; $('set_cclUser').value = cfg.cclUser; $('set_cclPass').value = cfg.cclPass; $('set_olUser').value = cfg.olUser; $('set_olPass').value = cfg.olPass;
   $('setHubUser').value = cfg.hubUser; $('setHubPass').value = cfg.hubPass; $('setPin').value = cfg.staffPin;
+  $('setWakeFace').checked = cfg.wakeFace; $('setWakeSleep').checked = cfg.wakeSleep;
   $('setAlertOn').checked = cfg.alertOn; $('setAlertVoice').checked = cfg.alertVoice; $('setQuiet').checked = cfg.quietOn; $('setQuietFrom').value = cfg.quietFrom; $('setQuietTo').value = cfg.quietTo;
   Object.keys(TOPICS).forEach((k) => { $('top_' + k).checked = cfg.alertTopics[k] !== false; });
   $('setLearnUrl').value = cfg.learnUrl; $('setLearnSecret').value = cfg.learnSecret; $('setConfirm').checked = cfg.confirm;
@@ -732,7 +785,7 @@ $('btnPaste').onclick = async () => {
 };
 // วางลิงก์จาก QR (มี #lu=…&ls=…) แล้วแยกลิงก์กับรหัสลับให้เอง
 // ย้ายการตั้งค่าทั้งหมดข้ามเครื่อง (API key, รหัสศูนย์รวมงาน, รหัสระบบอื่น, ระบบเรียนรู้, แจ้งเตือน)
-const SHARE_KEYS = ['apiKey', 'model', 'rate', 'mode', 'stt', 'hubUser', 'hubPass', 'staffPin', 'budgetUser', 'budgetPass', 'officeCode', 'cclUser', 'cclPass', 'olUser', 'olPass', 'learnUrl', 'learnSecret', 'confirm', 'alertOn', 'alertVoice', 'quietOn', 'quietFrom', 'quietTo', 'alertTopics'];
+const SHARE_KEYS = ['apiKey', 'model', 'rate', 'mode', 'stt', 'hubUser', 'hubPass', 'staffPin', 'budgetUser', 'budgetPass', 'officeCode', 'cclUser', 'cclPass', 'olUser', 'olPass', 'learnUrl', 'learnSecret', 'confirm', 'alertOn', 'alertVoice', 'quietOn', 'quietFrom', 'quietTo', 'alertTopics', 'wakeSleep'];
 function packCfg(o) { return btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
 function unpackCfg(t) { try { return JSON.parse(decodeURIComponent(escape(atob(t.replace(/-/g, '+').replace(/_/g, '/'))))); } catch { return null; } }
 function importCfg(o) {
@@ -768,6 +821,9 @@ $('settings').addEventListener('close', () => {
   if (lu && !/^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec$/.test(lu)) { toast('ลิงก์ระบบเรียนรู้ไม่ถูกต้อง ใช้ค่าเดิมไว้ก่อนค่ะ', 6000); lu = cfg.learnUrl; ls = cfg.learnSecret; }
   const relearn = lu !== cfg.learnUrl || ls !== cfg.learnSecret;
   cfg.learnUrl = lu; cfg.learnSecret = ls; cfg.confirm = $('setConfirm').checked;
+  const wf = $('setWakeFace').checked, wfChanged = wf !== cfg.wakeFace;
+  cfg.wakeFace = wf; cfg.wakeSleep = $('setWakeSleep').checked;
+  if (wfChanged) setTimeout(() => { if (cfg.wakeFace) { tapCue(' '); wav.prime(); startWake(); } else armWake(); }, 0);
   cfg.alertOn = $('setAlertOn').checked; cfg.alertVoice = $('setAlertVoice').checked; cfg.quietOn = $('setQuiet').checked; cfg.quietFrom = $('setQuietFrom').value || '22:00'; cfg.quietTo = $('setQuietTo').value || '06:00';
   cfg.alertTopics = Object.fromEntries(Object.keys(TOPICS).map((k) => [k, $('top_' + k).checked]));
   if (relearn) initLearn(lu, ls).then((ok) => lu && toast(ok ? 'เชื่อมระบบเรียนรู้แล้วค่ะ' : 'เชื่อมระบบเรียนรู้ไม่สำเร็จ ตรวจลิงก์/รหัสลับค่ะ', 5000));
