@@ -1,17 +1,17 @@
 // น้องมีไฟ — แอปหลัก: ฟังเสียงไทย → ถาม Gemini (สตรีม) → พูดตอบทีละประโยค + แสดงบนจอ
-import { Mascot } from './mascot.js?v=11191720';
-import { WavRecorder } from './recorder.js?v=11191720';
-import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary, hooks } from './tools.js?v=11191720';
-import { startPresence, stopPresence, presenceOn, someoneHere, setPresenceRate, status as camStatus } from './presence.js?v=11191720';
-import { startWatch, TOPICS, topicOn, alertLog, clearAlertLog } from './watch.js?v=11191720';
-import { wxCard, tmdCard } from './wxlevel.js?v=11191720';
-import { loadFaces } from './faces.js?v=11191720';
-import { SYS } from './systems.js?v=11191720';
-import { initCheckin, openCheckin } from './checkin.js?v=11191720';
-import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11191720';
+import { Mascot } from './mascot.js?v=11191735';
+import { WavRecorder } from './recorder.js?v=11191735';
+import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary, hooks } from './tools.js?v=11191735';
+import { startPresence, stopPresence, presenceOn, someoneHere, setPresenceRate, status as camStatus } from './presence.js?v=11191735';
+import { startWatch, TOPICS, topicOn, alertLog, clearAlertLog } from './watch.js?v=11191735';
+import { wxCard, tmdCard } from './wxlevel.js?v=11191735';
+import { loadFaces } from './faces.js?v=11191735';
+import { SYS } from './systems.js?v=11191735';
+import { initCheckin, openCheckin } from './checkin.js?v=11191735';
+import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11191735';
 
 const $ = (id) => document.getElementById(id);
-export const VERSION = '11191720';
+export const VERSION = '11191735';
 // อัปเดตตัวเอง: ถ้าบนเว็บมีเวอร์ชันใหม่กว่า ให้โหลดหน้าใหม่ทันที (กันไอโฟนจำไฟล์เก่า)
 fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json()).then((j) => {
   if (j.v && j.v !== VERSION && !sessionStorage.getItem('nf.reload.' + j.v)) {
@@ -20,7 +20,7 @@ fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json(
   }
 }).catch(() => {});
 
-const DEFAULTS = { apiKey: '', model: 'gemini-3.5-flash-lite', voice: '', rate: 1.0, autoListen: true, hubUser: '', hubPass: '', staffPin: '', mode: 'ops', stt: 'gemini', budgetUser: '', budgetPass: '', officeCode: '', cclUser: '', cclPass: '', olUser: '', olPass: '', learnUrl: '', learnSecret: '', confirm: true, alertOn: true, alertVoice: true, quietOn: true, quietFrom: '22:00', quietTo: '06:00', alertTopics: {}, wakeFace: Math.min(screen.width, screen.height) >= 700, wakeSleep: true, idlePlay: true, powerSave: true };
+const DEFAULTS = { apiKey: '', model: 'gemini-3.5-flash-lite', voice: '', rate: 1.0, pitch: 1.15, autoListen: true, hubUser: '', hubPass: '', staffPin: '', mode: 'ops', stt: 'gemini', budgetUser: '', budgetPass: '', officeCode: '', cclUser: '', cclPass: '', olUser: '', olPass: '', learnUrl: '', learnSecret: '', confirm: true, alertOn: true, alertVoice: true, quietOn: true, quietFrom: '22:00', quietTo: '06:00', alertTopics: {}, wakeFace: Math.min(screen.width, screen.height) >= 700, wakeSleep: true, idlePlay: true, powerSave: true };
 const cfg = { ...DEFAULTS, ...JSON.parse(localStorage.getItem('nongfai.cfg') || '{}') };
 const saveCfg = () => localStorage.setItem('nongfai.cfg', JSON.stringify(cfg));
 // เปิดแจ้งเตือนลงเวลาทำงานให้ (เดิมปิดไว้) ครั้งเดียว — ถ้าปิดเองทีหลังจะไม่เปิดซ้ำ
@@ -232,10 +232,12 @@ function bumpIdle() { clearTimeout(idleTimer); idleTimer = setTimeout(() => { if
 // ---------- เสียงพูด (TTS) ----------
 let voices = [];
 function loadVoices() {
-  voices = speechSynthesis.getVoices().filter((v) => v.lang && v.lang.toLowerCase().startsWith('th'));
+  // เสียงไทย · เสียงคุณภาพสูง (ปรับปรุง/Enhanced/Premium) ขึ้นก่อน
+  const hq = (v) => /enhanced|premium|ปรับปรุง|พรีเมียม|neural|natural/i.test(v.name + ' ' + (v.voiceURI || ''));
+  voices = speechSynthesis.getVoices().filter((v) => v.lang && v.lang.toLowerCase().startsWith('th')).sort((a, b) => hq(b) - hq(a) || (b.localService - a.localService));
   const sel = $('setVoice');
   sel.replaceChildren(...(voices.length ? voices : [{ name: '', lang: '' }]).map((v) =>
-    Object.assign(document.createElement('option'), { value: v.name, textContent: v.name ? `${v.name} (${v.lang})` : 'ไม่พบเสียงภาษาไทย – ติดตั้ง Google TTS ภาษาไทย' })));
+    Object.assign(document.createElement('option'), { value: v.name, textContent: v.name ? `${hq(v) ? '★ ' : ''}${v.name} (${v.lang})${hq(v) ? ' · คุณภาพสูง' : ''}` : 'ไม่พบเสียงภาษาไทย – ติดตั้ง Google TTS ภาษาไทย' })));
   sel.value = cfg.voice;
 }
 if ('speechSynthesis' in window) {
@@ -264,7 +266,7 @@ function speakNext() {
   u.lang = 'th-TH';
   const v = voices.find((x) => x.name === cfg.voice) || voices[0];
   if (v) u.voice = v;
-  u.rate = cfg.rate;
+  u.rate = cfg.rate; u.pitch = cfg.pitch || 1;
   let started = false;
   u.onstart = () => { started = true; mascot.speaking = true; };
   u.onboundary = () => mascot.pulse();
@@ -281,7 +283,7 @@ function stopSpeaking() { speakQueue.length = 0; onQueueEmpty = null; if (speech
 function tapCue(text) {
   return new Promise((res) => {
     try {
-      const u = new SpeechSynthesisUtterance(text); u.lang = 'th-TH'; u.rate = cfg.rate; if (cfg.muted) u.volume = 0;
+      const u = new SpeechSynthesisUtterance(text); u.lang = 'th-TH'; u.rate = cfg.rate; u.pitch = cfg.pitch || 1; if (cfg.muted) u.volume = 0;
       const v = voices.find((x) => x.name === cfg.voice) || voices[0]; if (v) u.voice = v;
       u.onend = u.onerror = () => res(); setTimeout(res, 1500);
       speechSynthesis.speak(u);
@@ -935,7 +937,7 @@ mascot.onTouch = (kind, app) => {
 function openSettings() {
   loadVoices();
   $('setKey').value = cfg.apiKey; $('setModel').value = cfg.model; $('setVoice').value = cfg.voice;
-  $('setRate').value = cfg.rate; $('rateVal').textContent = cfg.rate + 'x'; $('setAuto').checked = cfg.autoListen;
+  $('setRate').value = cfg.rate; $('rateVal').textContent = cfg.rate + 'x'; $('setPitch').value = cfg.pitch; $('pitchVal').textContent = (+cfg.pitch).toFixed(2); $('setAuto').checked = cfg.autoListen;
   $('setMode').value = cfg.mode; $('setStt').value = cfg.stt;
   $('set_budgetUser').value = cfg.budgetUser; $('set_budgetPass').value = cfg.budgetPass; $('set_officeCode').value = cfg.officeCode; $('set_cclUser').value = cfg.cclUser; $('set_cclPass').value = cfg.cclPass; $('set_olUser').value = cfg.olUser; $('set_olPass').value = cfg.olPass;
   $('setHubUser').value = cfg.hubUser; $('setHubPass').value = cfg.hubPass; $('setPin').value = cfg.staffPin;
@@ -970,7 +972,7 @@ $('btnPaste').onclick = async () => {
 };
 // วางลิงก์จาก QR (มี #lu=…&ls=…) แล้วแยกลิงก์กับรหัสลับให้เอง
 // ย้ายการตั้งค่าทั้งหมดข้ามเครื่อง (API key, รหัสศูนย์รวมงาน, รหัสระบบอื่น, ระบบเรียนรู้, แจ้งเตือน)
-const SHARE_KEYS = ['apiKey', 'model', 'rate', 'mode', 'stt', 'hubUser', 'hubPass', 'staffPin', 'budgetUser', 'budgetPass', 'officeCode', 'cclUser', 'cclPass', 'olUser', 'olPass', 'learnUrl', 'learnSecret', 'confirm', 'alertOn', 'alertVoice', 'quietOn', 'quietFrom', 'quietTo', 'alertTopics', 'wakeSleep', 'idlePlay', 'powerSave'];
+const SHARE_KEYS = ['apiKey', 'model', 'rate', 'pitch', 'mode', 'stt', 'hubUser', 'hubPass', 'staffPin', 'budgetUser', 'budgetPass', 'officeCode', 'cclUser', 'cclPass', 'olUser', 'olPass', 'learnUrl', 'learnSecret', 'confirm', 'alertOn', 'alertVoice', 'quietOn', 'quietFrom', 'quietTo', 'alertTopics', 'wakeSleep', 'idlePlay', 'powerSave'];
 function packCfg(o) { return btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
 function unpackCfg(t) { try { return JSON.parse(decodeURIComponent(escape(atob(t.replace(/-/g, '+').replace(/_/g, '/'))))); } catch { return null; } }
 function importCfg(o) {
@@ -992,12 +994,19 @@ $('btnPasteLearn').onclick = async () => {
   catch { toast('วางไม่ได้ ลองกดค้างที่ช่องแล้วเลือก "วาง" นะคะ'); }
 };
 $('setRate').oninput = (e) => ($('rateVal').textContent = e.target.value + 'x');
-$('btnTestVoice').onclick = () => { stopSpeaking(); cfg.voice = $('setVoice').value; cfg.rate = +$('setRate').value; speak('สวัสดีค่ะ น้องมีไฟยินดีให้บริการค่ะ'); };
+$('setPitch').oninput = (e) => ($('pitchVal').textContent = (+e.target.value).toFixed(2));
+const VOICE_SAMPLE = 'สวัสดีค่ะ หนูชื่อน้องมีไฟ ยินดีให้บริการค่ะ วันนี้มีอะไรให้ช่วยไหมคะ';
+$('btnTestVoice').onclick = () => { stopSpeaking(); const m = cfg.muted; cfg.muted = false; cfg.voice = $('setVoice').value; cfg.rate = +$('setRate').value; cfg.pitch = +$('setPitch').value; speak(VOICE_SAMPLE); cfg.muted = m; };
+document.querySelectorAll('.vpre button').forEach((b) => (b.onclick = () => {
+  $('setPitch').value = b.dataset.p; $('pitchVal').textContent = (+b.dataset.p).toFixed(2);
+  $('setRate').value = b.dataset.r; $('rateVal').textContent = b.dataset.r + 'x';
+  $('btnTestVoice').onclick();
+}));
 $('settings').addEventListener('close', () => {
   $('qrBox').hidden = true; $('qrBox').replaceChildren();
   if ($('settings').returnValue !== 'save') return;
   cfg.apiKey = $('setKey').value.trim(); cfg.model = $('setModel').value.trim() || DEFAULTS.model;
-  cfg.voice = $('setVoice').value; cfg.rate = +$('setRate').value; cfg.autoListen = $('setAuto').checked;
+  cfg.voice = $('setVoice').value; cfg.rate = +$('setRate').value; cfg.pitch = +$('setPitch').value; cfg.autoListen = $('setAuto').checked;
   cfg.budgetUser = $('set_budgetUser').value.trim(); cfg.budgetPass = $('set_budgetPass').value.trim(); cfg.officeCode = $('set_officeCode').value.trim(); cfg.cclUser = $('set_cclUser').value.trim(); cfg.cclPass = $('set_cclPass').value.trim(); cfg.olUser = $('set_olUser').value.trim(); cfg.olPass = $('set_olPass').value.trim();
   cfg.hubUser = $('setHubUser').value.trim(); cfg.hubPass = $('setHubPass').value; cfg.staffPin = $('setPin').value.trim();
   cfg.mode = $('setMode').value; cfg.stt = $('setStt').value;

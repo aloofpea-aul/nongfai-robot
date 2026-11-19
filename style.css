@@ -389,3 +389,4 @@ a.tel{color:var(--purple);font-weight:600;text-decoration:underline}
 .iconbtn.mute[aria-pressed="true"] .on{display:none}
 .iconbtn.mute[aria-pressed="true"] .off{display:block}
 .iconbtn.mute[aria-pressed="true"]{background:rgba(255,255,255,.22)}
+.vpre{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:4px 0 8px;font-size:15px;color:#666}.vpre button{border:1.5px solid var(--purple);background:#fff;color:var(--purple-dk);border-radius:999px;padding:6px 14px;min-height:40px;font-family:Prompt,sans-serif;font-size:15px}
