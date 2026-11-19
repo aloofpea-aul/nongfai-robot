@@ -1,7 +1,7 @@
 // แจ้งเตือนจาก "สมุดเหตุการณ์" (ตัวเฝ้าฐานข้อมูลทุกระบบ ฝั่ง Apps Script)
 // ถามหาเหตุการณ์ใหม่ทุก 20 วิ เฉพาะตอนแอปเปิดอยู่บนจอ · ส่งแค่เลขล่าสุดที่เคยเห็น จึงเบาทั้งเครื่องและเซิร์ฟเวอร์
 // ครั้งแรกจำเลขล่าสุดไว้เฉยๆ ไม่ประกาศของเก่า
-import { describe, isNoise, sysInfo } from './systems.js?v=11191735';
+import { describe, isNoise, sysInfo } from './systems.js?v=11191815';
 const KEY = 'nongfai.events';
 const S = JSON.parse(localStorage.getItem(KEY) || '{}');
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch {} };

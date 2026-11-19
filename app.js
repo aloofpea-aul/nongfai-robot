@@ -1,17 +1,17 @@
 // น้องมีไฟ — แอปหลัก: ฟังเสียงไทย → ถาม Gemini (สตรีม) → พูดตอบทีละประโยค + แสดงบนจอ
-import { Mascot } from './mascot.js?v=11191735';
-import { WavRecorder } from './recorder.js?v=11191735';
-import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary, hooks } from './tools.js?v=11191735';
-import { startPresence, stopPresence, presenceOn, someoneHere, setPresenceRate, status as camStatus } from './presence.js?v=11191735';
-import { startWatch, TOPICS, topicOn, alertLog, clearAlertLog } from './watch.js?v=11191735';
-import { wxCard, tmdCard } from './wxlevel.js?v=11191735';
-import { loadFaces } from './faces.js?v=11191735';
-import { SYS } from './systems.js?v=11191735';
-import { initCheckin, openCheckin } from './checkin.js?v=11191735';
-import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11191735';
+import { Mascot } from './mascot.js?v=11191815';
+import { WavRecorder } from './recorder.js?v=11191815';
+import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary, hooks } from './tools.js?v=11191815';
+import { startPresence, stopPresence, presenceOn, someoneHere, setPresenceRate, status as camStatus } from './presence.js?v=11191815';
+import { startWatch, TOPICS, topicOn, alertLog, clearAlertLog } from './watch.js?v=11191815';
+import { wxCard, tmdCard } from './wxlevel.js?v=11191815';
+import { loadFaces } from './faces.js?v=11191815';
+import { SYS } from './systems.js?v=11191815';
+import { initCheckin, openCheckin } from './checkin.js?v=11191815';
+import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11191815';
 
 const $ = (id) => document.getElementById(id);
-export const VERSION = '11191735';
+export const VERSION = '11191815';
 // อัปเดตตัวเอง: ถ้าบนเว็บมีเวอร์ชันใหม่กว่า ให้โหลดหน้าใหม่ทันที (กันไอโฟนจำไฟล์เก่า)
 fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json()).then((j) => {
   if (j.v && j.v !== VERSION && !sessionStorage.getItem('nf.reload.' + j.v)) {
@@ -109,6 +109,9 @@ async function openDetail(it, d) {
   setImgs(it.images); setFields(it.fields);
   const lat = Number(it.lat), lon = Number(it.lon);
   $('dtMap').hidden = !(lat && lon); if (lat && lon) $('dtMap').href = 'https://www.google.com/maps/search/?api=1&query=' + lat + ',' + lon;
+  // ประกาศงดจ่ายไฟ: ปุ่มเปิดโปสเตอร์ (หน้าประกาศในระบบงานเวร มีโปสเตอร์ แชร์ และ PDF)
+  const pst = it.poster || ''; $('dtPoster').hidden = !pst || !OPS();
+  $('dtPoster').onclick = (e) => { e.preventDefault(); if (pst && openApp(pst, 'โปสเตอร์ประกาศ')) $('detailDlg').close(); };
   const app = it.link || it.app || d.app; $('dtOpen').hidden = !app; $('dtOpen').onclick = (e) => { if (openApp($('dtOpen').getAttribute('href'), it.title)) { e.preventDefault(); $('detailDlg').close(); } }; if (app) { $('dtOpen').href = app; $('dtOpen').textContent = it.link && !/^\/[\w-]+\/(\?|$)/.test(it.link) ? 'เปิดเอกสาร' : 'เปิดในแอป'; }
   $('detailDlg').showModal();
   if (it.detail) {
@@ -663,6 +666,7 @@ function showAlert(a, isNext) {
   $('alEnts').hidden = !ents.length;
   $('alEnts').replaceChildren(...(ents.length ? [el('span', null, 'เกี่ยวข้อง:'), ...ents.map((x) => { const b = el('button', null, x); b.type = 'button'; b.onclick = () => { ackAlert(false); stopSpeaking(); tapCue('ได้เลยค่ะ'); ask(x + ' มีความเคลื่อนไหวอะไรบ้างในทุกระบบ', null, true); }; return b; })] : []));
   $('alOpen').hidden = !alApp(a) || !OPS();
+  $('alOpen').textContent = a.openLabel || 'เปิดแอป';
   $('alMore').hidden = !a.q;
   $('alertCard').hidden = false; $('alerts').hidden = false;
   renderQueue();
