@@ -389,3 +389,6 @@ a.tel{color:var(--purple);font-weight:600;text-decoration:underline}
 .iconbtn.mute[aria-pressed="true"] .on{display:none}
 .iconbtn.mute[aria-pressed="true"] .off{display:block}
 .iconbtn.mute[aria-pressed="true"]{background:rgba(255,255,255,.22)}
+.mic.off{background:#9a92a8!important;box-shadow:none!important}
+.mic.off::after{content:"";position:absolute;width:60%;height:4px;background:#fff;border-radius:2px;transform:rotate(-45deg)}
+.mic{position:relative}

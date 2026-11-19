@@ -15,7 +15,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600&family=Sarabun:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=11191700">
+<link rel="stylesheet" href="style.css?v=11191715">
 <script type="importmap">
 { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js" } }
 </script>
@@ -27,6 +27,10 @@
     <span id="clock">--:--</span>
     <span id="battery" class="battery" hidden></span>
     <span id="camDot" class="camdot" title="กล้องโหมดรอ" hidden></span>
+    <button id="btnMicOff" class="iconbtn mute" type="button" aria-label="ปิดไมค์" aria-pressed="false">
+      <svg class="on" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><path d="M12 17v4"/></svg>
+      <svg class="off" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 9.3V5a3 3 0 0 0-5.7-1.3"/><path d="M9 9v3a3 3 0 0 0 5.1 2.1"/><path d="M19 10a7 7 0 0 1-1.2 3.9M5 10a7 7 0 0 0 11.1 5.7"/><path d="M12 17v4"/><path d="m3 3 18 18"/></svg>
+    </button>
     <button id="btnMute" class="iconbtn mute" type="button" aria-label="ปิดเสียงน้องมีไฟ" aria-pressed="false">
       <svg class="on" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a10 10 0 0 1 0 14"/></svg>
       <svg class="off" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="m22 9-6 6"/><path d="m16 9 6 6"/></svg>
@@ -272,6 +276,6 @@
 
 <div id="toast" class="toast" hidden></div>
 
-<script type="module" src="app.js?v=11191700"></script>
+<script type="module" src="app.js?v=11191715"></script>
 </body>
 </html>

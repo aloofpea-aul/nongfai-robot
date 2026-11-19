@@ -1,17 +1,17 @@
 // น้องมีไฟ — แอปหลัก: ฟังเสียงไทย → ถาม Gemini (สตรีม) → พูดตอบทีละประโยค + แสดงบนจอ
-import { Mascot } from './mascot.js?v=11191700';
-import { WavRecorder } from './recorder.js?v=11191700';
-import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary, hooks } from './tools.js?v=11191700';
-import { startPresence, stopPresence, presenceOn, someoneHere, setPresenceRate, status as camStatus } from './presence.js?v=11191700';
-import { startWatch, TOPICS, topicOn, alertLog, clearAlertLog } from './watch.js?v=11191700';
-import { wxCard, tmdCard } from './wxlevel.js?v=11191700';
-import { loadFaces } from './faces.js?v=11191700';
-import { SYS } from './systems.js?v=11191700';
-import { initCheckin, openCheckin } from './checkin.js?v=11191700';
-import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11191700';
+import { Mascot } from './mascot.js?v=11191715';
+import { WavRecorder } from './recorder.js?v=11191715';
+import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary, hooks } from './tools.js?v=11191715';
+import { startPresence, stopPresence, presenceOn, someoneHere, setPresenceRate, status as camStatus } from './presence.js?v=11191715';
+import { startWatch, TOPICS, topicOn, alertLog, clearAlertLog } from './watch.js?v=11191715';
+import { wxCard, tmdCard } from './wxlevel.js?v=11191715';
+import { loadFaces } from './faces.js?v=11191715';
+import { SYS } from './systems.js?v=11191715';
+import { initCheckin, openCheckin } from './checkin.js?v=11191715';
+import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11191715';
 
 const $ = (id) => document.getElementById(id);
-export const VERSION = '11191700';
+export const VERSION = '11191715';
 // อัปเดตตัวเอง: ถ้าบนเว็บมีเวอร์ชันใหม่กว่า ให้โหลดหน้าใหม่ทันที (กันไอโฟนจำไฟล์เก่า)
 fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json()).then((j) => {
   if (j.v && j.v !== VERSION && !sessionStorage.getItem('nf.reload.' + j.v)) {
@@ -307,6 +307,7 @@ const STRAY = /^(ค่ะ|คะ|ครับ|คับ|จ้า|อืม+|�
 const isStray = (t) => { const x = String(t || '').trim().replace(/[\s.,!?ๆ]+/g, ''); return x.length < 3 || STRAY.test(x); };
 async function listenAudio(auto) {
   if (wav.active) { wav.stop(); return; }
+  if (cfg.micOff) { if (!auto) micBlocked(); return; } // ปิดไมค์อยู่: ไม่รับเสียงเลย
   stopSpeaking(); abortAsk();
   setAudioMode('auto');
   wav.prime();
@@ -340,6 +341,7 @@ async function listenAudio(auto) {
 function listen() {
   if (useAudioAI()) return listenAudio();
   if (listening) { rec.stop(); return; }
+  if (cfg.micOff) { micBlocked(); return; }
   stopSpeaking(); abortAsk();
   rec = new SR();
   rec.lang = 'th-TH'; rec.interimResults = true; rec.maxAlternatives = 1; rec.continuous = false;
@@ -545,7 +547,7 @@ async function ask(question, audio, keepCue) {
   onQueueEmpty = () => {
     setStatus(staffOn() ? 'โหมดเจ้าหน้าที่ · ถามต่อได้เลยค่ะ' : 'ถามต่อได้เลยค่ะ');
     // ฟังต่อเองเฉพาะตอนมีคนยืนอยู่หน้าจอ (ถ้าเปิดกล้องไว้) ไม่งั้นรอแตะไมค์
-    if (cfg.autoListen && document.body.classList.contains('mode-answer') && (!presenceOn() || someoneHere())) setTimeout(() => { if (!busy()) (useAudioAI() ? listenAudio('follow') : listen()); }, 400);
+    if (cfg.autoListen && !cfg.micOff && document.body.classList.contains('mode-answer') && (!presenceOn() || someoneHere())) setTimeout(() => { if (!busy()) (useAudioAI() ? listenAudio('follow') : listen()); }, 400);
   };
   if (!speakingNow) { const f = onQueueEmpty; onQueueEmpty = null; f(); }
 }
@@ -825,6 +827,20 @@ document.addEventListener('pointerdown', unlockOnce, { capture: true });
 document.addEventListener('pointerdown', bumpIdle);
 
 $('btnMic').onclick = listen;
+// ปุ่มปิด/เปิดไมค์ที่หน้าจอหลัก — ปิดแล้วน้องมีไฟไม่รับเสียงเลย (ไม่ฟังเองตอนมีคนเดินมา/หลังตอบ) ยังพิมพ์ถามและแตะเมนูได้
+function setMicOff(m) {
+  cfg.micOff = !!m; saveCfg();
+  const b = $('btnMicOff'); b.setAttribute('aria-pressed', String(cfg.micOff)); b.setAttribute('aria-label', cfg.micOff ? 'เปิดไมค์' : 'ปิดไมค์');
+  $('btnMic').classList.toggle('off', cfg.micOff);
+  document.body.classList.toggle('mic-off', cfg.micOff);
+}
+function micBlocked() { toast('ไมค์ปิดอยู่ แตะปุ่มไมค์ด้านบนเพื่อเปิด หรือพิมพ์ถามได้เลยค่ะ', 3500); setStatus('ไมค์ปิดอยู่ · พิมพ์ถามได้เลยค่ะ'); }
+setMicOff(cfg.micOff);
+$('btnMicOff').onclick = () => {
+  const m = !cfg.micOff;
+  if (m) { try { if (wav.active) wav.stop(); if (listening && rec) rec.stop(); } catch {} micOff(); setMicOff(true); toast('ปิดไมค์แล้ว น้องมีไฟจะไม่รับเสียงค่ะ'); setStatus('ไมค์ปิดอยู่ · พิมพ์ถามได้เลยค่ะ'); }
+  else { setMicOff(false); toast('เปิดไมค์แล้ว แตะไมค์แล้วพูดได้เลยค่ะ'); setStatus('แตะไมค์แล้วพูดได้เลยค่ะ'); }
+};
 $('btnHome').onclick = goHome;
 $('btnHome2').onclick = goHome;
 // แตะคำพูดที่ถอดได้ เพื่อแก้แล้วส่งใหม่
