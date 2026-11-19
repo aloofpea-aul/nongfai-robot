@@ -390,3 +390,20 @@ a.tel{color:var(--purple);font-weight:600;text-decoration:underline}
 .iconbtn.mute[aria-pressed="true"] .off{display:block}
 .iconbtn.mute[aria-pressed="true"]{background:rgba(255,255,255,.22)}
 .vpre{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:4px 0 8px;font-size:15px;color:#666}.vpre button{border:1.5px solid var(--purple);background:#fff;color:var(--purple-dk);border-radius:999px;padding:6px 14px;min-height:40px;font-family:Prompt,sans-serif;font-size:15px}
+/* การ์ดนำเสนอ KPI */
+.kpic{background:#fff;border:1px solid #e3dcef;border-radius:18px;padding:12px 16px;margin:4px 0 10px}
+.kpic-top{display:flex;gap:16px;align-items:center}
+.kpic-ring{width:130px;flex:none}
+.kpic-arc{animation:kpiArc 1.2s ease-out forwards}
+@keyframes kpiArc{to{stroke-dashoffset:var(--to)}}
+.kpic-info{flex:1;display:flex;flex-direction:column;gap:6px;min-width:0}
+.kpic-info b{font-size:20px;color:var(--purple-dk)}
+.kpic-info>span{font-size:15px;color:#666}
+.kpic-bar{display:flex;height:16px;border-radius:8px;overflow:hidden;background:#eee}
+.kpic-leg{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:13px;color:#555}
+.kpic-leg i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:4px}
+.kpic-tr{margin-top:8px;font-size:13px;color:#666}
+.kpic-tr svg{width:100%;height:80px;display:block}
+.kpic-line{stroke-dasharray:1000;stroke-dashoffset:1000;animation:kpiLine 1.4s .3s ease-out forwards}
+@keyframes kpiLine{to{stroke-dashoffset:0}}
+@media (prefers-reduced-motion:reduce){.kpic-arc,.kpic-line{animation:none;stroke-dashoffset:var(--to,0)}}

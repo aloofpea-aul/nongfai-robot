@@ -1,7 +1,7 @@
-import { faceOf, loadFaces } from './faces.js?v=11191815';
-import { findEvents } from './events.js?v=11191815';
-import { describe, sysInfo, SYS } from './systems.js?v=11191815';
-import { loadNotices, ntState, ntArea, ntWhen, ntHm, ntDate } from './notices.js?v=11191815';
+import { faceOf, loadFaces } from './faces.js?v=11191945';
+import { findEvents } from './events.js?v=11191945';
+import { describe, sysInfo, SYS } from './systems.js?v=11191945';
+import { loadNotices, ntState, ntArea, ntWhen, ntHm, ntDate } from './notices.js?v=11191945';
 // เครื่องมือให้น้องมีไฟดึงข้อมูลจากศูนย์รวมงาน กฟส.อ่าวลึก (Gemini function calling)
 // public = ใครถามก็ตอบได้ · internal = ต้องยืนยันตัวตนพนักงานก่อน (PIN)
 
@@ -317,24 +317,62 @@ async function k04Plan({ keyword }) {
     items: hit.slice(0, 20).map((a) => ({ title: a.รหัส + ' ' + a.กิจกรรม, sub: [a.ผู้รับผิดชอบ, a.ผู้ดำเนินการ].filter(Boolean).join(' · '), fields: [['แผนงาน', a.แผนงาน || ''], ['เป้าหมาย', (a.เป้าหมาย || []).join(' ')], ...(a.รายไตรมาส || []).flatMap((r) => (r.ไตรมาส || []).map((q, i) => ['ไตรมาส ' + (i + 1) + ' (' + (r.หน่วย || '') + ')', 'เป้า ' + (q.เป้า || '-') + ' · ผล ' + (q.ผล || '-')]))] })) });
 }
 
-// ---------- 14) KPI กฟต.2 ปี 2569 (สาธารณะ) ----------
-async function kpiRegion2({ keyword }) {
-  const all = await cached('kpi', 3600e3, async () => {
-    const out = {};
-    for (const f of ['kpi_data', 'org_data']) {
-      const txt = await (await fetch('/kpi-pea-region2-2569/data/' + f + '.js')).text();
-      const names = [...txt.matchAll(/^(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=/gm)].map((m) => m[1]);
-      try { Object.assign(out, new Function(txt + ';return {' + names.join(',') + '};')()); } catch {}
-    }
-    return out;
-  });
-  const aol = new Set(all.KPI_AOL || []);
-  let list = (all.FB || []).map((r) => ({ รหัส: r[0], ตัวชี้วัด: r[1], เจ้าของ: r[2], ประเภท: r[3], ผู้รับผิดชอบ: r[4], ผลงานล่าสุด: r[5], ข้อมูลเดือน: r[6], คะแนนล่าสุด: r[7],
-    เกณฑ์คะแนน_ระดับ1ถึง5: all.TARGETS && all.TARGETS[r[0]], คะแนนรายเดือน: all.MONTHLY_SCORES && all.MONTHLY_SCORES[r[0]], วัดผลที่กฟส_อ่าวลึกด้วย: aol.has(r[0]) }));
-  if (keyword) list = list.filter((x) => match(x, keyword));
-  return withD({ หมายเหตุ: 'เป็นผลระดับ กฟต.2 ตามแดชบอร์ด KPI', จำนวน: list.length, ตัวชี้วัด: list.slice(0, 25) }, { source: 'KPI กฟต.2 ปี 2569', app: '/kpi-pea-region2-2569/kpi/',
-    items: list.slice(0, 30).map((k) => ({ title: k.รหัส + ' ' + k.ตัวชี้วัด, sub: [k.ผู้รับผิดชอบ, k.ข้อมูลเดือน ? 'ข้อมูล ' + k.ข้อมูลเดือน : ''].filter(Boolean).join(' · '), badge: k.คะแนนล่าสุด != null ? 'คะแนน ' + k.คะแนนล่าสุด : 'ยังไม่รายงาน', tone: k.คะแนนล่าสุด >= 4 ? 'green' : k.คะแนนล่าสุด != null && k.คะแนนล่าสุด < 3 ? 'red' : '',
-      fields: [['ผลงานล่าสุด', k.ผลงานล่าสุด], ['เจ้าของ', k.เจ้าของ], ['ประเภท', k.ประเภท], ...Object.entries(k.เกณฑ์คะแนน_ระดับ1ถึง5 || {}).map(([a, b]) => ['เกณฑ์ระดับ ' + a, b]), ...Object.entries(k.คะแนนรายเดือน || {}).map(([a, b]) => ['คะแนน ' + a, b])].filter((x) => x[1] != null).map(([a, b]) => [a, String(b)]) })) });
+// ---------- 14) KPI ปี 2569 — ผลจริงล่าสุดจาก Google Sheet ชุดเดียวกับแดชบอร์ด (KPISummary) ----------
+const KPI_SID = '1VmYqWuoTuX_xo7mB2n6LzW6ZH1l_xE0CtzhvzASIkdI';
+const KS_ORDER = ['1.1','1.2.1','1.2.2','1.2.3','1.3.1','1.3.2','1.4.1','1.4.2','1.5','1.6','1.7','1.8','1.9','1.10','1.11','1.12','1.13','1.14','1.15','1.16','1.17','1.18','1.19.1','1.19.2','1.19.3','1.20.1','1.20.2','1.20.3','1.21','1.22.1-1','1.22.1-2','1.22.2','1.22.3','1.23.1-1','1.23.1-2','1.23.2','1.23.3','1.23.4','1.23.5-1','1.23.5-2','1.23.5-3','1.24.1','1.25','1.26','1.27','1.28','1.29','1.30','1.31','1.32','2.1','2.2','2.3','2.4.1','2.4.2','2.5.1','2.5.2','2.5.3','2.5.4','2.5.5','2.5.6','2.5.7','2.6','2.7','2.8','2.9','2.10.1','2.10.2','2.11','2.12.1','2.12.2','2.12.3','2.13.1','2.13.2','2.14.1','2.14.2','2.15','2.16','2.17','2.18','2.19','2.20','2.21','2.22','2.23','2.24','2.25','2.26','2.27','2.28.1','2.28.2','2.29.1','2.29.2','2.30','2.31'];
+const MTH = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+const gviz = async (sheet) => { const t = await (await fetch(`https://docs.google.com/spreadsheets/d/${KPI_SID}/gviz/tq?tqx=out:json&headers=1&sheet=${encodeURIComponent(sheet)}&t=${Date.now()}`)).text(); const m = t.match(/setResponse\(([\s\S]*)\)/); if (!m) throw new Error('อ่าน KPI ไม่ได้'); return JSON.parse(m[1]).table.rows; };
+const num = (v) => (v === null || v === undefined || v === '' || v === '-' || v === '#N/A' ? null : isNaN(+v) ? v : +v);
+async function kpiStatic() {
+  const out = {};
+  for (const f of ['kpi_data', 'org_data']) {
+    const txt = await (await fetch('/kpi-pea-region2-2569/data/' + f + '.js')).text();
+    const names = [...txt.matchAll(/^(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=/gm)].map((m) => m[1]);
+    try { Object.assign(out, new Function(txt + ';return {' + names.join(',') + '};')()); } catch {}
+  }
+  return out;
+}
+async function kpiLive() {
+  const [rows, st] = await Promise.all([gviz('KPISummary'), kpiStatic().catch(() => ({}))]);
+  const aol = new Set(st.KPI_AOL || []), list = [];
+  let k = 0;
+  for (const r of rows) {
+    if (k >= KS_ORDER.length) break;
+    const c = r.c; if (!c || !c[0] || c[0].v === null || c[0].v === '') continue;
+    const code = KS_ORDER[k++], g = (i) => num(c[i] && c[i].v);
+    const tg = [1, 2, 3, 4, 5].map((n) => g(9 + n) ?? g(4 + n));
+    const mAol = MTH.map((_, i) => g(53 + i)), mReg = MTH.map((_, i) => g(27 + i));
+    const rAol = MTH.map((_, i) => g(39 + i));
+    const lastI = (a) => { for (let i = 11; i >= 0; i--) if (typeof a[i] === 'number') return i; return -1; };
+    const li = lastI(rAol);
+    list.push({ code, name: c[1] && c[1].v ? String(c[1].v).replace(/\s+/g, ' ').trim() : '', unit: c[2] && c[2].v || '', owner: c[3] && c[3].v || '', aol: aol.has(code),
+      res: g(51), score: typeof g(52) === 'number' ? g(52) : null, month: li >= 0 ? MTH[li] : '', tg, mAol, mReg, regScore: (() => { const i = lastI(mReg); return i >= 0 ? mReg[i] : null; })() });
+  }
+  return list;
+}
+async function kpiRegion2({ keyword, scope }) {
+  const all = await cached('kpiLive', 900e3, kpiLive);
+  const reg = scope === 'region';
+  let list = all.filter((x) => (reg ? x.regScore != null : x.aol)).map((x) => ({ ...x, sc: reg ? x.regScore : x.score }));
+  if (keyword) list = list.filter((x) => match({ a: x.code + ' ' + x.name + ' ' + x.owner }, keyword));
+  const rated = list.filter((x) => typeof x.sc === 'number'), avg = rated.length ? rated.reduce((a, b) => a + b.sc, 0) / rated.length : null;
+  const band = (s) => (s >= 4.5 ? 'ดีมาก' : s >= 4 ? 'ดี' : s >= 3 ? 'พอใช้' : 'ต้องเร่ง');
+  const weak = rated.filter((x) => x.sc < 4).sort((a, b) => a.sc - b.sc);
+  // คะแนนเฉลี่ยรายเดือน (อ่าวลึก) ไว้ดูแนวโน้ม
+  const trend = MTH.map((m, i) => { const v = list.map((x) => (reg ? x.mReg : x.mAol)[i]).filter((n) => typeof n === 'number'); return v.length ? { m, v: +(v.reduce((a, b) => a + b, 0) / v.length).toFixed(2) } : null; }).filter(Boolean);
+  const who = reg ? 'ภาพรวม กฟต.2' : 'กฟส.อ่าวลึก';
+  const ai = { หน่วยงาน: who, จำนวนตัวชี้วัด: list.length, มีคะแนนแล้ว: rated.length, ยังไม่มีผล: list.length - rated.length, คะแนนเฉลี่ยอย่างง่าย: avg && +avg.toFixed(2),
+    ระดับ: { ดีมาก_4_5ขึ้นไป: rated.filter((x) => x.sc >= 4.5).length, ดี_4ถึง4_49: rated.filter((x) => x.sc >= 4 && x.sc < 4.5).length, พอใช้_3ถึง3_99: rated.filter((x) => x.sc >= 3 && x.sc < 4).length, ต้องเร่ง_ต่ำกว่า3: rated.filter((x) => x.sc < 3).length },
+    ตัวที่ต้องเร่ง: weak.slice(0, 10).map((x) => ({ รหัส: x.code, ชื่อ: x.name.slice(0, 90), คะแนน: +x.sc.toFixed(2), ผลล่าสุด: x.res, เดือน: x.month, เกณฑ์ระดับ5: x.tg[4], ผู้รับผิดชอบ: x.owner })),
+    แนวโน้มคะแนนเฉลี่ยรายเดือน: trend,
+    ตัวชี้วัด: list.slice(0, 40).map((x) => ({ รหัส: x.code, ชื่อ: x.name.slice(0, 70), คะแนน: x.sc != null ? +x.sc.toFixed(2) : 'ยังไม่มีผล', ผล: x.res, เดือน: x.month })),
+    หมายเหตุ: 'ข้อมูลจริงจาก Google Sheet ของแดชบอร์ด KPI · คะแนนเฉลี่ยเป็นค่าเฉลี่ยอย่างง่าย ไม่ได้ถ่วงน้ำหนักตามเกณฑ์ กฟภ.',
+    คำแนะนำการตอบ: 'นำเสนอแบบสรุปผู้บริหาร: 1) ภาพรวมคะแนนเฉลี่ยและจำนวนที่ได้ 5 เต็ม 2) จุดแข็ง 3) ตัวที่ต้องเร่ง (บอกรหัส ชื่อสั้น คะแนน และห่างจากเกณฑ์เท่าไร) 4) แนวโน้ม 5) ข้อเสนอแนะสั้นๆ ไม่เกิน 6 ประโยค' };
+  return withD(ai, { source: 'KPI ปี 2569 · ' + who, app: '/kpi-pea-region2-2569/kpi/',
+    kpi: { who, avg, n: list.length, rated: rated.length, bands: [rated.filter((x) => x.sc >= 4.5).length, rated.filter((x) => x.sc >= 4 && x.sc < 4.5).length, rated.filter((x) => x.sc >= 3 && x.sc < 4).length, rated.filter((x) => x.sc < 3).length], trend },
+    items: [...weak, ...rated.filter((x) => x.sc >= 4).sort((a, b) => a.sc - b.sc), ...list.filter((x) => typeof x.sc !== 'number')].slice(0, 60).map((x) => ({ title: x.code + ' ' + x.name.slice(0, 80), sub: [x.owner, x.month ? 'ข้อมูล ' + x.month : '', x.res != null ? 'ผล ' + x.res + (x.unit ? ' ' + x.unit : '') : ''].filter(Boolean).join(' · '),
+      badge: typeof x.sc === 'number' ? x.sc.toFixed(2) + ' · ' + band(x.sc) : 'ยังไม่มีผล', tone: typeof x.sc !== 'number' ? '' : x.sc >= 4 ? 'green' : x.sc >= 3 ? 'amber' : 'red',
+      fields: [['ชื่อเต็ม', x.name], ['ผลล่าสุด', x.res != null ? String(x.res) + (x.unit ? ' ' + x.unit : '') : '-'], ['คะแนน', typeof x.sc === 'number' ? x.sc.toFixed(3) : '-'], ...x.tg.map((t, i) => ['เกณฑ์ระดับ ' + (i + 1), t]), ...MTH.map((m, i) => ['คะแนน ' + m, (reg ? x.mReg : x.mAol)[i]])].filter((f) => f[1] != null && f[1] !== '').map(([a, b]) => [a, String(b)]) })) });
 }
 
 // ---------- 15) เช็กอินวันนี้ (สาธารณะในแดชบอร์ด) ----------
@@ -455,7 +493,7 @@ async function drawingsBom({ keyword }) {
 // ---------- 20b) ค้นแบบมาตรฐาน กฟภ. พร้อมภาพ 2D / 3D (ดึงจากคลังแบบในศูนย์รวมงาน ไม่สร้างใหม่) ----------
 async function dwgCatalog() {
   // ดัชนีชื่อแบบ (สร้างจากคลังแบบ pea-drawings ด้วย scripts/build-dwg-index.py) — ภาพ/โมเดลเปิดจากหน้าแบบในคลังโดยตรง
-  return cached('dwgcat', 24 * 3600e3, async () => (await fetch('./dwg-index.json?v=11191815')).json());
+  return cached('dwgcat', 24 * 3600e3, async () => (await fetch('./dwg-index.json?v=11191945')).json());
 }
 const DWG_SYN = [[/สามเฟส|3เฟส/g, '3 เฟส'], [/หนึ่งเฟส|เฟสเดียว|1เฟส/g, '1 เฟส'], [/เสาคู่|สองเสา/g, 'นั่งร้าน'], [/(\d+)\s*เควี|(\d+)\s*kv/gi, '$1$2 kV'], [/ลูกถ้วย|ลูกถ้วยไฟ/g, 'ลูกถ้วย'], [/แรงต่ำ/g, 'แรงต่ำ']];
 const dwgNorm = (t) => { t = String(t || '').toLowerCase(); DWG_SYN.forEach(([a, b]) => { t = t.replace(a, b); }); return t; };
@@ -629,7 +667,7 @@ export const TOOLS = {
   tf_purchase_jobs: { access: 'internal', run: jobsTool(TFBUY_API, 'tfbuy'), decl: { name: 'tf_purchase_jobs', description: 'ระบบงานซื้อหม้อแปลง/ขายหม้อแปลงให้ผู้ใช้ไฟ (tfbuy): รายการงาน ผู้ซื้อ ยอดเงิน ขั้นตอน', parameters: { type: 'OBJECT', properties: { keyword: { type: 'STRING' } } } } },
   safety_talk: { access: 'internal', run: safetyTalk, decl: { name: 'safety_talk', description: 'กิจกรรม Safety Talk: รอบประชุม ผู้เข้าร่วม ขาด/ลา หัวข้อ', parameters: { type: 'OBJECT', properties: { keyword: { type: 'STRING' } } } } },
   k04_plan: { access: 'internal', run: k04Plan, decl: { name: 'k04_plan', description: 'K04 แผนปฏิบัติการ กฟจ.กระบี่ และ กฟฟ.ในสังกัด ปี 2569: กิจกรรม เป้าหมาย ผลรายไตรมาส ผู้รับผิดชอบ', parameters: { type: 'OBJECT', properties: { keyword: { type: 'STRING', description: 'รหัสหรือชื่อกิจกรรม เช่น 1.1, ต้นทุน, SAIFI' } } } } },
-  kpi_region2: { access: 'internal', run: kpiRegion2, decl: { name: 'kpi_region2', description: 'KPI Dashboard กฟต.2 ปี 2569: เป้าหมาย ผลงาน คะแนน อันดับของแต่ละการไฟฟ้า', parameters: { type: 'OBJECT', properties: { keyword: { type: 'STRING', description: 'เช่น อ่าวลึก, 1.3.1, SAIFI' } } } } },
+  kpi_region2: { access: 'internal', run: kpiRegion2, decl: { name: 'kpi_region2', description: 'KPI ปี 2569 ผลจริงล่าสุด: คะแนนของ กฟส.อ่าวลึก (ค่าเริ่มต้น) หรือภาพรวม กฟต.2 · สรุปภาพรวม ตัวที่ต้องเร่ง แนวโน้มรายเดือน เกณฑ์ระดับ 1-5 ใช้เมื่อถาม KPI หรือให้นำเสนอผล KPI', parameters: { type: 'OBJECT', properties: { keyword: { type: 'STRING', description: 'เช่น 1.3.1, SAIFI, หนี้ ว่างได้ = ทั้งหมด' }, scope: { type: 'STRING', description: 'aoluek (ค่าเริ่มต้น) | region' } } } } },
   checkin_today: { access: 'internal', run: checkinToday, decl: { name: 'checkin_today', description: 'ระบบลงเวลาทำงาน (เช็กอิน/เช็กเอาต์): วันนี้หรือวันที่ระบุ ใครมาแล้ว กี่โมง ใครยังไม่ลงเวลา ใครมาสาย นอกพื้นที่ และสรุปรายสัปดาห์/รายเดือน (วันทำงาน เวลาเฉลี่ย จำนวนครั้งที่สาย)', parameters: { type: 'OBJECT', properties: { keyword: { type: 'STRING', description: 'ชื่อคน ว่างได้' }, period: { type: 'STRING', description: 'today | date | week | month (ค่าเริ่มต้น today)' }, date: { type: 'STRING', description: 'YYYY-MM-DD เมื่อ period=date' }, month: { type: 'STRING', description: 'YYYY-MM เมื่อ period=month' } } } } },
   power_notices: { access: 'public', run: powerNotices, decl: { name: 'power_notices', description: 'ประกาศงดจ่ายไฟฟ้า (ดับไฟตามแผนล่วงหน้า) และดับไฟฉุกเฉิน ของ กฟส.อ่าวลึก: วันเวลา พื้นที่ เหตุผล สถานะ ใช้ตอบคำถามว่าจะดับไฟวันไหน ที่ไหน', parameters: { type: 'OBJECT', properties: { keyword: { type: 'STRING', description: 'ชื่อหมู่บ้าน ตำบล หรือพื้นที่ (ไม่ใส่ = ประกาศที่กำลังจะมาถึง)' } } } } },
   outage_tickets: { access: 'internal', run: outageTickets, decl: { name: 'outage_tickets', description: 'งานรับแจ้งไฟดับจากผู้ใช้ไฟ: เรื่องที่ยังค้าง ใครรับงาน และรายการล่าสุดใน 36 ชั่วโมง', parameters: { type: 'OBJECT', properties: { keyword: { type: 'STRING' } } } } },
