@@ -1,9 +1,9 @@
 // แจ้งเตือนอัปเดตจากศูนย์รวมงาน (เกือบเรียลไทม์)
 // ถามตัวเฝ้า (Apps Script ระบบเรียนรู้) ทุก ~12 วิ ว่าไฟล์ของระบบไหนถูกแก้ → ดึงเฉพาะระบบนั้นมาเทียบกับครั้งก่อน
 // ครั้งแรกจำสถานะไว้เฉยๆ (ไม่ประกาศของเก่า) · ทำงานเฉพาะตอนเปิดแอปอยู่บนจอ
-import { runTool } from './tools.js?v=11182365';
-import { startEvents, eventsLive } from './events.js?v=11182365';
-import { DUTY_API, loadNotices, ntState, ntT, ntArea, ntAreaSay, ntWhen } from './notices.js?v=11182365';
+import { runTool } from './tools.js?v=11190830';
+import { startEvents, eventsLive } from './events.js?v=11190830';
+import { DUTY_API, loadNotices, ntState, ntT, ntArea, ntAreaSay, ntWhen } from './notices.js?v=11190830';
 const TMD_API = 'https://script.google.com/macros/s/AKfycbyF7Am81Ut4aUbzTbACUFpJhIQ2q3iKiiTxoLM8IoGvANQ8NQpaM5BvokCeyOWiAqrwNA/exec';
 const KEY = 'nongfai.watch';
 const S = JSON.parse(localStorage.getItem(KEY) || '{}'); // { ts:{}, tk:{id:st}, tmd:[keys], log:[] }
@@ -28,7 +28,7 @@ const GEN = {
 };
 // ระบบที่มีเฉพาะในสมุดเหตุการณ์ (ไม่มีเครื่องมือเทียบรายการ)
 const EV_ONLY = { medical: 'ใบเบิกค่ารักษา', survey: 'สำรวจงานก่อสร้าง', stock: 'คลังพัสดุ', teamplan: 'แผนงานระดมทีม', kpi: 'KPI / Report50', k04: 'K04 แผนปฏิบัติการ', load01: 'Load01 (โหลดฟีดเดอร์)', regs: 'ระเบียบ กฟภ.' };
-const OFF = new Set(['safety', 'booknum', 'checkin', 'load01', 'regs']);
+const OFF = new Set(['safety', 'booknum', 'load01', 'regs']);
 export const TOPICS = { notices: 'ประกาศงดจ่ายไฟ', tickets: 'รับแจ้งไฟดับ', tmd: 'เตือนภัยกรมอุตุ', ...Object.fromEntries(Object.entries(GEN).map(([k, g]) => [k, g.name])), ...EV_ONLY };
 // ค่าเริ่มต้น: เปิดทุกระบบ ยกเว้นที่ข้อมูลเปลี่ยนบ่อยจนรบกวน (เช็กอิน, ออกเลขหนังสือ, Safety Talk)
 export const topicOn = (cfg, k) => (cfg.alertTopics && k in cfg.alertTopics ? !!cfg.alertTopics[k] : !OFF.has(k));

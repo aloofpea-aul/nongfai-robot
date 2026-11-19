@@ -1,14 +1,14 @@
 // น้องมีไฟ — แอปหลัก: ฟังเสียงไทย → ถาม Gemini (สตรีม) → พูดตอบทีละประโยค + แสดงบนจอ
-import { Mascot } from './mascot.js?v=11182365';
-import { WavRecorder } from './recorder.js?v=11182365';
-import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary } from './tools.js?v=11182365';
-import { startPresence, stopPresence, presenceOn, someoneHere, setPresenceRate, status as camStatus } from './presence.js?v=11182365';
-import { startWatch, TOPICS, topicOn, alertLog, clearAlertLog } from './watch.js?v=11182365';
-import { SYS } from './systems.js?v=11182365';
-import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11182365';
+import { Mascot } from './mascot.js?v=11190830';
+import { WavRecorder } from './recorder.js?v=11190830';
+import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary } from './tools.js?v=11190830';
+import { startPresence, stopPresence, presenceOn, someoneHere, setPresenceRate, status as camStatus } from './presence.js?v=11190830';
+import { startWatch, TOPICS, topicOn, alertLog, clearAlertLog } from './watch.js?v=11190830';
+import { SYS } from './systems.js?v=11190830';
+import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11190830';
 
 const $ = (id) => document.getElementById(id);
-export const VERSION = '11182365';
+export const VERSION = '11190830';
 // อัปเดตตัวเอง: ถ้าบนเว็บมีเวอร์ชันใหม่กว่า ให้โหลดหน้าใหม่ทันที (กันไอโฟนจำไฟล์เก่า)
 fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json()).then((j) => {
   if (j.v && j.v !== VERSION && !sessionStorage.getItem('nf.reload.' + j.v)) {
@@ -20,6 +20,8 @@ fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json(
 const DEFAULTS = { apiKey: '', model: 'gemini-3.5-flash-lite', voice: '', rate: 1.0, autoListen: true, hubUser: '', hubPass: '', staffPin: '', mode: 'ops', stt: 'gemini', budgetUser: '', budgetPass: '', officeCode: '', cclUser: '', cclPass: '', olUser: '', olPass: '', learnUrl: '', learnSecret: '', confirm: true, alertOn: true, alertVoice: true, quietOn: true, quietFrom: '22:00', quietTo: '06:00', alertTopics: {}, wakeFace: Math.min(screen.width, screen.height) >= 700, wakeSleep: true, idlePlay: true, powerSave: true };
 const cfg = { ...DEFAULTS, ...JSON.parse(localStorage.getItem('nongfai.cfg') || '{}') };
 const saveCfg = () => localStorage.setItem('nongfai.cfg', JSON.stringify(cfg));
+// เปิดแจ้งเตือนลงเวลาทำงานให้ (เดิมปิดไว้) ครั้งเดียว — ถ้าปิดเองทีหลังจะไม่เปิดซ้ำ
+if (!cfg.ckOn1) { cfg.alertTopics = { ...(cfg.alertTopics || {}), checkin: true }; cfg.ckOn1 = true; saveCfg(); }
 // ชื่อ/รหัสศูนย์รวมงาน: ถ้าเครื่องนี้เคยล็อกอินศูนย์รวมงานไว้ ใช้ชุดนั้นเลย (โดเมนเดียวกัน)
 if (!cfg.hubUser) cfg.hubUser = localStorage.getItem('pea_aoluek_username') || '';
 if (!cfg.hubPass) cfg.hubPass = localStorage.getItem('pea_aoluek_password') || '';

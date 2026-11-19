@@ -1,6 +1,6 @@
 // น้องมีไฟ — มาสคอต 3D สร้างด้วยโค้ดทั้งตัว (three.js) ไม่ต้องใช้ไฟล์โมเดล
 import * as THREE from 'three';
-import { Marbles } from './marbles.js?v=11182365';
+import { Marbles } from './marbles.js?v=11190830';
 
 export class Mascot {
   constructor(container) {

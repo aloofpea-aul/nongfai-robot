@@ -1,7 +1,7 @@
 // แจ้งเตือนจาก "สมุดเหตุการณ์" (ตัวเฝ้าฐานข้อมูลทุกระบบ ฝั่ง Apps Script)
 // ถามหาเหตุการณ์ใหม่ทุก 20 วิ เฉพาะตอนแอปเปิดอยู่บนจอ · ส่งแค่เลขล่าสุดที่เคยเห็น จึงเบาทั้งเครื่องและเซิร์ฟเวอร์
 // ครั้งแรกจำเลขล่าสุดไว้เฉยๆ ไม่ประกาศของเก่า
-import { describe, isNoise, sysInfo } from './systems.js?v=11182365';
+import { describe, isNoise, sysInfo } from './systems.js?v=11190830';
 const KEY = 'nongfai.events';
 const S = JSON.parse(localStorage.getItem(KEY) || '{}');
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch {} };
@@ -44,6 +44,7 @@ async function tick() {
     for (const [sys, list] of Object.entries(by)) {
       if (list.length <= 3) { out.push(...list); continue; }
       const s = sysInfo(sys), names = [...new Set(list.map((c) => c.text))];
+      if (s.k === 'checkin') { out.push({ ...list[0], title: 'ลงเวลา · ' + list.length + ' คน', text: names.slice(0, 4).join(', ') + (names.length > 4 ? ' …' : ''), sub: list.map((c) => c.sub).filter(Boolean).slice(0, 3).join(' · '), say: 'มีคนลงเวลาเพิ่ม ' + list.length + ' คนค่ะ' }); continue; }
       out.push({ ...list[0], title: sys + ' · ความเคลื่อนไหว ' + list.length + ' รายการ', text: names.slice(0, 3).join(', ') + (names.length > 3 ? ' …' : ''), sub: [...new Set(list.map((c) => c.title.split(' · ')[1]))].join(' · '), say: sys + ' มีความเคลื่อนไหว ' + list.length + ' รายการค่ะ', q: sys + ' วันนี้มีความเคลื่อนไหวอะไรบ้าง', ents: [...new Set(list.flatMap((c) => c.ents))].slice(0, 4), icon: s.icon, color: s.color });
     }
     ctx.push(out.reverse());

@@ -1,6 +1,6 @@
-import { findEvents } from './events.js?v=11182365';
-import { describe, sysInfo, SYS } from './systems.js?v=11182365';
-import { loadNotices, ntState, ntArea, ntWhen, ntHm, ntDate } from './notices.js?v=11182365';
+import { findEvents } from './events.js?v=11190830';
+import { describe, sysInfo, SYS } from './systems.js?v=11190830';
+import { loadNotices, ntState, ntArea, ntWhen, ntHm, ntDate } from './notices.js?v=11190830';
 // เครื่องมือให้น้องมีไฟดึงข้อมูลจากศูนย์รวมงาน กฟส.อ่าวลึก (Gemini function calling)
 // public = ใครถามก็ตอบได้ · internal = ต้องยืนยันตัวตนพนักงานก่อน (PIN)
 
@@ -322,12 +322,46 @@ async function kpiRegion2({ keyword }) {
 
 // ---------- 15) เช็กอินวันนี้ (สาธารณะในแดชบอร์ด) ----------
 const CHECKIN_API = 'https://script.google.com/macros/s/AKfycbxY0vjjr3MAl6e_OSTTbubrK-cVTrsx3o38xQGLJkJMro8rS8H-LaWl2J3oeE_I31FR/exec';
-async function checkinToday({ keyword }) {
-  const j = await cached('checkin', 120e3, () => getJSON(CHECKIN_API + '?action=getTodayDashboard'));
-  const recs = (j.records || []).map((r) => ({ ชื่อ: String(r.name || '').replace(/\s+/g, ' '), เข้างาน: r.checkIn, ออกงาน: r.checkOut, พื้นที่: r.area, หมายเหตุ: r.note })).filter((r) => match(r, keyword));
-  const raw = {}; (j.records || []).forEach((r) => { raw[String(r.name || '').replace(/\s+/g, ' ')] = r.picUrl; });
-  return withD({ วันที่: bkkToday(), เช็กอินแล้ว: recs.length, รายชื่อ: recs, อื่นๆ: cap(slim(Object.fromEntries(Object.entries(j).filter(([k]) => k !== 'records'))), 2000) }, { source: 'เช็กอินวันนี้ ' + bkkToday(), app: '/pea-checkin/dashboard_mobile.html', stats: [{ l: 'เช็กอินแล้ว', v: recs.length }, { l: 'นอกพื้นที่', v: recs.filter((r) => /นอก/.test(r.พื้นที่ || '')).length }],
-    items: recs.map((r) => ({ title: r.ชื่อ, sub: ['เข้า ' + (r.เข้างาน || '-'), r.ออกงาน ? 'ออก ' + r.ออกงาน : '', r.หมายเหตุ].filter(Boolean).join(' · '), badge: r.พื้นที่, thumb: raw[r.ชื่อ], images: raw[r.ชื่อ] ? [raw[r.ชื่อ]] : [] })) });
+const nm = (x) => String(x || '').replace(/\s+/g, ' ').trim();
+const hm2min = (t) => { const m = String(t || '').match(/(\d{1,2})[:.](\d{2})/); return m ? +m[1] * 60 + +m[2] : null; };
+const startOf = (pos) => (/แม่บ้าน/.test(pos || '') ? 7 * 60 : /B1/i.test(pos || '') ? null : 8 * 60); // B1 เข้ากะ ไม่นับสาย
+const thMin = (m) => (m ? Math.floor(m / 60) + ' ชม. ' + (m % 60) + ' นาที' : '-');
+async function employees() { const e = await cached('ckEmp', 600e3, () => getJSON(CHECKIN_API + '?action=getEmployeeFull')); return (Array.isArray(e) ? e : []).map((x) => ({ id: x.id, name: nm(x.name), pos: x.position || '', dept: x.dept || '', pic: x.picUrl || '' })); }
+async function checkinToday({ keyword, period, date, month }) {
+  period = period || (date ? 'date' : month ? 'month' : 'today');
+  if (period === 'week') {
+    const w = await cached('ckWeek', 300e3, () => getJSON(CHECKIN_API + '?action=getWeeklySummary'));
+    const days = (w.days || []).filter((d) => !d.isFuture);
+    return withD({ สัปดาห์นี้: days.map((d) => ({ วันที่: d.date, วัน: d.dayOfWeek, ลงเวลาแล้ว: d.checkedIn + '/' + d.total + ' คน', ชั่วโมงรวม: d.totalHours })) },
+      { source: 'สรุปลงเวลาสัปดาห์นี้', app: '/pea-checkin/dashboard_mobile.html', stats: days.slice(-4).map((d) => ({ l: String(d.date).slice(5), v: d.checkedIn + '/' + d.total })), items: days.map((d) => ({ title: d.date + (d.isToday ? ' (วันนี้)' : ''), sub: 'ชั่วโมงรวม ' + d.totalHours, badge: d.checkedIn + '/' + d.total + ' คน' })) });
+  }
+  if (period === 'month') {
+    const ms = month || bkkToday().slice(0, 7);
+    const r = await cached('ckMon' + ms, 600e3, () => getJSON(CHECKIN_API + '?action=getMonthlySummary&monthStr=' + ms));
+    const rows = (Array.isArray(r) ? r : []).map((x) => ({ ชื่อ: nm(x.name), วันทำงาน: x.workDays, เวลาเฉลี่ย: thMin(x.avgMinutes), รวม: thMin(x.totalMinutes), สาย: x.lateCount || 0, นอกพื้นที่: x.outsideCount || 0 })).filter((x) => match(x, keyword));
+    const late = rows.filter((x) => x.สาย > 0).sort((a, b) => b.สาย - a.สาย);
+    return withD({ เดือน: ms, จำนวนคน: rows.length, มาสายบ่อย: late.slice(0, 10).map((x) => x.ชื่อ + ' ' + x.สาย + ' ครั้ง'), รายคน: rows },
+      { source: 'สรุปลงเวลาเดือน ' + ms, app: '/pea-checkin/dashboard_mobile.html', stats: [{ l: 'คน', v: rows.length }, { l: 'มีมาสาย', v: late.length }, { l: 'สายรวม', v: late.reduce((a, b) => a + b.สาย, 0) + ' ครั้ง' }],
+        items: rows.map((x) => ({ title: x.ชื่อ, sub: 'ทำงาน ' + x.วันทำงาน + ' วัน · เฉลี่ย ' + x.เวลาเฉลี่ย + (x.นอกพื้นที่ ? ' · นอกพื้นที่ ' + x.นอกพื้นที่ : ''), badge: x.สาย ? 'สาย ' + x.สาย : '', tone: x.สาย ? 'amber' : '' })) });
+  }
+  const d = period === 'date' && date ? date : bkkToday();
+  const recRaw = d === bkkToday()
+    ? ((await cached('checkin', 120e3, () => getJSON(CHECKIN_API + '?action=getTodayDashboard'))).records || [])
+    : await cached('ckDay' + d, 300e3, () => getJSON(CHECKIN_API + '?action=getAttendanceByDate&dateStr=' + d)).then((x) => (Array.isArray(x) ? x : []));
+  let emps = []; try { emps = await employees(); } catch {}
+  const posOf = Object.fromEntries(emps.map((e) => [e.name, e.pos])), picOf = Object.fromEntries(emps.map((e) => [e.name, e.pic]));
+  const recs = recRaw.map((r) => { const n = nm(r.name), st = startOf(posOf[n]), mi = hm2min(r.checkIn); return { ชื่อ: n, ตำแหน่ง: posOf[n] || '', เข้างาน: r.checkIn || '', ออกงาน: r.checkOut || '', พื้นที่: r.area || '', หมายเหตุ: r.note || '', สาย: st != null && mi != null && mi > st ? mi - st : 0, pic: r.picUrl || picOf[n] }; });
+  const inNames = new Set(recs.map((r) => r.ชื่อ));
+  const notYet = emps.filter((e) => !inNames.has(e.name) && !/ผู้อำนวยการ/.test(e.pos));
+  const wd = new Date(d + 'T12:00:00+07:00').getDay(), weekend = wd === 0 || wd === 6;
+  const recF = recs.filter((r) => match(r, keyword)), notF = notYet.filter((e) => match(e, keyword));
+  const late = recF.filter((r) => r.สาย > 0);
+  const ai = { วันที่: d, วันหยุดสุดสัปดาห์: weekend, ลงเวลาแล้ว: recF.length, ยังไม่ลงเวลา: notF.length, มาสาย: late.map((r) => r.ชื่อ + ' ' + r.เข้างาน + ' (สาย ' + r.สาย + ' นาที)'), นอกพื้นที่: recF.filter((r) => /นอก/.test(r.พื้นที่)).map((r) => r.ชื่อ),
+    รายชื่อลงเวลา: recF.map(({ pic, ...x }) => x), รายชื่อยังไม่ลงเวลา: notF.map((e) => e.name + (e.pos ? ' (' + e.pos + ')' : '')),
+    หมายเหตุ: 'ลูกจ้าง B1 เข้างานตามกะ ไม่นับสาย · แม่บ้านเข้างาน 07:00 · คนอื่น 08:00' + (weekend ? ' · วันนี้เป็นวันหยุด คนที่ยังไม่ลงเวลาส่วนใหญ่ไม่ได้มาทำงาน' : '') };
+  const items = [...recF.map((r) => ({ title: r.ชื่อ, sub: ['เข้า ' + (r.เข้างาน || '-'), r.ออกงาน ? 'ออก ' + r.ออกงาน : '', r.สาย ? 'สาย ' + r.สาย + ' นาที' : '', r.หมายเหตุ].filter(Boolean).join(' · '), badge: r.สาย ? 'สาย' : r.พื้นที่ || 'มาแล้ว', tone: r.สาย ? 'amber' : /นอก/.test(r.พื้นที่) ? 'amber' : 'green', thumb: r.pic, images: r.pic ? [r.pic] : [] })),
+    ...notF.map((e) => ({ title: e.name, sub: e.pos, badge: 'ยังไม่ลงเวลา', tone: 'red', thumb: e.pic, images: e.pic ? [e.pic] : [] }))];
+  return withD(ai, { source: 'ลงเวลาทำงาน ' + d, app: '/pea-checkin/dashboard_mobile.html', stats: [{ l: 'มาแล้ว', v: recF.length }, { l: 'ยังไม่ลงเวลา', v: notF.length }, { l: 'มาสาย', v: late.length }, { l: 'นอกพื้นที่', v: recF.filter((r) => /นอก/.test(r.พื้นที่)).length }], items });
 }
 
 // ---------- 15b) ประกาศงดจ่ายไฟ (แผนดับไฟล่วงหน้า / ดับไฟฉุกเฉิน) ----------
@@ -404,7 +438,7 @@ async function drawingsBom({ keyword }) {
 // ---------- 20b) ค้นแบบมาตรฐาน กฟภ. พร้อมภาพ 2D / 3D (ดึงจากคลังแบบในศูนย์รวมงาน ไม่สร้างใหม่) ----------
 async function dwgCatalog() {
   // ดัชนีชื่อแบบ (สร้างจากคลังแบบ pea-drawings ด้วย scripts/build-dwg-index.py) — ภาพ/โมเดลเปิดจากหน้าแบบในคลังโดยตรง
-  return cached('dwgcat', 24 * 3600e3, async () => (await fetch('./dwg-index.json?v=11182365')).json());
+  return cached('dwgcat', 24 * 3600e3, async () => (await fetch('./dwg-index.json?v=11190830')).json());
 }
 const DWG_SYN = [[/สามเฟส|3เฟส/g, '3 เฟส'], [/หนึ่งเฟส|เฟสเดียว|1เฟส/g, '1 เฟส'], [/เสาคู่|สองเสา/g, 'นั่งร้าน'], [/(\d+)\s*เควี|(\d+)\s*kv/gi, '$1$2 kV'], [/ลูกถ้วย|ลูกถ้วยไฟ/g, 'ลูกถ้วย'], [/แรงต่ำ/g, 'แรงต่ำ']];
 const dwgNorm = (t) => { t = String(t || '').toLowerCase(); DWG_SYN.forEach(([a, b]) => { t = t.replace(a, b); }); return t; };
@@ -576,7 +610,7 @@ export const TOOLS = {
   safety_talk: { access: 'internal', run: safetyTalk, decl: { name: 'safety_talk', description: 'กิจกรรม Safety Talk: รอบประชุม ผู้เข้าร่วม ขาด/ลา หัวข้อ', parameters: { type: 'OBJECT', properties: { keyword: { type: 'STRING' } } } } },
   k04_plan: { access: 'internal', run: k04Plan, decl: { name: 'k04_plan', description: 'K04 แผนปฏิบัติการ กฟจ.กระบี่ และ กฟฟ.ในสังกัด ปี 2569: กิจกรรม เป้าหมาย ผลรายไตรมาส ผู้รับผิดชอบ', parameters: { type: 'OBJECT', properties: { keyword: { type: 'STRING', description: 'รหัสหรือชื่อกิจกรรม เช่น 1.1, ต้นทุน, SAIFI' } } } } },
   kpi_region2: { access: 'internal', run: kpiRegion2, decl: { name: 'kpi_region2', description: 'KPI Dashboard กฟต.2 ปี 2569: เป้าหมาย ผลงาน คะแนน อันดับของแต่ละการไฟฟ้า', parameters: { type: 'OBJECT', properties: { keyword: { type: 'STRING', description: 'เช่น อ่าวลึก, 1.3.1, SAIFI' } } } } },
-  checkin_today: { access: 'internal', run: checkinToday, decl: { name: 'checkin_today', description: 'การเช็กอินเข้า-ออกงานของพนักงานวันนี้ ใครมาแล้ว กี่โมง อยู่ในหรือนอกพื้นที่', parameters: { type: 'OBJECT', properties: { keyword: { type: 'STRING', description: 'ชื่อคน ว่างได้' } } } } },
+  checkin_today: { access: 'internal', run: checkinToday, decl: { name: 'checkin_today', description: 'ระบบลงเวลาทำงาน (เช็กอิน/เช็กเอาต์): วันนี้หรือวันที่ระบุ ใครมาแล้ว กี่โมง ใครยังไม่ลงเวลา ใครมาสาย นอกพื้นที่ และสรุปรายสัปดาห์/รายเดือน (วันทำงาน เวลาเฉลี่ย จำนวนครั้งที่สาย)', parameters: { type: 'OBJECT', properties: { keyword: { type: 'STRING', description: 'ชื่อคน ว่างได้' }, period: { type: 'STRING', description: 'today | date | week | month (ค่าเริ่มต้น today)' }, date: { type: 'STRING', description: 'YYYY-MM-DD เมื่อ period=date' }, month: { type: 'STRING', description: 'YYYY-MM เมื่อ period=month' } } } } },
   power_notices: { access: 'public', run: powerNotices, decl: { name: 'power_notices', description: 'ประกาศงดจ่ายไฟฟ้า (ดับไฟตามแผนล่วงหน้า) และดับไฟฉุกเฉิน ของ กฟส.อ่าวลึก: วันเวลา พื้นที่ เหตุผล สถานะ ใช้ตอบคำถามว่าจะดับไฟวันไหน ที่ไหน', parameters: { type: 'OBJECT', properties: { keyword: { type: 'STRING', description: 'ชื่อหมู่บ้าน ตำบล หรือพื้นที่ (ไม่ใส่ = ประกาศที่กำลังจะมาถึง)' } } } } },
   outage_tickets: { access: 'internal', run: outageTickets, decl: { name: 'outage_tickets', description: 'งานรับแจ้งไฟดับจากผู้ใช้ไฟ: เรื่องที่ยังค้าง ใครรับงาน และรายการล่าสุดใน 36 ชั่วโมง', parameters: { type: 'OBJECT', properties: { keyword: { type: 'STRING' } } } } },
   contacts: { access: 'internal', run: contacts, decl: { name: 'contacts', description: 'สมุดโทรศัพท์/ผู้ติดต่อของทีมแก้ไฟ กฟส.อ่าวลึก', parameters: { type: 'OBJECT', properties: { keyword: { type: 'STRING', description: 'ชื่อคนหรือหน่วยงาน' } } } } },

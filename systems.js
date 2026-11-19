@@ -17,7 +17,7 @@ export const SYS = {
   'แผนงานระดมทีม': { k: 'teamplan', icon: '📅', color: '#4466cc', app: '/teamplan-krabi/', noun: 'แผนงานระดมทีม' },
   'เตือนภัยกรมอุตุ': { k: 'tmd', icon: '⛈️', color: '#3b6fb6', app: '/tmd/', noun: 'ประกาศเตือนภัย' },
   'Safety Talk': { k: 'safety', icon: '🦺', color: '#e07b00', app: '/safety-talk/', noun: 'กิจกรรม Safety Talk' },
-  'ลงเวลา/เช็กอิน': { k: 'checkin', icon: '⏱️', color: '#607080', app: '/pea-checkin/dashboard_mobile.html', noun: 'การลงเวลา' },
+  'ลงเวลา/เช็กอิน': { k: 'checkin', icon: '⏰', color: '#1e8f6e', app: '/pea-checkin/dashboard_mobile.html', noun: 'การลงเวลา' },
   'Load01 กฟต.2': { k: 'load01', icon: '📈', color: '#2b8a8a', app: '/load01/', noun: 'ข้อมูลโหลด' },
   'KPI / Report50': { k: 'kpi', icon: '🎯', color: '#8a3ab9', app: '/kpi-pea-region2-2569/', noun: 'ผล KPI' },
   'K04 แผนปฏิบัติการ': { k: 'k04', icon: '🗂️', color: '#4a6a8a', app: '/k04/', noun: 'แผนปฏิบัติการ' },
@@ -28,6 +28,8 @@ export const appOf = (ev) => { const s = sysInfo(ev.sys); return (s.appOf ? s.ap
 
 // ช่องที่เปลี่ยนเองตลอด (เวลาแก้ไขล่าสุด ฯลฯ) ไม่นับเป็นความเคลื่อนไหว
 const NOISE = /updated|modified|lastseen|last_seen|heartbeat|ping|timestamp|^ts$|_at$|เวลาอัปเดต|แก้ไขล่าสุด|อัปเดตล่าสุด|ปรับปรุงล่าสุด|sync|cache/i;
+// ช่องที่ไม่ควรขึ้นจอ (พิกัด รหัส LINE รูป ลิงก์)
+const PRIV = /lat|lng|lon|accuracy|uid|selfie|photo|pic|url|ลิงก์|พิกัด|รูป/i;
 const STATUS = /สถานะ|status|ขั้นตอน|ขั้น|step|stage|state|ผลการ|อนุมัติ/i;
 const NAMEISH = /เรื่อง|ชื่อ|รายการ|ภารกิจ|สถานที่|ที่ตั้ง|ทะเบียน|หัวข้อ|ผู้ขอ|ผู้ซื้อ|ผู้ขาย|งาน|title|name|subject|plate|place|item|desc/i;
 const idLike = (v) => !v || /^#\d+$/.test(v) || /^[A-Za-z]{0,4}[-_]?\d{9,}$/.test(v) || /^[0-9a-f-]{16,}$/i.test(v);
@@ -50,6 +52,7 @@ export function itemName(ev) {
 
 // เหตุการณ์ → การ์ดแจ้งเตือน { topic, title, text, sub, say, app, ents, q }
 export function describe(ev) {
+  if (ev.sys === 'ลงเวลา/เช็กอิน' && ev.type !== 'ลบ') return describeCheckin(ev);
   const s = sysInfo(ev.sys), name = itemName(ev), sheet = ev.sheet ? 'ชีต ' + ev.sheet : '';
   const ch = (ev.ch || []).filter((c) => !NOISE.test(c.c));
   const st = ch.find((c) => STATUS.test(c.c));
@@ -67,5 +70,19 @@ export function describe(ev) {
 }
 function briefRow(ev) {
   const row = ev.row || {}, nm = itemName(ev);
-  return Object.entries(row).filter(([k, v]) => v && v !== '•' && !idLike(String(v)) && !NOISE.test(k) && String(v) !== nm && !nm.includes(String(v))).slice(0, 3).map(([k, v]) => k + ': ' + clip(v, 28)).join(' · ');
+  return Object.entries(row).filter(([k, v]) => v && v !== '•' && !idLike(String(v)) && !NOISE.test(k) && !PRIV.test(k) && String(v) !== nm && !nm.includes(String(v))).slice(0, 3).map(([k, v]) => k + ': ' + clip(v, 28)).join(' · ');
+}
+
+// ลงเวลาทำงาน: "สมชาย ลงเวลาเข้างาน 07:52 น." แทนข้อความทั่วไป
+function describeCheckin(ev) {
+  const s = sysInfo(ev.sys), row = ev.row || {}, ch = ev.ch || [];
+  const get = (re) => { const e = Object.entries(row).find(([k]) => re.test(k)); return e ? String(e[1] || '') : ''; };
+  const name = get(/^name$|ชื่อ/i) || itemName(ev);
+  const outC = ch.find((c) => /out|ออก/i.test(c.c) && c.n), inV = get(/check.?in|เข้า/i), outV = get(/check.?out|ออก/i);
+  const isOut = !!outC || (ev.type === 'แก้' && outV);
+  const time = (isOut ? (outC && outC.n) || outV : inV).match(/\d{1,2}[:.]\d{2}/);
+  const area = get(/area|พื้นที่/i);
+  const verb = isOut ? 'ลงเวลาออกงาน' : 'ลงเวลาเข้างาน';
+  return { topic: s.k, icon: s.icon, color: s.color, title: 'ลงเวลา · ' + (isOut ? 'ออกงาน' : 'เข้างาน'), text: name, sub: [time ? time[0] + ' น.' : '', area].filter(Boolean).join(' · '),
+    say: name + ' ' + verb + (time ? ' ' + time[0].split(/[:.]/).map(Number).join(' นาฬิกา ') + ' นาที' : '') + 'ค่ะ', app: s.app, ents: [], sys: ev.sys, evId: ev.id, at: ev.at, q: 'วันนี้ใครลงเวลาแล้ว ใครยังไม่ลงเวลาบ้าง' };
 }
