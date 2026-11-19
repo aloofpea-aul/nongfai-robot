@@ -26,6 +26,46 @@ export function wxCard(w) {
   box.innerHTML = `<svg viewBox="0 0 200 130" aria-hidden="true">${scene(lv)}</svg>
     <div class="wxlv-info"><div class="wxlv-num">${lv}<small>/6</small></div>
       <div class="wxlv-txt"><b>ระดับ ${lv} · ${WX_LV[lv]}</b><span>${WX_RISK[lv]}</span>${w.manual ? '<em>หน้างานตั้งเอง' + (w.manual.by ? ' · ' + w.manual.by : '') + '</em>' : '<em>ระบบวิเคราะห์อัตโนมัติ</em>'}${w.watch ? '<em class="warn">⚡ เฝ้าระวังฟ้าคะนอง ' + w.watch + '</em>' : ''}${w.pend6 ? '<em class="warn">⚡ เข้าเกณฑ์ระดับ 6 รอยืนยันรอบถัดไป</em>' : ''}</div></div>
+    <button type="button" class="wxlv-share" aria-label="แชร์ระดับสภาพอากาศเข้า LINE">แชร์ LINE</button>
     <div class="wxlv-bar">${[1, 2, 3, 4, 5, 6].map((n) => `<i class="${n <= lv ? 'f' : ''}" style="${n <= lv ? 'background:' + WX_COLOR[n] : ''}"><span>${n}</span></i>`).join('')}</div>`;
+  box.querySelector('.wxlv-share').onclick = () => go('https://line.me/R/share?text=' + encodeURIComponent(wxShareText(w)));
   return box;
+}
+
+// ---------- การ์ดประกาศกรมอุตุฯ (หน้าตาเดียวกับการ์ดใน LINE) + ปุ่มเปิดประกาศ / แชร์เข้า LINE ----------
+const TMD_PAGE = 'https://aloofpea-aul.github.io/tmd/';
+const TMD_SHARE = 'https://liff.line.me/2012182540-CRgflPne';
+const tmdOpen = (d) => 'https://aloofpea-aul.github.io/tmd/open.html?t=' + encodeURIComponent(d.pdfUrl || '') + (d.pdfDrive ? '&d=' + encodeURIComponent(d.pdfDrive) : '');
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const go = (u) => { const w = window.open(u, '_blank', 'noopener'); if (!w) location.href = u; };
+export function tmdCard(d, openInApp) {
+  const box = document.createElement('div');
+  if (!d || d.none) {
+    box.className = 'tmdc none';
+    box.innerHTML = '<span>✓ ไม่มีประกาศเตือนภัยที่เกี่ยวกับกระบี่/ภาคใต้ในช่วงนี้</span> <button type="button" class="tmd-link">ดูประกาศทั้งหมด</button>';
+    box.querySelector('button').onclick = () => (openInApp && openInApp('/tmd/', 'ประกาศกรมอุตุฯ')) || go(TMD_PAGE);
+    return box;
+  }
+  const color = d.severity === 'สูง' ? '#8A2B2B' : d.severity === 'กลาง' ? '#B4570B' : '#455A64';
+  const where = d.focus === 'กระบี่' ? 'กระบี่ อยู่ในพื้นที่ได้รับผลกระทบ' : d.focus === 'ภาคใต้' ? 'ภาคใต้ได้รับผลกระทบ (ไม่ระบุกระบี่)' : '';
+  const days = String(d.krabiDetail || '').split('\n').map((l) => l.trim()).filter(Boolean).map((l) => { const m = l.match(/^(\d{1,2}\s*[ก-๙]+\.[ก-๙]+\.)\s*(.*)$/); return m ? '<div class="tmd-day"><b>' + esc(m[1]) + '</b>' + esc(m[2]) + '</div>' : '<div class="tmd-day">' + esc(l) + '</div>'; }).join('');
+  const desc = String(d.description || '');
+  box.className = 'tmdc'; box.style.setProperty('--tc', color);
+  box.innerHTML = `<div class="tmd-h"><span>ประกาศกรมอุตุนิยมวิทยา</span>${d.severity ? '<span>ระดับ ' + esc(d.severity) + '</span>' : ''}</div>
+    <div class="tmd-b"><div class="tmd-t">${esc(d.title)}</div>${where ? '<div class="tmd-where ' + (d.focus === 'กระบี่' ? 'k' : 's') + '">' + where + '</div>' : ''}${days}
+      <div class="tmd-m">${esc([d.issueNo, d.announceTime].filter(Boolean).join(' · '))}</div>${desc ? '<div class="tmd-m">' + esc(desc.length > 250 ? desc.slice(0, 250) + '…' : desc) + '</div>' : ''}</div>
+    <div class="tmd-btns">${d.pdfUrl ? '<button type="button" class="p" data-a="open">เปิดประกาศ</button>' : ''}<button type="button" data-a="all">ดูประกาศทั้งหมด</button></div>
+    <button type="button" class="tmd-share" data-a="share">แชร์เข้ากลุ่ม LINE</button>`;
+  box.querySelectorAll('button').forEach((b) => (b.onclick = () => {
+    const a = b.dataset.a;
+    if (a === 'open') go(tmdOpen(d));
+    else if (a === 'all') (openInApp && openInApp('/tmd/', 'ประกาศกรมอุตุฯ')) || go(TMD_PAGE);
+    else go(d.key ? TMD_SHARE + '?k=' + encodeURIComponent(d.key) : 'https://line.me/R/share?text=' + encodeURIComponent('ประกาศกรมอุตุฯ: ' + d.title + '\n' + (d.issueNo || '') + '\n' + tmdOpen(d)));
+  }));
+  return box;
+}
+// แชร์ระดับสภาพอากาศเป็นข้อความเข้า LINE
+export function wxShareText(w) {
+  const lv = Number(w.lv) || 1;
+  return 'สภาพอากาศอ่าวลึก : ระดับ ' + lv + ' ' + WX_LV[lv] + (w.detail ? '\n(' + w.detail + ')' : '') + (w.watch ? '\n⚡ เฝ้าระวังฟ้าคะนอง ' + w.watch : '') + '\n— น้องมีไฟ กฟส.อ่าวลึก';
 }

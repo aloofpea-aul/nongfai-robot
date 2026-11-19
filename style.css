@@ -342,3 +342,22 @@ a.tel{color:var(--purple);font-weight:600;text-decoration:underline}
 @keyframes wxPulse{50%{filter:brightness(1.25);transform:scaleY(1.15)}}
 @media (max-width:620px){.wxlv{grid-template-columns:110px 1fr}.wxlv-num{font-size:48px}.wxlv-txt b{font-size:18px}}
 @media (prefers-reduced-motion:reduce){.wxlv *{animation:none!important}}
+
+/* การ์ดประกาศกรมอุตุฯ แบบเดียวกับ LINE */
+.tmdc{background:#fff;border:1px solid #e3dcef;border-radius:16px;overflow:hidden;margin:0 0 10px}
+.tmd-h{background:var(--tc);color:#fff;padding:10px 16px;display:flex;justify-content:space-between;font-size:15px}
+.tmd-b{padding:12px 16px;display:flex;flex-direction:column;gap:6px;font-size:16px}
+.tmd-t{font-size:19px;font-weight:600;color:#222}
+.tmd-where{align-self:flex-start;border-radius:8px;padding:3px 10px;font-size:14px}
+.tmd-where.k{background:#FCEBEB;color:#791F1F}.tmd-where.s{background:#FAEEDA;color:#633806}
+.tmd-day{display:flex;gap:10px}.tmd-day b{min-width:70px}
+.tmd-m{color:#666;font-size:14px}
+.tmd-btns{display:flex;gap:8px;padding:0 16px 8px}
+.tmd-btns button,.tmd-share{flex:1;min-height:46px;border-radius:10px;font-family:Prompt,sans-serif;font-size:16px;border:1px solid #d8cdea;background:#fff;color:#333}
+.tmd-btns button.p{background:var(--tc);border-color:var(--tc);color:#fff}
+.tmd-share{display:block;width:calc(100% - 32px);margin:0 16px 14px;background:#06C755;border-color:#06C755;color:#fff}
+.tmdc.none{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 16px;color:#3B6D11;font-size:15px;border-style:dashed}
+.tmd-link{border:0;background:none;color:var(--purple);font-family:Prompt,sans-serif;font-size:15px;min-height:40px}
+.wxlv{position:relative}
+.wxlv-share{position:absolute;top:8px;right:8px;border:0;border-radius:999px;background:#06C755;color:#fff;font-family:Prompt,sans-serif;font-size:13px;padding:4px 12px;min-height:30px}
+.wxlv-txt b{padding-right:76px}

@@ -1,6 +1,6 @@
-import { findEvents } from './events.js?v=11191040';
-import { describe, sysInfo, SYS } from './systems.js?v=11191040';
-import { loadNotices, ntState, ntArea, ntWhen, ntHm, ntDate } from './notices.js?v=11191040';
+import { findEvents } from './events.js?v=11191130';
+import { describe, sysInfo, SYS } from './systems.js?v=11191130';
+import { loadNotices, ntState, ntArea, ntWhen, ntHm, ntDate } from './notices.js?v=11191130';
 // เครื่องมือให้น้องมีไฟดึงข้อมูลจากศูนย์รวมงาน กฟส.อ่าวลึก (Gemini function calling)
 // public = ใครถามก็ตอบได้ · internal = ต้องยืนยันตัวตนพนักงานก่อน (PIN)
 
@@ -91,14 +91,25 @@ async function outageHistory({ month, keyword }) {
 
 // ---------- 3) สภาพอากาศ / ประกาศกรมอุตุฯ ----------
 const WX_NAME = { 1: 'สภาพปกติ', 2: 'ชื้น', 3: 'ฝนตก', 4: 'ลมแรง', 5: 'ฝนตก ลมแรง', 6: 'ฝนตก ฟ้าคะนอง' };
+const TMD_API = 'https://script.google.com/macros/s/AKfycbyF7Am81Ut4aUbzTbACUFpJhIQ2q3iKiiTxoLM8IoGvANQ8NQpaM5BvokCeyOWiAqrwNA/exec';
+// ประกาศกรมอุตุฯ ฉบับล่าสุดที่เกี่ยวกับภาคใต้/กระบี่ (ออกภายใน 3 วัน) — ข้อมูลชุดเดียวกับที่บอท LINE ส่ง
+async function tmdLatest() {
+  const j = await cached('tmdLatest', 600e3, () => getJSON(TMD_API + '?action=latest&focus=' + encodeURIComponent('ภาคใต้')));
+  const d = (j.data || [])[0];
+  if (!d) return null;
+  const day = String(d.sortKey || '').slice(0, 10), age = (Date.parse(bkkToday()) - Date.parse(day)) / 864e5;
+  return { ...d, current: isFinite(age) && age <= 3 };
+}
 async function weatherNow() {
-  const j = await cached('wx', 300e3, () => getJSON(DUTY_API + '?action=wx'));
-  const w = j.wx || {}, lv = Number(w.lv) || null;
+  const [j, tm] = await Promise.all([cached('wx', 300e3, () => getJSON(DUTY_API + '?action=wx')), tmdLatest().catch(() => null)]);
+  const w = j.wx || {}, lv = Number(w.lv) || null, t = tm && tm.current ? tm : null;
   return withD({ ระดับสภาพอากาศ: lv ? lv + ' จาก 6 (' + (WX_NAME[lv] || w.label) + ')' : 'ไม่ทราบ', เกณฑ์: '1 ปกติ · 2 ชื้น · 3 ฝนตก · 4 ลมแรง · 5 ฝนตก ลมแรง · 6 ฝนตก ฟ้าคะนอง (เกณฑ์เดียวกับระบบงานแก้ไฟ)',
     ที่มาของระดับ: w.manual ? 'หน้างานตั้งเองโดย ' + (w.manual.by || '') + (w.manual.note ? ' (' + w.manual.note + ')' : '') : 'ระบบวิเคราะห์อัตโนมัติจากพยากรณ์', รายละเอียด: w.detail,
     เฝ้าระวัง: [w.watch && 'ฟ้าคะนอง ' + w.watch, w.pend6 && 'เข้าเกณฑ์ระดับ 6 รอยืนยันรอบถัดไป', w.trend && 'แนวโน้ม 7-8 ชม.: ' + w.trend].filter(Boolean),
-    เงื่อนไข: (w.ck || []).map((c) => c.t), คำแนะนำการตอบ: 'ขึ้นต้นด้วย "สภาพอากาศอ่าวลึกตอนนี้ระดับ X" แล้วตามด้วยความหมายและรายละเอียดสั้นๆ' },
-    { source: 'สภาพอากาศอ่าวลึกตอนนี้', app: '/duty-roster/', wx: lv ? { lv, manual: w.manual, watch: w.watch, pend6: w.pend6 } : null, stats: [{ l: 'ระดับ', v: lv ? lv + ' / 6' : '-', t: lv >= 5 ? 'red' : '' }],
+    เงื่อนไข: (w.ck || []).map((c) => c.t),
+    ประกาศกรมอุตุ: t ? { เรื่อง: t.title, ฉบับ: t.issueNo, ออกเมื่อ: t.announceTime, ระดับ: t.severity, พื้นที่: t.focus === 'กระบี่' ? 'กระบี่อยู่ในพื้นที่ได้รับผลกระทบ' : 'ภาคใต้ (ไม่ระบุกระบี่)', ผลรายวันในกระบี่: t.krabiDetail || '', สรุป: String(t.description || '').slice(0, 400) } : 'ไม่มีประกาศเตือนภัยที่เกี่ยวกับภาคใต้/กระบี่ใน 3 วันนี้',
+    คำแนะนำการตอบ: 'ขึ้นต้นด้วย "สภาพอากาศอ่าวลึกตอนนี้ระดับ X" ตามด้วยความหมายสั้นๆ แล้วบอกว่ามีประกาศกรมอุตุไหม ถ้ามีให้บอกฉบับที่และวันที่กระบี่ได้รับผล' },
+    { source: 'สภาพอากาศอ่าวลึกตอนนี้', app: '/duty-roster/', wx: lv ? { lv, manual: w.manual, watch: w.watch, pend6: w.pend6, detail: w.detail } : null, tmd: t || { none: true }, stats: [{ l: 'ระดับ', v: lv ? lv + ' / 6' : '-', t: lv >= 5 ? 'red' : '' }],
       items: [{ title: w.detail || '' }, ...(w.ck || []).map((c) => ({ title: c.t, badge: c.ok ? 'เข้าเงื่อนไข' : 'ไม่เข้า', tone: c.ok ? 'red' : 'green' }))].filter((x) => x.title) });
 }
 async function weatherWarnings({ month }) {
@@ -443,7 +454,7 @@ async function drawingsBom({ keyword }) {
 // ---------- 20b) ค้นแบบมาตรฐาน กฟภ. พร้อมภาพ 2D / 3D (ดึงจากคลังแบบในศูนย์รวมงาน ไม่สร้างใหม่) ----------
 async function dwgCatalog() {
   // ดัชนีชื่อแบบ (สร้างจากคลังแบบ pea-drawings ด้วย scripts/build-dwg-index.py) — ภาพ/โมเดลเปิดจากหน้าแบบในคลังโดยตรง
-  return cached('dwgcat', 24 * 3600e3, async () => (await fetch('./dwg-index.json?v=11191040')).json());
+  return cached('dwgcat', 24 * 3600e3, async () => (await fetch('./dwg-index.json?v=11191130')).json());
 }
 const DWG_SYN = [[/สามเฟส|3เฟส/g, '3 เฟส'], [/หนึ่งเฟส|เฟสเดียว|1เฟส/g, '1 เฟส'], [/เสาคู่|สองเสา/g, 'นั่งร้าน'], [/(\d+)\s*เควี|(\d+)\s*kv/gi, '$1$2 kV'], [/ลูกถ้วย|ลูกถ้วยไฟ/g, 'ลูกถ้วย'], [/แรงต่ำ/g, 'แรงต่ำ']];
 const dwgNorm = (t) => { t = String(t || '').toLowerCase(); DWG_SYN.forEach(([a, b]) => { t = t.replace(a, b); }); return t; };
@@ -603,7 +614,7 @@ export const TOOLS = {
   start_checkin: { access: 'internal', run: async () => { setTimeout(() => hooks.openCheckin && hooks.openCheckin(), 400); return { ผล: 'เปิดหน้าลงเวลาทำงาน (สแกนหน้า) บนจอแล้ว', คำแนะนำการตอบ: 'ตอบสั้นๆ ว่า เปิดหน้าลงเวลาให้แล้วค่ะ' }; }, decl: { name: 'start_checkin', description: 'เปิดหน้าลงเวลาทำงานด้วยการสแกนใบหน้าที่น้องมีไฟ ใช้เมื่อผู้ใช้จะลงเวลาเข้า/ออกงานเอง เช่น "ลงเวลา" "เช็กอิน" "ลงเวลาออก" (ไม่ใช่คำถามว่าใครลงเวลาแล้ว)', parameters: { type: 'OBJECT', properties: {} } } },
   activity_log: { access: 'internal', run: activityLog, decl: { name: 'activity_log', description: 'สมุดเหตุการณ์ของทุกระบบในศูนย์รวมงาน: ใครเพิ่ม/แก้/ลบอะไร เปลี่ยนขั้นตอนเมื่อไหร่ ย้อนหลังได้ และเชื่อมความสัมพันธ์ข้ามระบบด้วยตัวเชื่อม เช่น ฟีดเดอร์ (ALA01) รหัสอุปกรณ์ ทะเบียนรถ หมู่บ้าน ใช้เมื่อถามว่า "มีอะไรเปลี่ยน/เคลื่อนไหว/อัปเดต" "X สัปดาห์นี้มีอะไรบ้าง" "เกี่ยวข้องกับอะไรบ้าง" หรือสรุปความเคลื่อนไหวทั้งสาขา', parameters: { type: 'OBJECT', properties: { keyword: { type: 'STRING', description: 'คำค้น/ตัวเชื่อม เช่น ALA01, กข1234, บ้านแหลมสัก ว่างได้ = ทุกเรื่อง' }, system: { type: 'STRING', description: 'ชื่อระบบ เช่น ยานพาหนะ งานจัดซื้อ Patrol ตัดงบ ว่างได้ = ทุกระบบ' }, days: { type: 'NUMBER', description: 'ย้อนหลังกี่วัน (วันนี้=1 สัปดาห์นี้=7 เดือนนี้=30)' }, type: { type: 'STRING', description: 'เพิ่ม | แก้ | ลบ | อัปเดต ว่างได้' } } } } },
   standard_drawing: { access: 'public', run: standardDrawing, decl: { name: 'standard_drawing', description: 'ค้นแบบก่อสร้างมาตรฐาน กฟภ. และแสดงภาพ 2D / โมเดล 3D / PDF บนจอ เช่น แบบติดตั้งหม้อแปลง คอนสาย ลูกถ้วย เสา หรือเลขแบบ เช่น 6201 (ใช้เมื่อผู้ใช้อยากดูแบบหรือรูป)', parameters: { type: 'OBJECT', properties: { keyword: { type: 'STRING', description: 'ชื่อแบบ อุปกรณ์ หรือเลขการประกอบ' } }, required: ['keyword'] } } },
-  weather_now: { access: 'public', run: weatherNow, decl: { name: 'weather_now', description: 'สภาพอากาศตอนนี้ที่อ่าวลึก เป็นระดับ 1–6 แบบเดียวกับงานแก้ไฟ (1 ปกติ 2 ชื้น 3 ฝนตก 4 ลมแรง 5 ฝนตก ลมแรง 6 ฝนตก ฟ้าคะนอง) พร้อมรายละเอียดฝน ลม ฟ้าคะนอง', parameters: { type: 'OBJECT', properties: {} } } },
+  weather_now: { access: 'public', run: weatherNow, decl: { name: 'weather_now', description: 'สภาพอากาศตอนนี้ที่อ่าวลึก พร้อมประกาศเตือนภัยกรมอุตุฯ ฉบับล่าสุดที่เกี่ยวกับกระบี่/ภาคใต้ (ใช้ตัวนี้ตัวเดียวพอเมื่อถามอากาศหรือเตือนภัยตอนนี้) เป็นระดับ 1–6 แบบเดียวกับงานแก้ไฟ (1 ปกติ 2 ชื้น 3 ฝนตก 4 ลมแรง 5 ฝนตก ลมแรง 6 ฝนตก ฟ้าคะนอง) พร้อมรายละเอียดฝน ลม ฟ้าคะนอง', parameters: { type: 'OBJECT', properties: {} } } },
   weather_warnings: { access: 'public', run: weatherWarnings, decl: { name: 'weather_warnings', description: 'ประกาศเตือนภัยกรมอุตุนิยมวิทยารายวันของเดือน (เฉพาะที่เกี่ยวกับกระบี่และทั่วไป)', parameters: { type: 'OBJECT', properties: { month: { type: 'STRING', description: 'YYYY-MM ว่างได้ = เดือนนี้' } } } } },
   duty_roster: { access: 'internal', run: dutyRoster, decl: { name: 'duty_roster', description: 'ตารางเวรแก้ไฟของพนักงานและคนงาน กฟส.อ่าวลึก ในวันที่ระบุ ว่าใครเข้าเวรช่วงไหน และเบอร์ห้องเวร', parameters: { type: 'OBJECT', properties: { date: { type: 'STRING', description: 'YYYY-MM-DD ว่างได้ = วันนี้' } } } } },
   outage_history: { access: 'internal', run: outageHistory, decl: { name: 'outage_history', description: 'ประวัติไฟดับที่ทีมแก้ไฟบันทึก รายเดือน: เวลาดับ-จ่ายคืน ฟีดเดอร์ อุปกรณ์ สาเหตุ จำนวนผู้ใช้ไฟ การแก้ไข', parameters: { type: 'OBJECT', properties: { month: { type: 'STRING', description: 'YYYY-MM ว่างได้ = เดือนนี้' }, keyword: { type: 'STRING', description: 'คำกรอง เช่น ชื่อหมู่บ้าน ฟีดเดอร์ สาเหตุ' } } } } },
