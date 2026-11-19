@@ -1,14 +1,15 @@
 // น้องมีไฟ — แอปหลัก: ฟังเสียงไทย → ถาม Gemini (สตรีม) → พูดตอบทีละประโยค + แสดงบนจอ
-import { Mascot } from './mascot.js?v=11190830';
-import { WavRecorder } from './recorder.js?v=11190830';
-import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary } from './tools.js?v=11190830';
-import { startPresence, stopPresence, presenceOn, someoneHere, setPresenceRate, status as camStatus } from './presence.js?v=11190830';
-import { startWatch, TOPICS, topicOn, alertLog, clearAlertLog } from './watch.js?v=11190830';
-import { SYS } from './systems.js?v=11190830';
-import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11190830';
+import { Mascot } from './mascot.js?v=11190900';
+import { WavRecorder } from './recorder.js?v=11190900';
+import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary, hooks } from './tools.js?v=11190900';
+import { startPresence, stopPresence, presenceOn, someoneHere, setPresenceRate, status as camStatus } from './presence.js?v=11190900';
+import { startWatch, TOPICS, topicOn, alertLog, clearAlertLog } from './watch.js?v=11190900';
+import { SYS } from './systems.js?v=11190900';
+import { initCheckin, openCheckin } from './checkin.js?v=11190900';
+import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11190900';
 
 const $ = (id) => document.getElementById(id);
-export const VERSION = '11190830';
+export const VERSION = '11190900';
 // อัปเดตตัวเอง: ถ้าบนเว็บมีเวอร์ชันใหม่กว่า ให้โหลดหน้าใหม่ทันที (กันไอโฟนจำไฟล์เก่า)
 fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json()).then((j) => {
   if (j.v && j.v !== VERSION && !sessionStorage.getItem('nf.reload.' + j.v)) {
@@ -416,6 +417,7 @@ function voiceCommand(t) {
 const AUDIO_NOTE = 'ไฟล์เสียงนี้คือคำพูดของลูกค้า บรรทัดแรกให้ขึ้นต้นด้วย ###USER: ตามด้วยคำที่ลูกค้าพูดเป็นข้อความภาษาไทย แล้วขึ้นบรรทัดใหม่ตอบตามกฎปกติ ถ้าฟังไม่ออกให้ขอให้พูดอีกครั้งอย่างสุภาพ';
 
 async function ask(question, audio, keepCue) {
+  if (!audio && OPS() && CK_RE.test(String(question || '').trim()) && !CK_Q.test(question)) { startCheckin(); return; }
   if (!cfg.apiKey) { openSettings(); toast('ใส่ Gemini API key ก่อนนะคะ'); return; }
   if (keepCue) { abortAsk(); if (listening && rec) rec.abort(); wav.cancel(); } else stopAll();
   bumpIdle();
@@ -709,7 +711,7 @@ async function greetAndListen() {
   if (!busy() && !anyDialogOpen() && useAudioAI()) listenAudio(true);
   else if (!busy() && !anyDialogOpen()) listen();
 }
-async function startWake() {
+async function startWake(quiet) {
   $('wakeCover').hidden = true;
   try {
     await startPresence({
@@ -723,7 +725,7 @@ async function startWake() {
       onStatus: (st, face) => { const d = $('camDot'); d.hidden = false; d.classList.toggle('face', face); },
       onError: (e) => { camStatus.err = String(e && e.message || e).slice(0, 120); },
     });
-    toast('โหมดรอเปิดแล้ว เดินเข้ามาหน้าจอ น้องมีไฟจะทักเองค่ะ', 4000);
+    if (!quiet) toast('โหมดรอเปิดแล้ว เดินเข้ามาหน้าจอ น้องมีไฟจะทักเองค่ะ', 4000);
   } catch (e) {
     camStatus.step = 'error'; camStatus.err = (e && e.name ? e.name + ': ' : '') + String(e && e.message || e).slice(0, 120);
     if (e && (e.name === 'NotFoundError' || e.name === 'OverconstrainedError')) { cfg.wakeFace = false; saveCfg(); toast('เครื่องนี้ไม่มีกล้อง ปิดโหมดทักเมื่อเห็นคนให้แล้วค่ะ', 6000); return; }
@@ -794,6 +796,18 @@ $('typeForm').onsubmit = (e) => {
   stopSpeaking(); tapCue('ค่ะ'); // ปลดล็อกเสียงพูดบนไอโฟนในจังหวะที่กดส่ง
   ask(q, null, true);
 };
+// ---------- ลงเวลาทำงานด้วยการสแกนหน้า ----------
+initCheckin({
+  cfg: () => cfg, speak: (t) => { stopSpeaking(); speak(t); }, toast: (t, ms) => toast(t, ms),
+  learn: () => ({ url: cfg.learnUrl, secret: cfg.learnSecret }),
+  pausePresence: () => stopPresence(),
+  resumePresence: () => { if (cfg.wakeFace) startWake(true); },
+});
+function startCheckin() { stopAll(); bumpIdle(); openCheckin(); }
+$('btnCheckin').onclick = startCheckin;
+hooks.openCheckin = startCheckin;
+const CK_RE = /^(ลงเวลา|เช็[กค]อิน|เช็[กค]เอา(ท์|ต์)|สแกนหน้า)/;
+const CK_Q = /ใคร|กี่|สรุป|ยัง|บ้าง|มั้ย|ไหม|เมื่อ|สาย/;
 document.querySelectorAll('.mbtn[data-q]').forEach((b) => (b.onclick = () => { stopSpeaking(); tapCue('ได้เลยค่ะ'); ask(b.dataset.q, null, true); }));
 $('btnInternal').onclick = () => { stopSpeaking(); tapCue('ขอรหัสยืนยันตัวตนเจ้าหน้าที่ค่ะ'); lastAsk = null; openPin(); };
 

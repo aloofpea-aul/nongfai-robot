@@ -257,3 +257,40 @@ a.tel{color:var(--purple);font-weight:600;text-decoration:underline}
 .appv .dt-head span{flex:1}
 .app-loading{position:absolute;top:50%;left:0;right:0;text-align:center;color:#777;font-size:18px;pointer-events:none}
 .appv{position:fixed}
+
+/* ลงเวลาทำงานด้วยการสแกนหน้า */
+.ck{width:min(720px,96vw);max-height:94vh;border:0;border-radius:20px;padding:0;overflow:auto}
+.ck .dt-head span{flex:1;font-size:20px;font-weight:600}
+.ck-body{padding:12px 20px 24px;display:flex;flex-direction:column;gap:12px;align-items:stretch;text-align:center}
+.ck-cam{position:relative;margin:0 20px;border-radius:16px;overflow:hidden;background:#1e1030;aspect-ratio:4/3}
+.ck-cam video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+.ck-ring{position:absolute;left:50%;top:46%;width:52%;aspect-ratio:3/4;transform:translate(-50%,-50%);border:4px dashed rgba(255,255,255,.7);border-radius:50%}
+.ck-ring.seen{border-color:#F5B942}
+.ck-ring.ok{border:5px solid #1D9E75}
+.ck-msg{position:absolute;left:0;right:0;bottom:0;padding:10px;background:rgba(30,16,48,.7);color:#fff;font-size:20px}
+.ck-btn{font-family:Prompt,sans-serif;font-size:18px;min-height:52px;border-radius:14px;border:2px solid var(--purple);background:#fff;color:var(--purple-dk);padding:8px 16px}
+.ck-btn.big{background:var(--purple);color:#fff;font-size:22px;min-height:68px}
+.ck-btn.ghost{border-color:#d8cdea}
+.ck-btn.danger{color:#a32d2d;border-color:#f09595}
+.ck-btn.on{background:#efe6fb;border-color:var(--purple)}
+.ck-row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.ck-row .ck-btn{flex:1;min-width:150px}
+.ck-clock{font-size:44px;font-weight:600;color:var(--purple-dk)}
+.ck-hi,.ck-q{font-size:22px}
+.ck-sub{color:#666;font-size:16px}
+.ck-wait{font-size:20px;color:#666;padding:40px 0}
+.ck-err{color:#a32d2d;font-size:18px}
+.ck-name{font-size:26px;font-weight:600;color:var(--purple-dk)}
+.ck-done{font-size:22px;color:#085041}
+.ck-okicon{font-size:64px;color:#1D9E75;line-height:1}
+.ck-photo{width:120px;height:120px;border-radius:50%;object-fit:cover;transform:scaleX(-1);border:4px solid var(--purple)}
+.ck-person{display:flex;flex-direction:column;align-items:center;gap:4px}
+.ck-search{font-family:Prompt,sans-serif;font-size:20px;min-height:52px;border-radius:12px;border:2px solid #d8cdea;padding:0 14px}
+.ck-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:10px}
+.ck-emp{border:0;background:transparent;font-family:Prompt,sans-serif;font-size:15px;display:flex;flex-direction:column;align-items:center;gap:4px;min-height:44px}
+.ck-av{width:68px;height:68px;border-radius:50%;overflow:hidden;background:#efe6fb;color:var(--purple-dk);display:flex;align-items:center;justify-content:center;font-size:20px;border:3px solid #F09595}
+.ck-av img{width:100%;height:100%;object-fit:cover}
+.ck-emp.done .ck-av{border-color:#5DCAA5;opacity:.6}
+.ck-emp.none .ck-av{border-color:#d8cdea}
+.ck-consent{display:flex;gap:12px;text-align:left;font-size:17px;align-items:flex-start;background:#f6f2ff;border-radius:12px;padding:12px}
+.ck-consent input{width:28px;height:28px;flex:none}

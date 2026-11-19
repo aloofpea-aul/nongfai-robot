@@ -1,6 +1,6 @@
-import { findEvents } from './events.js?v=11190830';
-import { describe, sysInfo, SYS } from './systems.js?v=11190830';
-import { loadNotices, ntState, ntArea, ntWhen, ntHm, ntDate } from './notices.js?v=11190830';
+import { findEvents } from './events.js?v=11190900';
+import { describe, sysInfo, SYS } from './systems.js?v=11190900';
+import { loadNotices, ntState, ntArea, ntWhen, ntHm, ntDate } from './notices.js?v=11190900';
 // เครื่องมือให้น้องมีไฟดึงข้อมูลจากศูนย์รวมงาน กฟส.อ่าวลึก (Gemini function calling)
 // public = ใครถามก็ตอบได้ · internal = ต้องยืนยันตัวตนพนักงานก่อน (PIN)
 
@@ -438,7 +438,7 @@ async function drawingsBom({ keyword }) {
 // ---------- 20b) ค้นแบบมาตรฐาน กฟภ. พร้อมภาพ 2D / 3D (ดึงจากคลังแบบในศูนย์รวมงาน ไม่สร้างใหม่) ----------
 async function dwgCatalog() {
   // ดัชนีชื่อแบบ (สร้างจากคลังแบบ pea-drawings ด้วย scripts/build-dwg-index.py) — ภาพ/โมเดลเปิดจากหน้าแบบในคลังโดยตรง
-  return cached('dwgcat', 24 * 3600e3, async () => (await fetch('./dwg-index.json?v=11190830')).json());
+  return cached('dwgcat', 24 * 3600e3, async () => (await fetch('./dwg-index.json?v=11190900')).json());
 }
 const DWG_SYN = [[/สามเฟส|3เฟส/g, '3 เฟส'], [/หนึ่งเฟส|เฟสเดียว|1เฟส/g, '1 เฟส'], [/เสาคู่|สองเสา/g, 'นั่งร้าน'], [/(\d+)\s*เควี|(\d+)\s*kv/gi, '$1$2 kV'], [/ลูกถ้วย|ลูกถ้วยไฟ/g, 'ลูกถ้วย'], [/แรงต่ำ/g, 'แรงต่ำ']];
 const dwgNorm = (t) => { t = String(t || '').toLowerCase(); DWG_SYN.forEach(([a, b]) => { t = t.replace(a, b); }); return t; };
@@ -592,7 +592,10 @@ export async function glossary() {
 }
 
 // ---------- ประกาศให้ Gemini รู้จักเครื่องมือ ----------
+// ตัวเชื่อมกับหน้าจอ (แอปใส่ฟังก์ชันให้)
+export const hooks = {};
 export const TOOLS = {
+  start_checkin: { access: 'internal', run: async () => { setTimeout(() => hooks.openCheckin && hooks.openCheckin(), 400); return { ผล: 'เปิดหน้าลงเวลาทำงาน (สแกนหน้า) บนจอแล้ว', คำแนะนำการตอบ: 'ตอบสั้นๆ ว่า เปิดหน้าลงเวลาให้แล้วค่ะ' }; }, decl: { name: 'start_checkin', description: 'เปิดหน้าลงเวลาทำงานด้วยการสแกนใบหน้าที่น้องมีไฟ ใช้เมื่อผู้ใช้จะลงเวลาเข้า/ออกงานเอง เช่น "ลงเวลา" "เช็กอิน" "ลงเวลาออก" (ไม่ใช่คำถามว่าใครลงเวลาแล้ว)', parameters: { type: 'OBJECT', properties: {} } } },
   activity_log: { access: 'internal', run: activityLog, decl: { name: 'activity_log', description: 'สมุดเหตุการณ์ของทุกระบบในศูนย์รวมงาน: ใครเพิ่ม/แก้/ลบอะไร เปลี่ยนขั้นตอนเมื่อไหร่ ย้อนหลังได้ และเชื่อมความสัมพันธ์ข้ามระบบด้วยตัวเชื่อม เช่น ฟีดเดอร์ (ALA01) รหัสอุปกรณ์ ทะเบียนรถ หมู่บ้าน ใช้เมื่อถามว่า "มีอะไรเปลี่ยน/เคลื่อนไหว/อัปเดต" "X สัปดาห์นี้มีอะไรบ้าง" "เกี่ยวข้องกับอะไรบ้าง" หรือสรุปความเคลื่อนไหวทั้งสาขา', parameters: { type: 'OBJECT', properties: { keyword: { type: 'STRING', description: 'คำค้น/ตัวเชื่อม เช่น ALA01, กข1234, บ้านแหลมสัก ว่างได้ = ทุกเรื่อง' }, system: { type: 'STRING', description: 'ชื่อระบบ เช่น ยานพาหนะ งานจัดซื้อ Patrol ตัดงบ ว่างได้ = ทุกระบบ' }, days: { type: 'NUMBER', description: 'ย้อนหลังกี่วัน (วันนี้=1 สัปดาห์นี้=7 เดือนนี้=30)' }, type: { type: 'STRING', description: 'เพิ่ม | แก้ | ลบ | อัปเดต ว่างได้' } } } } },
   standard_drawing: { access: 'public', run: standardDrawing, decl: { name: 'standard_drawing', description: 'ค้นแบบก่อสร้างมาตรฐาน กฟภ. และแสดงภาพ 2D / โมเดล 3D / PDF บนจอ เช่น แบบติดตั้งหม้อแปลง คอนสาย ลูกถ้วย เสา หรือเลขแบบ เช่น 6201 (ใช้เมื่อผู้ใช้อยากดูแบบหรือรูป)', parameters: { type: 'OBJECT', properties: { keyword: { type: 'STRING', description: 'ชื่อแบบ อุปกรณ์ หรือเลขการประกอบ' } }, required: ['keyword'] } } },
   weather_now: { access: 'public', run: weatherNow, decl: { name: 'weather_now', description: 'สภาพอากาศตอนนี้ที่อ่าวลึก และระดับความเสี่ยงไฟดับจากฝน/ลม', parameters: { type: 'OBJECT', properties: {} } } },

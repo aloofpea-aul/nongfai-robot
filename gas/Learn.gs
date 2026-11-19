@@ -81,6 +81,9 @@ function doPost(e) {
     if (b.action === 'watch') return out_({ ok: true, t: watch_(), now: Date.now() });
     if (b.action === 'events') return out_({ ok: true, ...eventsSince_(Number(b.since || 0), Number(b.limit || 100)) });
   if (b.action === 'find') return out_({ ok: true, ...findEvents_(b) });
+  if (b.action === 'faces') return out_({ ok: true, faces: facesList_() });
+  if (b.action === 'face_save') return out_(faceSave_(b));
+  if (b.action === 'face_del') return out_(faceDel_(b));
     if (b.action === 'load') {
       return out_({
         ok: true,
