@@ -1,4 +1,4 @@
-import { faceOf } from './faces.js?v=11192355';
+import { faceOf, callName, showName } from './faces.js?v=11200015';
 // พจนานุกรมระบบในศูนย์รวมงาน: ไอคอน สี ลิงก์แอป และคำอธิบาย → ใช้แปลง "เหตุการณ์" จากสมุดเหตุการณ์เป็นข้อความที่เข้าใจง่าย
 // ชื่อระบบ (key) ต้องตรงกับ WATCH_FILES ใน gas/Watch.gs
 export const SYS = {
@@ -87,8 +87,8 @@ function describeCheckin(ev) {
   const verb = isOut ? 'ลงเวลาออกงาน' : 'ลงเวลาเข้างาน';
   const raw = Object.entries(row).find(([k, v]) => /selfie|photo|pic|รูป/i.test(k) && /^https?:/.test(String(v)));
   const img = faceOf(name) || (raw ? driveImg(String(raw[1])) : '');
-  return { img, topic: s.k, icon: s.icon, color: s.color, title: 'ลงเวลา · ' + (isOut ? 'ออกงาน' : 'เข้างาน'), text: name, sub: [time ? time[0] + ' น.' : '', area].filter(Boolean).join(' · '),
-    say: name + ' ' + verb + (time ? ' ' + time[0].split(/[:.]/).map(Number).join(' นาฬิกา ') + ' นาที' : '') + 'ค่ะ', app: s.app, ents: [], sys: ev.sys, evId: ev.id, at: ev.at, q: 'วันนี้ใครลงเวลาแล้ว ใครยังไม่ลงเวลาบ้าง' };
+  return { img, topic: s.k, icon: s.icon, color: s.color, title: 'ลงเวลา · ' + (isOut ? 'ออกงาน' : 'เข้างาน'), text: showName(name), sub: [time ? time[0] + ' น.' : '', area].filter(Boolean).join(' · '),
+    say: (showName(name) === name ? name : 'ปะป๊า') + ' ' + verb + (time ? ' ' + time[0].split(/[:.]/).map(Number).join(' นาฬิกา ') + ' นาที' : '') + 'ค่ะ', app: s.app, ents: [], sys: ev.sys, evId: ev.id, at: ev.at, q: 'วันนี้ใครลงเวลาแล้ว ใครยังไม่ลงเวลาบ้าง' };
 }
 
 // ยานพาหนะ: บอกว่าใครใช้รถคันไหน ไปทำอะไร (ชีต รายการใช้รถ / Logใช้งานรถ / การจอง / การซ่อมบำรุง / ตรวจรถก่อนใช้)
@@ -100,9 +100,9 @@ function describeVehicle(ev) {
   const mission = get(/^(mission|detail|ภารกิจ)$/i);
   const user = get(/^(user|ผู้ใช้|ผู้จอง)$/i), by = get(/^(by|ผู้บันทึก|ผู้ตรวจ)$/i), retBy = get(/^(returnby|ผู้คืน)$/i);
   const mile = get(/^(endmile|เลขไมล์กลับ)$/i) || get(/^(mile|เลขไมล์)$/i);
-  const card = (kind, who, title, sub, say) => ({ topic: s.k, icon: s.icon, color: s.color, title: 'ยานพาหนะ · ' + title, text: [who || 'ไม่ระบุชื่อ', plate].filter(Boolean).join(' · '), sub: sub || '', say,
+  const card = (kind, who, title, sub, say) => ({ topic: s.k, icon: s.icon, color: s.color, title: 'ยานพาหนะ · ' + title, text: [who ? showName(who) : 'ไม่ระบุชื่อ', plate].filter(Boolean).join(' · '), sub: sub || '', say,
     app: s.app, ents: String(ev.ent || '').split(' ').filter(Boolean).slice(0, 4), sys: ev.sys, evId: ev.id, at: ev.at, vk: plate, vs: kind, q: (who ? who + ' ' : '') + (plate ? 'รถ ' + plate + ' ' : '') + 'ใช้รถล่าสุดเมื่อไหร่ ไปไหนบ้าง' });
-  const P = plate ? 'รถ ' + plate + ' ' : 'รถ', who = (n) => (n ? 'พี่' + String(n).replace(/^(นาย|นางสาว|นาง|น\.ส\.)\s*/, '').split(' ')[0] : 'มีคน');
+  const P = plate ? 'รถ ' + plate + ' ' : 'รถ', who = (n) => (n ? callName(n) : 'มีคน');
   if (/log|ใช้งานรถ/i.test(sh)) {
     const ret = was(/^(returndate|วันเวลาคืน|returnby|ผู้คืน|endmile|เลขไมล์กลับ)$/i) || (was(/^(status|สถานะ)$/i) && /return|คืน|ว่าง|avail/i.test(was(/^(status|สถานะ)$/i).n));
     if (ev.type === 'แก้' && ret) { const n = retBy || user; return card('log', n, 'คืนรถ', [mission && 'ภารกิจ ' + mission, mile && 'ไมล์ ' + mile].filter(Boolean).join(' · '), who(n) + ' คืน' + P + 'แล้วค่ะ'); }

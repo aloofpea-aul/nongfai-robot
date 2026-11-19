@@ -1,4 +1,4 @@
-import { loadFaces, faceOf, faceCount } from './faces.js?v=11192355';
+import { loadFaces, faceOf, faceCount, callName } from './faces.js?v=11200015';
 // ลงเวลาทำงานที่น้องมีไฟด้วยการสแกนใบหน้า — บันทึกเข้าระบบลงเวลาเดิม (pea-checkin) ตัวเดียวกับใน LINE
 // ใบหน้า: ประมวลผลในเครื่อง เก็บแค่ตัวเลขจดจำหน้า (ไม่เก็บรูป) ที่ "น้องไฟเรียนรู้" · ใช้เฉพาะลงเวลา · ลงทะเบียนเมื่อเจ้าตัวยินยอม
 const CHECKIN_API = 'https://script.google.com/macros/s/AKfycbxY0vjjr3MAl6e_OSTTbubrK-cVTrsx3o38xQGLJkJMro8rS8H-LaWl2J3oeE_I31FR/exec';
@@ -189,11 +189,11 @@ function confirmPerson(e, selfie, how, force) {
       const row = el('div', 'ck-row');
       row.append(btn('เสร็จ', '', closeCheckin), btn('ลงเวลาออกงานจริง', 'ghost', () => {
         const ok = btn('ยืนยันออกงาน ' + hhmm() + ' น.', 'big', () => submit(e, 'checkout', selfie, how, null));
-        screen('ยืนยันออกงาน', head, el('div', 'ck-q', 'พี่' + nick(e.name) + ' จะลงเวลาออกงานตอนนี้ใช่ไหมคะ'), el('div', 'ck-sub', 'เพิ่งลงเวลาเข้าเมื่อ ' + st.in + ' น.'), ok, btn('ยกเลิก', 'ghost', closeCheckin));
+        screen('ยืนยันออกงาน', head, el('div', 'ck-q', callName(e.name) + ' จะลงเวลาออกงานตอนนี้ใช่ไหมคะ'), el('div', 'ck-sub', 'เพิ่งลงเวลาเข้าเมื่อ ' + st.in + ' น.'), ok, btn('ยกเลิก', 'ghost', closeCheckin));
         X.speak('ยืนยันลงเวลาออกงานตอนนี้ใช่ไหมคะ');
       }));
       screen('ลงเวลาทำงาน', head, el('div', 'ck-done', 'ลงเวลาเข้าไปแล้วตอน ' + st.in + ' น. ค่ะ'), row);
-      X.speak('พี่' + nick(e.name) + ' ลงเวลาเข้าไปแล้วตอน ' + sayTime(st.in) + ' ค่ะ');
+      X.speak(callName(e.name) + ' ลงเวลาเข้าไปแล้วตอน ' + sayTime(st.in) + ' ค่ะ');
       return;
     }
   }
@@ -204,12 +204,12 @@ function confirmPerson(e, selfie, how, force) {
       btn('✅ ลงเวลาเข้างาน ' + t + ' น.', 'big2', () => confirmPerson(e, selfie, how, true)),
       el('div', 'ck-sub', 'ถ้าลืมลงเวลาเข้าตอนเช้า ให้แจ้งแก้ในระบบลงเวลาตามขั้นตอนเดิม'),
       btn('ไม่ใช่ฉัน', 'ghost', () => pickName('เลือกชื่อเอง สแกนหน้าจำผิด')));
-    X.speak('พี่' + nick(e.name) + ' วันนี้ยังไม่มีเวลาเข้างาน จะลงเวลาออกงาน หรือเข้างานคะ');
+    X.speak(callName(e.name) + ' วันนี้ยังไม่มีเวลาเข้างาน จะลงเวลาออกงาน หรือเข้างานคะ');
     return;
   }
-  if (!action) { screen('ลงเวลาทำงาน', head, el('div', 'ck-done', 'วันนี้ลงเวลาเข้าและออกครบแล้วค่ะ'), btn('เสร็จ', '', closeCheckin)); X.speak('พี่' + nick(e.name) + ' วันนี้ลงเวลาครบแล้วค่ะ'); return; }
+  if (!action) { screen('ลงเวลาทำงาน', head, el('div', 'ck-done', 'วันนี้ลงเวลาเข้าและออกครบแล้วค่ะ'), btn('เสร็จ', '', closeCheckin)); X.speak(callName(e.name) + ' วันนี้ลงเวลาครบแล้วค่ะ'); return; }
   const label = action === 'checkin' ? 'ลงเวลาเข้างาน' : 'ลงเวลาออกงาน';
-  const nodes = [head, el('div', 'ck-q', 'พี่' + nick(e.name) + ' ใช่ไหมคะ')];
+  const nodes = [head, el('div', 'ck-q', callName(e.name) + ' ใช่ไหมคะ')];
   let shift = null;
   if (action === 'checkin' && isB1(e)) {
     const h = bkk().getUTCHours(); shift = h < 8 ? 1 : h < 16 ? 2 : 3;
@@ -222,7 +222,7 @@ function confirmPerson(e, selfie, how, force) {
   const row2 = el('div', 'ck-row'); row2.append(btn('ไม่ใช่ฉัน', 'ghost', () => pickName('เลือกชื่อเอง สแกนหน้าจำผิด')));
   if (action === 'checkout') row2.append(btn('ลงเวลาเข้างานแทน', 'ghost', () => submit(e, 'checkin', selfie, how, shift)));
   screen('ยืนยันตัวตน', ...nodes, go, row2);
-  X.speak('พี่' + nick(e.name) + ' ใช่ไหมคะ กดยืนยัน' + label + 'ได้เลยค่ะ');
+  X.speak(callName(e.name) + ' ใช่ไหมคะ กดยืนยัน' + label + 'ได้เลยค่ะ');
 }
 async function submit(e, action, selfie, how, shift) {
   const my = ++run;
@@ -251,7 +251,7 @@ async function submit(e, action, selfie, how, shift) {
   const verb = action === 'checkin' ? 'ลงเวลาเข้างาน' : 'ลงเวลาออกงาน';
   const pic = photos(e, selfie, true);
   screen('เรียบร้อย', pic, el('div', 'ck-name', e.name), ...(action === 'checkin' ? [el('div', 'ck-sub', photoOk ? '📷 แนบรูปหน้าแล้ว' : selfie ? 'บันทึกเวลาแล้ว แต่แนบรูปไม่สำเร็จ' : 'ไม่มีรูปหน้า')] : []), el('div', 'ck-done', verb + ' ' + t + ' น.' + (res.shift ? ' · ' + res.shift : '')), btn('เสร็จ', '', closeCheckin));
-  X.speak(verb + ' ' + sayTime(t) + ' เรียบร้อยค่ะ พี่' + nick(e.name) + (action === 'checkin' ? ' ขอให้ทำงานปลอดภัยนะคะ' : ' เดินทางกลับปลอดภัยนะคะ'));
+  X.speak(verb + ' ' + sayTime(t) + ' เรียบร้อยค่ะ ' + callName(e.name) + (action === 'checkin' ? ' ขอให้ทำงานปลอดภัยนะคะ' : ' เดินทางกลับปลอดภัยนะคะ'));
   X.done && X.done();
   setTimeout(() => { if (my === run) closeCheckin(); }, 7000);
 }
@@ -320,6 +320,6 @@ async function enrollCapture(e) {
     await learnPost({ action: 'face_save', empId: e.id, name: e.name, descriptors: got, consent: true, device: 'น้องมีไฟ ' + (navigator.platform || '') });
     faces = faces.filter((f) => f.id !== e.id).concat([{ id: e.id, name: e.name, d: got.map((v) => new Float32Array(v)) }]);
     screen('ลงทะเบียนแล้ว', el('div', 'ck-okicon', '✓'), el('div', 'ck-name', e.name), el('div', 'ck-done', 'ต่อไปมองกล้องเพื่อลงเวลาได้เลยค่ะ'), btn('ลองสแกนลงเวลา', 'big', scan), btn('ลงทะเบียนคนต่อไป', 'ghost', enrollPick));
-    X.speak('ลงทะเบียนใบหน้าพี่' + nick(e.name) + ' เรียบร้อยค่ะ');
+    X.speak('ลงทะเบียนใบหน้า' + callName(e.name) + ' เรียบร้อยค่ะ');
   } catch (err) { screen('บันทึกไม่สำเร็จ', el('div', 'ck-err', String(err.message || err)), btn('ลองใหม่', '', () => enrollCapture(e)), btn('กลับ', 'ghost', enrollPick)); }
 }

@@ -31,5 +31,13 @@ export async function loadFaces(force) {
   return loading;
 }
 // รูปของคนนี้ (ชื่อจากระบบไหนก็ได้ — เทียบแบบตัดคำนำหน้าและช่องว่าง)
+// ปะป๊า = ผู้สร้างน้องมีไฟ: ทุกที่ที่พูดถึงตัวปะป๊า ให้เรียก "ปะป๊า" · คนอื่นเรียก "พี่" + ชื่อเล่น
+let PAPA = '', PAPA1 = '';
+const first = (n) => String(n || '').replace(/^\s*(นาย|นางสาว|นาง|น\.ส\.|ว่าที่\s*ร\.ต\.)\s*/, '').trim().split(/\s+/)[0] || '';
+export function setPapa(n) { PAPA = normName(n); PAPA1 = /\s/.test(String(n || '').replace(/^\s*(นาย|นางสาว|นาง|น\.ส\.)\s*/, '').trim()) ? '' : first(n); }
+export const papaName = () => PAPA;
+export const isPapa = (n) => !!n && !!PAPA && (normName(n) === PAPA || (!!PAPA1 && first(n) === PAPA1));
+export const callName = (n) => (isPapa(n) ? 'ปะป๊า' : 'พี่' + first(n));
+export const showName = (n) => (isPapa(n) ? 'ปะป๊า' : n);
 export const faceOf = (name) => BY[normName(name)] || '';
 export const faceCount = () => Object.keys(FACES).length;

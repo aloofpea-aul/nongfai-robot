@@ -15,7 +15,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600&family=Sarabun:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=11192355">
+<link rel="stylesheet" href="style.css?v=11200015">
 <script type="importmap">
 { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js" } }
 </script>
@@ -171,6 +171,11 @@
     <label>รหัสผ่านศูนย์รวมงาน
       <input id="setHubPass" type="password" autocomplete="off">
     </label>
+    <h3 class="sub">ปะป๊า</h3>
+    <label>ชื่อ-สกุลของปะป๊า (ตามระบบลงเวลา · ว่างไว้ = ใช้ชื่อผู้ใช้ศูนย์รวมงาน)
+      <input id="setPapaName" type="text" autocomplete="off" placeholder="เช่น นายสมชาย ใจดี">
+    </label>
+    <label class="check"><input id="setPapaDevice" type="checkbox"> คนใช้เครื่องนี้คือปะป๊า (น้องมีไฟเรียกคนคุยว่าปะป๊า)</label>
     <label>PIN เจ้าหน้าที่ (ใช้ปลดล็อกข้อมูลภายใน 5 นาที)
       <input id="setPin" type="password" inputmode="numeric" autocomplete="off" placeholder="เช่น 4 หลัก">
     </label>
@@ -282,6 +287,6 @@
 
 <div id="toast" class="toast" hidden></div>
 
-<script type="module" src="app.js?v=11192355"></script>
+<script type="module" src="app.js?v=11200015"></script>
 </body>
 </html>
