@@ -15,7 +15,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600&family=Sarabun:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=11190930">
+<link rel="stylesheet" href="style.css?v=11190950">
 <script type="importmap">
 { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js" } }
 </script>
@@ -48,9 +48,11 @@
     <div id="alerts" class="alerts" hidden>
       <div id="alertCard" class="alertcard" hidden>
         <div class="al-head"><span id="alIcon" class="al-icon" aria-hidden="true"></span><b id="alTitle"></b><span id="alTime" class="al-time"></span></div>
-        <div id="alText" class="al-text"></div>
-        <div id="alSub" class="al-sub"></div>
-        <div id="alEnts" class="al-ents" hidden></div>
+        <div class="al-scroll">
+          <div id="alText" class="al-text"></div>
+          <div id="alSub" class="al-sub"></div>
+          <div id="alEnts" class="al-ents" hidden></div>
+        </div>
         <div class="al-btns"><button id="alOpen" class="fbtn ok" hidden>เปิดแอป</button><button id="alMore" class="fbtn">สรุปให้ฟัง</button><button id="alAck" class="fbtn">รับทราบ</button></div>
       </div>
       <div id="alHist" class="alhist" hidden>
@@ -263,6 +265,6 @@
 
 <div id="toast" class="toast" hidden></div>
 
-<script type="module" src="app.js?v=11190930"></script>
+<script type="module" src="app.js?v=11190950"></script>
 </body>
 </html>

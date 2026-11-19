@@ -294,3 +294,12 @@ a.tel{color:var(--purple);font-weight:600;text-decoration:underline}
 .ck-emp.none .ck-av{border-color:#d8cdea}
 .ck-consent{display:flex;gap:12px;text-align:left;font-size:17px;align-items:flex-start;background:#f6f2ff;border-radius:12px;padding:12px}
 .ck-consent input{width:28px;height:28px;flex:none}
+
+/* กล่องแจ้งเตือน: ข้อความยาวเลื่อนอ่านได้ทั้งหมด ปุ่มอยู่กับที่ */
+.right{justify-content:safe center}
+.alertcard{display:flex;flex-direction:column;max-height:min(60vh,520px)}
+.al-head b{white-space:normal;line-height:1.35}
+.al-scroll{overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;min-height:0;flex:1;margin:0 -6px;padding:0 6px;touch-action:pan-y}
+.al-text,.al-sub{white-space:pre-wrap;overflow-wrap:anywhere}
+.al-scroll.more{mask-image:linear-gradient(#000 80%,transparent);-webkit-mask-image:linear-gradient(#000 80%,transparent)}
+.al-btns{flex:none;margin-top:8px}

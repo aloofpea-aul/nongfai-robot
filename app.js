@@ -1,15 +1,15 @@
 // น้องมีไฟ — แอปหลัก: ฟังเสียงไทย → ถาม Gemini (สตรีม) → พูดตอบทีละประโยค + แสดงบนจอ
-import { Mascot } from './mascot.js?v=11190930';
-import { WavRecorder } from './recorder.js?v=11190930';
-import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary, hooks } from './tools.js?v=11190930';
-import { startPresence, stopPresence, presenceOn, someoneHere, setPresenceRate, status as camStatus } from './presence.js?v=11190930';
-import { startWatch, TOPICS, topicOn, alertLog, clearAlertLog } from './watch.js?v=11190930';
-import { SYS } from './systems.js?v=11190930';
-import { initCheckin, openCheckin } from './checkin.js?v=11190930';
-import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11190930';
+import { Mascot } from './mascot.js?v=11190950';
+import { WavRecorder } from './recorder.js?v=11190950';
+import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary, hooks } from './tools.js?v=11190950';
+import { startPresence, stopPresence, presenceOn, someoneHere, setPresenceRate, status as camStatus } from './presence.js?v=11190950';
+import { startWatch, TOPICS, topicOn, alertLog, clearAlertLog } from './watch.js?v=11190950';
+import { SYS } from './systems.js?v=11190950';
+import { initCheckin, openCheckin } from './checkin.js?v=11190950';
+import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11190950';
 
 const $ = (id) => document.getElementById(id);
-export const VERSION = '11190930';
+export const VERSION = '11190950';
 // อัปเดตตัวเอง: ถ้าบนเว็บมีเวอร์ชันใหม่กว่า ให้โหลดหน้าใหม่ทันที (กันไอโฟนจำไฟล์เก่า)
 fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json()).then((j) => {
   if (j.v && j.v !== VERSION && !sessionStorage.getItem('nf.reload.' + j.v)) {
@@ -654,6 +654,9 @@ function showAlert(a) {
   $('alOpen').hidden = !alApp(a) || !OPS();
   $('alMore').hidden = !a.q;
   $('alertCard').hidden = false; $('alerts').hidden = false;
+  const sc = $('alertCard').querySelector('.al-scroll'); sc.scrollTop = 0;
+  const fade = () => sc.classList.toggle('more', sc.scrollHeight - sc.scrollTop - sc.clientHeight > 8);
+  sc.onscroll = fade; requestAnimationFrame(fade);
 }
 $('alOpen').onclick = () => { const a = alertNow; if (!a) return; const app = alApp(a); $('alAck').onclick(); openApp(app, (a.icon || TOPIC_ICON[a.topic] || '') + ' ' + (a.sys || a.title.split(' · ')[0])); };
 function setBell() { $('bellCount').textContent = alertUnseen > 9 ? '9+' : alertUnseen; $('bellCount').hidden = !alertUnseen; }

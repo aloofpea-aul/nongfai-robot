@@ -43,11 +43,11 @@ export const isNoise = (ev) => ev.type === 'แก้' && (ev.ch || []).length >
 export function itemName(ev) {
   const row = ev.row || {};
   const cand = Object.entries(row).filter(([k, v]) => NAMEISH.test(k) && !STATUS.test(k) && !idLike(String(v)) && String(v).length > 1 && v !== '•');
-  const pick = cand.slice(0, 2).map(([, v]) => clip(v, 50));
+  const pick = cand.slice(0, 2).map(([, v]) => clip(v, 160));
   if (pick.length) return pick.join(' · ');
-  if (!idLike(ev.key)) return clip(ev.key, 60);
+  if (!idLike(ev.key)) return clip(ev.key, 160);
   const any = Object.entries(row).find(([k, v]) => !idLike(String(v)) && String(v).length > 2 && !/วัน|เวลา|date|time/i.test(k) && v !== '•');
-  return any ? clip(any[1], 60) : clip(ev.key, 30);
+  return any ? clip(any[1], 160) : clip(ev.key, 60);
 }
 
 // เหตุการณ์ → การ์ดแจ้งเตือน { topic, title, text, sub, say, app, ents, q }
@@ -59,11 +59,11 @@ export function describe(ev) {
   const st = ch.find((c) => STATUS.test(c.c));
   let title, sub, say;
   if (ev.type === 'อัปเดต') { title = ev.sys + ' · อัปเดตข้อมูลแล้ว'; sub = 'มีการนำเข้า/แก้ข้อมูลชุดใหม่'; say = ev.sys + ' อัปเดตข้อมูลแล้วค่ะ'; }
-  else if (!ev.key && /รายการ \(แก้ทีละมาก\)/.test(ev.text || '')) { title = ev.sys + ' · แก้ข้อมูลทีละมาก'; sub = clip(ev.text, 90); say = ev.sys + ' มีการแก้ข้อมูลทีละหลายรายการค่ะ'; }
+  else if (!ev.key && /รายการ \(แก้ทีละมาก\)/.test(ev.text || '')) { title = ev.sys + ' · แก้ข้อมูลทีละมาก'; sub = clip(ev.text, 400); say = ev.sys + ' มีการแก้ข้อมูลทีละหลายรายการค่ะ'; }
   else if (ev.type === 'เพิ่ม') { title = ev.sys + ' · ' + s.noun + 'ใหม่'; sub = briefRow(ev) || sheet; say = ev.sys + ' มี' + s.noun + 'ใหม่ ' + name + 'ค่ะ'; }
   else if (ev.type === 'ลบ') { title = ev.sys + ' · ลบรายการ'; sub = sheet; say = ev.sys + ' ลบรายการ ' + name + 'ค่ะ'; }
   else if (st) { title = ev.sys + ' · เปลี่ยนขั้นตอน'; sub = st.c + ': ' + th(st.o) + ' → ' + th(st.n); say = ev.sys + ' ' + name + ' เปลี่ยนเป็น ' + th(st.n) + 'ค่ะ'; }
-  else { title = ev.sys + ' · แก้ไขข้อมูล'; sub = ch.slice(0, 2).map((c) => c.c + ': ' + clip(c.o || '(ว่าง)', 25) + ' → ' + clip(c.n || '(ว่าง)', 25)).join(' · ') + (ch.length > 2 ? ' และอีก ' + (ch.length - 2) + ' ช่อง' : ''); say = ev.sys + ' แก้ไข ' + name + (ch[0] ? ' ช่อง' + ch[0].c : '') + 'ค่ะ'; }
+  else { title = ev.sys + ' · แก้ไขข้อมูล'; sub = ch.slice(0, 6).map((c) => c.c + ': ' + clip(c.o || '(ว่าง)', 120) + ' → ' + clip(c.n || '(ว่าง)', 120)).join('\n') + (ch.length > 6 ? '\nและอีก ' + (ch.length - 6) + ' ช่อง' : ''); say = ev.sys + ' แก้ไข ' + name + (ch[0] ? ' ช่อง' + ch[0].c : '') + 'ค่ะ'; }
   const ents = String(ev.ent || '').split(' ').filter(Boolean).slice(0, 4);
   say = say.replace(/\s*\/\s*/g, ' ').replace(/\s·\s/g, ' ');
   return { topic: s.k, icon: s.icon, color: s.color, title, text: name, sub, say, app: appOf(ev), ents, sys: ev.sys, evId: ev.id, at: ev.at,
@@ -71,7 +71,7 @@ export function describe(ev) {
 }
 function briefRow(ev) {
   const row = ev.row || {}, nm = itemName(ev);
-  return Object.entries(row).filter(([k, v]) => v && v !== '•' && !idLike(String(v)) && !NOISE.test(k) && !PRIV.test(k) && String(v) !== nm && !nm.includes(String(v))).slice(0, 3).map(([k, v]) => k + ': ' + clip(v, 28)).join(' · ');
+  return Object.entries(row).filter(([k, v]) => v && v !== '•' && !idLike(String(v)) && !NOISE.test(k) && !PRIV.test(k) && String(v) !== nm && !nm.includes(String(v))).slice(0, 6).map(([k, v]) => k + ': ' + clip(v, 120)).join('\n');
 }
 
 // ลงเวลาทำงาน: "สมชาย ลงเวลาเข้างาน 07:52 น." แทนข้อความทั่วไป
@@ -91,8 +91,8 @@ function describeCheckin(ev) {
 // ยานพาหนะ: บอกว่าใครใช้รถคันไหน ไปทำอะไร (ชีต รายการใช้รถ / Logใช้งานรถ / การจอง / การซ่อมบำรุง / ตรวจรถก่อนใช้)
 function describeVehicle(ev) {
   const s = sysInfo(ev.sys), row = ev.row || {}, ch = ev.ch || [], sh = String(ev.sheet || '');
-  const get = (re) => { const e = Object.entries(row).find(([k, v]) => re.test(k) && v && v !== '•'); return e ? clip(e[1], 40) : ''; };
-  const was = (re) => { const c = ch.find((x) => re.test(x.c)); return c ? { o: clip(c.o, 40), n: clip(c.n, 40) } : null; };
+  const get = (re) => { const e = Object.entries(row).find(([k, v]) => re.test(k) && v && v !== '•'); return e ? clip(e[1], 160) : ''; };
+  const was = (re) => { const c = ch.find((x) => re.test(x.c)); return c ? { o: clip(c.o, 160), n: clip(c.n, 160) } : null; };
   const plate = get(/^(plate|carplate|ทะเบียน)$/i) || get(/^(action|รถ)$/i);
   const mission = get(/^(mission|detail|ภารกิจ)$/i);
   const user = get(/^(user|ผู้ใช้|ผู้จอง)$/i), by = get(/^(by|ผู้บันทึก|ผู้ตรวจ)$/i), retBy = get(/^(returnby|ผู้คืน)$/i);
