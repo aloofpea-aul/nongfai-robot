@@ -1,18 +1,18 @@
 // น้องมีไฟ — แอปหลัก: ฟังเสียงไทย → ถาม Gemini (สตรีม) → พูดตอบทีละประโยค + แสดงบนจอ
-import { Mascot } from './mascot.js?v=11200015';
-import { WavRecorder } from './recorder.js?v=11200015';
-import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary, hooks } from './tools.js?v=11200015';
-import { startPresence, stopPresence, presenceOn, someoneHere, setPresenceRate, status as camStatus } from './presence.js?v=11200015';
-import { startWatch, TOPICS, topicOn, alertLog, clearAlertLog } from './watch.js?v=11200015';
-import { kpiCard } from './kpicard.js?v=11200015';
-import { wxCard, tmdCard } from './wxlevel.js?v=11200015';
-import { loadFaces, setPapa, papaName, isPapa } from './faces.js?v=11200015';
-import { SYS } from './systems.js?v=11200015';
-import { initCheckin, openCheckin } from './checkin.js?v=11200015';
-import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11200015';
+import { Mascot } from './mascot.js?v=11200045';
+import { WavRecorder } from './recorder.js?v=11200045';
+import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary, hooks } from './tools.js?v=11200045';
+import { startPresence, stopPresence, presenceOn, someoneHere, setPresenceRate, status as camStatus } from './presence.js?v=11200045';
+import { startWatch, TOPICS, topicOn, alertLog, clearAlertLog } from './watch.js?v=11200045';
+import { kpiCard } from './kpicard.js?v=11200045';
+import { wxCard, tmdCard } from './wxlevel.js?v=11200045';
+import { loadFaces, setPapa, papaName, isPapa } from './faces.js?v=11200045';
+import { SYS } from './systems.js?v=11200045';
+import { initCheckin, openCheckin } from './checkin.js?v=11200045';
+import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11200045';
 
 const $ = (id) => document.getElementById(id);
-export const VERSION = '11200015';
+export const VERSION = '11200045';
 // อัปเดตตัวเอง: ถ้าบนเว็บมีเวอร์ชันใหม่กว่า ให้โหลดหน้าใหม่ทันที (กันไอโฟนจำไฟล์เก่า)
 fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json()).then((j) => {
   if (j.v && j.v !== VERSION && !sessionStorage.getItem('nf.reload.' + j.v)) {
@@ -343,7 +343,7 @@ async function listenAudio(auto) {
     mascot.setMood('normal');
     // ไมค์ที่เปิดเอง: ถ้าได้ยินแค่เสียงรอบข้าง/คำลอยๆ ให้เงียบไว้ ไม่ตอบเอง
     if (auto && (!text || isStray(text))) { setStatus('แตะไมค์แล้วพูดได้เลยค่ะ'); return; }
-    if (!text) { setStatus('ฟังไม่ชัด แตะไมค์แล้วพูดใหม่อีกครั้งนะคะ'); speak('ขอโทษค่ะ ฟังไม่ชัด รบกวนพูดอีกครั้งนะคะ'); return; }
+    if (!text) { setStatus('ฟังไม่ชัด แตะไมค์แล้วพูดใหม่อีกครั้งนะคะ'); mascot.express('sad', 2.5); speak('ขอโทษค่ะ ฟังไม่ชัด รบกวนพูดอีกครั้งนะคะ'); return; }
     if (voiceCommand(text)) return;
     confirmSend(text);
   } catch (e) {
@@ -549,7 +549,7 @@ async function ask(question, audio, keepCue) {
     const quota = String(err.message).includes('429');
     const msg = quota ? 'ตอนนี้มีคนใช้งานเยอะ ขอพักสักครู่นะคะ ติดต่อเจ้าหน้าที่ที่เคาน์เตอร์ได้เลยค่ะ'
       : 'ขออภัยค่ะ ตอนนี้น้องมีไฟเชื่อมต่อไม่ได้ กรุณาติดต่อเจ้าหน้าที่ที่เคาน์เตอร์นะคะ';
-    $('bubbleText').textContent = msg; speak(msg);
+    $('bubbleText').textContent = msg; mascot.express('sad', 4); speak(msg);
     if (String(err.message).includes('40')) toast('เรียก AI ไม่สำเร็จ: ' + err.message.slice(0, 120), 8000);
   } finally {
     clearTimeout(filler); clearTimeout(guard);
@@ -710,7 +710,7 @@ $('alOpen').onclick = () => { const a = alertNow; if (!a) return; const app = al
 function setBell() { $('bellCount').textContent = alertUnseen > 9 ? '9+' : alertUnseen; $('bellCount').hidden = !alertUnseen; }
 function onAlerts(list) {
   if (!OPS()) { list = list.filter((a) => a.topic === 'notices' || a.topic === 'test'); if (!list.length) return; } // โหมดลูกค้า: ไม่แสดงข้อมูลภายในบนจอ
-  wakeUp();
+  wakeUp(); mascot.express('surprise', 1.6);
   const wasOpen = !$('alertCard').hidden && alertQ.length;
   alertQ.push(...list);
   if (wasOpen) renderQueue(); else showAlert(alertQ[0]); // เรื่องใหม่ต่อท้ายคิว ไม่แทรกใบที่กำลังดู
@@ -775,7 +775,7 @@ async function greetAndListen() {
   wakeUp();
   if (busy() || anyDialogOpen() || !document.body.classList.contains('mode-home')) return;
   const hi = OPS() ? 'สวัสดีค่ะ มีอะไรให้น้องมีไฟช่วยไหมคะ' : 'สวัสดีค่ะ ยินดีต้อนรับสู่การไฟฟ้าส่วนภูมิภาคสาขาอ่าวลึกค่ะ มีอะไรให้น้องมีไฟช่วยไหมคะ';
-  setStatus(hi); mascot.setMood('normal'); mascot.gesture('wave');
+  setStatus(hi); mascot.setMood('normal'); mascot.gesture('wave'); mascot.express('wink', 1.5);
   await tapCue(hi);
   mascot.setMood('normal');
   if (!busy() && !anyDialogOpen() && useAudioAI()) listenAudio(true);
@@ -880,7 +880,7 @@ $('typeForm').onsubmit = (e) => {
 // ---------- ลงเวลาทำงานด้วยการสแกนหน้า ----------
 setPapa(cfg.papaName || cfg.hubUser);
 initCheckin({
-  cfg: () => cfg, speak: (t) => { stopSpeaking(); speak(t); }, toast: (t, ms) => toast(t, ms),
+  cfg: () => cfg, speak: (t) => { stopSpeaking(); speak(t); }, express: (n, s) => mascot.express(n, s), toast: (t, ms) => toast(t, ms),
   learn: () => ({ url: cfg.learnUrl, secret: cfg.learnSecret }),
   pausePresence: () => stopPresence(),
   resumePresence: () => { if (cfg.wakeFace) startWake(true); },

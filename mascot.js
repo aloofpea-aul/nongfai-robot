@@ -1,6 +1,7 @@
 // น้องมีไฟ — มาสคอต 3D สร้างด้วยโค้ดทั้งตัว (three.js) ไม่ต้องใช้ไฟล์โมเดล
 import * as THREE from 'three';
-import { Marbles } from './marbles.js?v=11200015';
+import { Marbles } from './marbles.js?v=11200045';
+import { addGirlLook, faceTick } from './girl.js?v=11200045';
 
 export class Mascot {
   constructor(container) {
@@ -134,6 +135,8 @@ export class Mascot {
     this.sparkGeo = new THREE.SphereGeometry(0.05, 8, 6);
     this.sparkMat = new THREE.MeshBasicMaterial({ color: 0xF5B942, transparent: true });
     this.marbles = new Marbles(this); // ลูกแก้วแอปในศูนย์รวมงาน
+    addGirlLook(this, { lips: true, skirt: true, brows: true }); // น้องมีไฟเป็นเด็กผู้หญิง
+    this.feel = null; this.feelUntil = 0;
 
     this.clock = new THREE.Clock();
     this.setupTouch();
@@ -163,10 +166,12 @@ export class Mascot {
   }
 
   setMood(m) { this.mood = m; }
+  // แสดงสีหน้าชั่วคราว: happy | surprise | curious | sad | shy | wink | love
+  express(name, sec = 2.5) { this.feel = name; this.feelUntil = this.clock.elapsedTime + sec; }
   pulse() { this.pulseUntil = this.clock.elapsedTime + 0.18; }
   gesture(name) {
     if (this.action && this.action.name === name) return;
-    const dur = { wave: 1.9, point: 2.2, cheer: 1.6, toss: 2.6, spin: 1.5, stretch: 2.4, yawn: 2.2, shakeL: 2.0, shakeR: 2.0, giggle: 1.6, blush: 2.2, jump: 1.0, hug: 2.4, dizzy: 2.8, squint: 1.0, zap: 1.4, munch: 1.4, highfive: 1.2 }[name];
+    const dur = { wave: 1.9, point: 2.2, cheer: 1.6, toss: 2.6, spin: 1.5, stretch: 2.4, yawn: 2.2, shakeL: 2.0, shakeR: 2.0, giggle: 1.6, blush: 2.2, jump: 1.0, hug: 2.4, dizzy: 2.8, squint: 1.0, zap: 1.4, munch: 1.4, highfive: 1.2, dance: 3.2, clap: 1.8, heart: 2.4, wink: 1.4, surprise: 1.4, sad: 2.4, love: 2.6 }[name];
     if (!dur) return;
     this.action = { name, t0: this.clock.elapsedTime, dur };
     if (name === 'cheer') this.burst(14);
@@ -237,6 +242,7 @@ export class Mascot {
     this.headMat.emissiveIntensity = sleepy ? 0.1 : 0.6;
 
     this.animateArms(t, dt);
+    faceTick(this, t, dt);
     this.renderer.render(this.scene, this.camera);
   }
 
@@ -260,7 +266,7 @@ export class Mascot {
     const A = this.action;
     if (A) {
       const p = (t - A.t0) / A.dur;
-      if (p >= 1) { this.action = null; this.logo.visible = false; }
+      if (p >= 1) { this.action = null; this.logo.visible = false; this.root.position.x = 0; }
       else {
         rate = 12;
         const k = A.name;
@@ -276,6 +282,13 @@ export class Mascot {
         else if (k === 'blush') { Rt = P(1.25, -1.15, -1.9); L = P(1.25, -1.15, -1.9); headTilt = 0.12; }
         else if (k === 'squint') { Rt = P(1.4, -1.0, -2.0); }
         else if (k === 'zap') { const b = Math.sin(t * 30) * 0.2; Rt = P(1.6 + b, 0, 0.3); L = P(1.6 - b, 0, 0.3); }
+        else if (k === 'dance') { const w = Math.sin(t * 7); Rt = P(1.9 + w * 0.5, -0.3, -0.9 - w * 0.4); L = P(1.9 - w * 0.5, -0.3, -0.9 + w * 0.4); headTilt = w * 0.12; this.root.position.x = Math.sin(t * 3.5) * 0.18; this.root.position.y += Math.abs(Math.sin(t * 7)) * 0.12; }
+        else if (k === 'clap') { const c = Math.sin(t * 18) * 0.3; Rt = P(1.05, -1.25, -1.35 + c); L = Rt; }
+        else if (k === 'heart') { Rt = P(2.65, -0.15, -1.75); L = Rt; headTilt = Math.sin(t * 3) * 0.06; }
+        else if (k === 'wink') { Rt = P(1.35, -0.7, -1.4); headTilt = 0.15; }
+        else if (k === 'surprise') { const h = P(1.35, -1.15, -2.05); L = h; Rt = h; this.root.position.y += Math.sin(Math.min(1, p * 4) * Math.PI) * 0.15; }
+        else if (k === 'sad') { L = P(0.04, 0.25, 0); Rt = L; headTilt = 0.1; this.head.rotation.x += 0.12; }
+        else if (k === 'love') { const h = P(1.25, -1.2, -1.75 + Math.sin(t * 5) * 0.08); L = h; Rt = h; headTilt = Math.sin(t * 2.5) * 0.1; }
         else if (k === 'munch') { extraMouth = Math.abs(Math.sin(t * 12)) * 0.25; }
         else if (k === 'jump') { Rt = P(2.2, 0, 0.2); L = Rt; this.root.position.y += Math.sin(Math.min(1, p) * Math.PI) * 0.6; }
         else if (k === 'dizzy') { headTilt = Math.sin(t * 5) * 0.18; Rt = P(0.6 + Math.sin(t * 4) * 0.3, 0, -0.3); L = P(0.6 - Math.sin(t * 4) * 0.3, 0, -0.3); }
@@ -299,7 +312,7 @@ export class Mascot {
     if (this.idlePlay && t > this.nextIdle && (free || sleepy) && !A) {
       if (sleepy) { this.gesture('yawn'); this.nextIdle = t + 25; }
       else if (Math.random() < 0.6) { this.marbles.start(); this.nextIdle = t + 13 + Math.random() * 7; }
-      else { const opts = ['toss', 'spin', 'stretch', 'wave', 'cheer', 'jump']; this.gesture(opts[Math.floor(Math.random() * opts.length)]); this.nextIdle = t + 6 + Math.random() * 6; }
+      else { const opts = ['toss', 'spin', 'stretch', 'wave', 'cheer', 'jump', 'dance', 'clap', 'heart', 'wink', 'love', 'dance']; this.gesture(opts[Math.floor(Math.random() * opts.length)]); this.nextIdle = t + 6 + Math.random() * 6; }
     } else if (!this.idlePlay) { if (this.marbles.game) this.marbles.clear(true); if (t > this.nextIdle) this.nextIdle = t + 8; }
     // ขยับไปหาท่าเป้าหมายแบบนุ่มๆ
     const k = 1 - Math.exp(-dt * rate);

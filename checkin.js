@@ -1,4 +1,4 @@
-import { loadFaces, faceOf, faceCount, callName } from './faces.js?v=11200015';
+import { loadFaces, faceOf, faceCount, callName, isPapa } from './faces.js?v=11200045';
 // ลงเวลาทำงานที่น้องมีไฟด้วยการสแกนใบหน้า — บันทึกเข้าระบบลงเวลาเดิม (pea-checkin) ตัวเดียวกับใน LINE
 // ใบหน้า: ประมวลผลในเครื่อง เก็บแค่ตัวเลขจดจำหน้า (ไม่เก็บรูป) ที่ "น้องไฟเรียนรู้" · ใช้เฉพาะลงเวลา · ลงทะเบียนเมื่อเจ้าตัวยินยอม
 const CHECKIN_API = 'https://script.google.com/macros/s/AKfycbxY0vjjr3MAl6e_OSTTbubrK-cVTrsx3o38xQGLJkJMro8rS8H-LaWl2J3oeE_I31FR/exec';
@@ -251,6 +251,7 @@ async function submit(e, action, selfie, how, shift) {
   const verb = action === 'checkin' ? 'ลงเวลาเข้างาน' : 'ลงเวลาออกงาน';
   const pic = photos(e, selfie, true);
   screen('เรียบร้อย', pic, el('div', 'ck-name', e.name), ...(action === 'checkin' ? [el('div', 'ck-sub', photoOk ? '📷 แนบรูปหน้าแล้ว' : selfie ? 'บันทึกเวลาแล้ว แต่แนบรูปไม่สำเร็จ' : 'ไม่มีรูปหน้า')] : []), el('div', 'ck-done', verb + ' ' + t + ' น.' + (res.shift ? ' · ' + res.shift : '')), btn('เสร็จ', '', closeCheckin));
+  if (X.express) X.express(isPapa(e.name) ? 'love' : 'happy', 3);
   X.speak(verb + ' ' + sayTime(t) + ' เรียบร้อยค่ะ ' + callName(e.name) + (action === 'checkin' ? ' ขอให้ทำงานปลอดภัยนะคะ' : ' เดินทางกลับปลอดภัยนะคะ'));
   X.done && X.done();
   setTimeout(() => { if (my === run) closeCheckin(); }, 7000);
