@@ -1,0 +1,8 @@
+<!doctype html><html lang="th"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>สแกนเปิดในมือถือ · น้องมีไฟ</title>
+<style>body{margin:0;font-family:system-ui,sans-serif;background:#fff;color:#222}.w{display:flex;gap:70px;justify-content:center;align-items:center;min-height:100vh;flex-wrap:wrap;text-align:center;padding:20px;box-sizing:border-box}h2{margin:0 0 14px;font-size:30px}img{width:340px;height:340px;image-rendering:pixelated;border:1px solid #eee}p{font-size:14px;color:#666;word-break:break-all;max-width:360px}</style>
+<div class="w" id="w"></div>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
+<script>
+const L=[['🤖 น้องมีไฟ','https://aloofpea-aul.github.io/nongfai-robot/'],['📊 KPI Dashboard อ่าวลึก','https://aloofpea-aul.github.io/kpi-pea-region2-2569/index.html']];
+document.getElementById('w').innerHTML=L.map(([n,u])=>{const q=qrcode(0,'M');q.addData(u);q.make();return `<div><h2>${n}</h2><img alt="QR ${n}" src="${q.createDataURL(10,4)}"><p>${u}</p></div>`}).join('');
+</script></html>
