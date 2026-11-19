@@ -53,6 +53,7 @@ export function itemName(ev) {
 // เหตุการณ์ → การ์ดแจ้งเตือน { topic, title, text, sub, say, app, ents, q }
 export function describe(ev) {
   if (ev.sys === 'ลงเวลา/เช็กอิน' && ev.type !== 'ลบ') return describeCheckin(ev);
+  if (ev.sys === 'ยานพาหนะ' && ev.type !== 'ลบ') { const v = describeVehicle(ev); if (v) return v; }
   const s = sysInfo(ev.sys), name = itemName(ev), sheet = ev.sheet ? 'ชีต ' + ev.sheet : '';
   const ch = (ev.ch || []).filter((c) => !NOISE.test(c.c));
   const st = ch.find((c) => STATUS.test(c.c));
@@ -85,4 +86,40 @@ function describeCheckin(ev) {
   const verb = isOut ? 'ลงเวลาออกงาน' : 'ลงเวลาเข้างาน';
   return { topic: s.k, icon: s.icon, color: s.color, title: 'ลงเวลา · ' + (isOut ? 'ออกงาน' : 'เข้างาน'), text: name, sub: [time ? time[0] + ' น.' : '', area].filter(Boolean).join(' · '),
     say: name + ' ' + verb + (time ? ' ' + time[0].split(/[:.]/).map(Number).join(' นาฬิกา ') + ' นาที' : '') + 'ค่ะ', app: s.app, ents: [], sys: ev.sys, evId: ev.id, at: ev.at, q: 'วันนี้ใครลงเวลาแล้ว ใครยังไม่ลงเวลาบ้าง' };
+}
+
+// ยานพาหนะ: บอกว่าใครใช้รถคันไหน ไปทำอะไร (ชีต รายการใช้รถ / Logใช้งานรถ / การจอง / การซ่อมบำรุง / ตรวจรถก่อนใช้)
+function describeVehicle(ev) {
+  const s = sysInfo(ev.sys), row = ev.row || {}, ch = ev.ch || [], sh = String(ev.sheet || '');
+  const get = (re) => { const e = Object.entries(row).find(([k, v]) => re.test(k) && v && v !== '•'); return e ? clip(e[1], 40) : ''; };
+  const was = (re) => { const c = ch.find((x) => re.test(x.c)); return c ? { o: clip(c.o, 40), n: clip(c.n, 40) } : null; };
+  const plate = get(/^(plate|carplate|ทะเบียน)$/i) || get(/^(action|รถ)$/i);
+  const mission = get(/^(mission|detail|ภารกิจ)$/i);
+  const user = get(/^(user|ผู้ใช้|ผู้จอง)$/i), by = get(/^(by|ผู้บันทึก|ผู้ตรวจ)$/i), retBy = get(/^(returnby|ผู้คืน)$/i);
+  const mile = get(/^(endmile|เลขไมล์กลับ)$/i) || get(/^(mile|เลขไมล์)$/i);
+  const card = (kind, who, title, sub, say) => ({ topic: s.k, icon: s.icon, color: s.color, title: 'ยานพาหนะ · ' + title, text: [who || 'ไม่ระบุชื่อ', plate].filter(Boolean).join(' · '), sub: sub || '', say,
+    app: s.app, ents: String(ev.ent || '').split(' ').filter(Boolean).slice(0, 4), sys: ev.sys, evId: ev.id, at: ev.at, vk: plate, vs: kind, q: (who ? who + ' ' : '') + (plate ? 'รถ ' + plate + ' ' : '') + 'ใช้รถล่าสุดเมื่อไหร่ ไปไหนบ้าง' });
+  const P = plate ? 'รถ ' + plate + ' ' : 'รถ', who = (n) => (n ? 'พี่' + String(n).replace(/^(นาย|นางสาว|นาง|น\.ส\.)\s*/, '').split(' ')[0] : 'มีคน');
+  if (/log|ใช้งานรถ/i.test(sh)) {
+    const ret = was(/^(returndate|วันเวลาคืน|returnby|ผู้คืน|endmile|เลขไมล์กลับ)$/i) || (was(/^(status|สถานะ)$/i) && /return|คืน|ว่าง|avail/i.test(was(/^(status|สถานะ)$/i).n));
+    if (ev.type === 'แก้' && ret) { const n = retBy || user; return card('log', n, 'คืนรถ', [mission && 'ภารกิจ ' + mission, mile && 'ไมล์ ' + mile].filter(Boolean).join(' · '), who(n) + ' คืน' + P + 'แล้วค่ะ'); }
+    if (ev.type === 'เพิ่ม') return card('log', user, 'เบิกใช้รถ', mission ? 'ภารกิจ ' + mission : '', who(user) + ' เบิก' + P + (mission ? ' ไป' + mission : '') + 'ค่ะ');
+  }
+  if (/การจอง|book/i.test(sh)) {
+    const when = [get(/^(startdate|เริ่ม)$/i), get(/^(enddate|สิ้นสุด)$/i)].filter(Boolean).join(' – ');
+    const st = was(/^(status|สถานะ)$/i);
+    if (ev.type === 'เพิ่ม') return card('book', user, 'จองรถ', [when, mission].filter(Boolean).join(' · '), who(user) + ' จอง' + P + (mission ? ' ไป' + mission : '') + 'ค่ะ');
+    if (st) { const t = th(st.n); return card('book', user, 'การจอง' + t, [when, mission].filter(Boolean).join(' · '), 'การจอง' + P + 'ของ' + who(user) + ' ' + t + 'ค่ะ'); }
+  }
+  if (/ซ่อม|maint/i.test(sh) && ev.type === 'เพิ่ม') { const what = get(/^(type|รายการ)$/i), cost = get(/^(cost|ค่าใช้จ่าย)$/i); return card('maint', by, 'บันทึกซ่อมบำรุง', [what, cost && cost + ' บาท'].filter(Boolean).join(' · '), who(by) + ' บันทึกซ่อม' + P + (what ? ' ' + what : '') + 'ค่ะ'); }
+  if (/ตรวจรถ|check/i.test(sh) && ev.type === 'เพิ่ม') { const fails = get(/^(fails|ข้อบกพร่อง)$/i); return card('check', by, 'ตรวจรถก่อนใช้', fails && fails !== '0' && fails !== '[]' ? 'พบข้อบกพร่อง: ' + fails : 'ผ่านทุกข้อ', who(by) + ' ตรวจ' + P + 'ก่อนใช้' + (fails && fails !== '0' && fails !== '[]' ? ' พบข้อบกพร่องค่ะ' : ' เรียบร้อยค่ะ')); }
+  if (/รายการใช้รถ|cars?$/i.test(sh)) {
+    const st = was(/^(status|สถานะ)$/i), u = was(/^(user|ผู้ใช้)$/i);
+    if (st || u) {
+      const busy = /inuse|ใช้งาน|busy/i.test((st && st.n) || '') || (u && u.n && !(st && /avail|ว่าง/i.test(st.n)));
+      if (busy) { const n = (u && u.n) || user; return card('car', n, 'มีคนใช้รถ', mission, who(n) + ' กำลังใช้' + P + 'ค่ะ'); }
+      const n = (u && u.o) || user; return card('car', n, 'รถว่างแล้ว', n ? 'คืนโดย ' + n : '', P + 'ว่างแล้วค่ะ' + (n ? ' คืนโดย' + who(n) : ''));
+    }
+  }
+  return null;
 }

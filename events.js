@@ -1,7 +1,7 @@
 // แจ้งเตือนจาก "สมุดเหตุการณ์" (ตัวเฝ้าฐานข้อมูลทุกระบบ ฝั่ง Apps Script)
 // ถามหาเหตุการณ์ใหม่ทุก 20 วิ เฉพาะตอนแอปเปิดอยู่บนจอ · ส่งแค่เลขล่าสุดที่เคยเห็น จึงเบาทั้งเครื่องและเซิร์ฟเวอร์
 // ครั้งแรกจำเลขล่าสุดไว้เฉยๆ ไม่ประกาศของเก่า
-import { describe, isNoise, sysInfo } from './systems.js?v=11190900';
+import { describe, isNoise, sysInfo } from './systems.js?v=11190915';
 const KEY = 'nongfai.events';
 const S = JSON.parse(localStorage.getItem(KEY) || '{}');
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch {} };
@@ -38,12 +38,16 @@ async function tick() {
     if (!cfg.alertOn) return;
     const cards = evs.filter((e) => !OWN.has(e.sys) && !isNoise(e)).map(describe).filter((c) => ctx.topicOn(cfg, c.topic));
     if (!cards.length) return;
+    // ยานพาหนะ: เบิก/คืนรถครั้งเดียวแก้ทั้ง Log และสถานะรถ → แจ้งครั้งเดียว
+    const logged = new Set(cards.filter((c) => c.vs === 'log' && c.vk).map((c) => c.vk));
+    for (let i = cards.length - 1; i >= 0; i--) if (cards[i].vs === 'car' && logged.has(cards[i].vk)) cards.splice(i, 1);
     // ระบบเดียวเปลี่ยนเยอะในรอบเดียว = สรุปรวบ ไม่ประกาศทีละรายการ
     const by = {}; cards.forEach((c) => (by[c.sys] = by[c.sys] || []).push(c));
     const out = [];
     for (const [sys, list] of Object.entries(by)) {
       if (list.length <= 3) { out.push(...list); continue; }
       const s = sysInfo(sys), names = [...new Set(list.map((c) => c.text))];
+      if (s.k === 'vehicles') { const ppl = [...new Set(list.map((c) => c.text.split(' · ')[0]).filter((n) => n && n !== 'ไม่ระบุชื่อ'))]; out.push({ ...list[0], title: 'ยานพาหนะ · ' + list.length + ' รายการ', text: list.slice(0, 4).map((c) => c.title.split(' · ')[1] + ' ' + c.text).join(', ') + (list.length > 4 ? ' …' : ''), sub: ppl.length ? 'ผู้ใช้: ' + ppl.join(', ') : '', say: 'ยานพาหนะมีความเคลื่อนไหว ' + list.length + ' รายการค่ะ' + (ppl.length ? ' ผู้ใช้คือ ' + ppl.slice(0, 4).map((n) => 'พี่' + n.replace(/^(นาย|นางสาว|นาง|น\.ส\.)\s*/, '').split(' ')[0]).join(' ') : ''), q: 'วันนี้ใครใช้รถคันไหนบ้าง' }); continue; }
       if (s.k === 'checkin') { out.push({ ...list[0], title: 'ลงเวลา · ' + list.length + ' คน', text: names.slice(0, 4).join(', ') + (names.length > 4 ? ' …' : ''), sub: list.map((c) => c.sub).filter(Boolean).slice(0, 3).join(' · '), say: 'มีคนลงเวลาเพิ่ม ' + list.length + ' คนค่ะ' }); continue; }
       out.push({ ...list[0], title: sys + ' · ความเคลื่อนไหว ' + list.length + ' รายการ', text: names.slice(0, 3).join(', ') + (names.length > 3 ? ' …' : ''), sub: [...new Set(list.map((c) => c.title.split(' · ')[1]))].join(' · '), say: sys + ' มีความเคลื่อนไหว ' + list.length + ' รายการค่ะ', q: sys + ' วันนี้มีความเคลื่อนไหวอะไรบ้าง', ents: [...new Set(list.flatMap((c) => c.ents))].slice(0, 4), icon: s.icon, color: s.color });
     }
