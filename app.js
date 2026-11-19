@@ -1,17 +1,17 @@
 // น้องมีไฟ — แอปหลัก: ฟังเสียงไทย → ถาม Gemini (สตรีม) → พูดตอบทีละประโยค + แสดงบนจอ
-import { Mascot } from './mascot.js?v=11191650';
-import { WavRecorder } from './recorder.js?v=11191650';
-import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary, hooks } from './tools.js?v=11191650';
-import { startPresence, stopPresence, presenceOn, someoneHere, setPresenceRate, status as camStatus } from './presence.js?v=11191650';
-import { startWatch, TOPICS, topicOn, alertLog, clearAlertLog } from './watch.js?v=11191650';
-import { wxCard, tmdCard } from './wxlevel.js?v=11191650';
-import { loadFaces } from './faces.js?v=11191650';
-import { SYS } from './systems.js?v=11191650';
-import { initCheckin, openCheckin } from './checkin.js?v=11191650';
-import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11191650';
+import { Mascot } from './mascot.js?v=11191700';
+import { WavRecorder } from './recorder.js?v=11191700';
+import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary, hooks } from './tools.js?v=11191700';
+import { startPresence, stopPresence, presenceOn, someoneHere, setPresenceRate, status as camStatus } from './presence.js?v=11191700';
+import { startWatch, TOPICS, topicOn, alertLog, clearAlertLog } from './watch.js?v=11191700';
+import { wxCard, tmdCard } from './wxlevel.js?v=11191700';
+import { loadFaces } from './faces.js?v=11191700';
+import { SYS } from './systems.js?v=11191700';
+import { initCheckin, openCheckin } from './checkin.js?v=11191700';
+import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11191700';
 
 const $ = (id) => document.getElementById(id);
-export const VERSION = '11191650';
+export const VERSION = '11191700';
 // อัปเดตตัวเอง: ถ้าบนเว็บมีเวอร์ชันใหม่กว่า ให้โหลดหน้าใหม่ทันที (กันไอโฟนจำไฟล์เก่า)
 fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json()).then((j) => {
   if (j.v && j.v !== VERSION && !sessionStorage.getItem('nf.reload.' + j.v)) {
@@ -248,7 +248,7 @@ const speakQueue = [];
 let speakingNow = false, onQueueEmpty = null;
 function speak(text) {
   text = text.replace(/[*#_`>]/g, '').trim();
-  if (!text) return;
+  if (!text || cfg.muted) return; // ปิดเสียงอยู่: แสดงบนจออย่างเดียว
   speakQueue.push(text);
   if (!speakingNow) speakNext();
 }
@@ -281,7 +281,7 @@ function stopSpeaking() { speakQueue.length = 0; onQueueEmpty = null; if (speech
 function tapCue(text) {
   return new Promise((res) => {
     try {
-      const u = new SpeechSynthesisUtterance(text); u.lang = 'th-TH'; u.rate = cfg.rate;
+      const u = new SpeechSynthesisUtterance(text); u.lang = 'th-TH'; u.rate = cfg.rate; if (cfg.muted) u.volume = 0;
       const v = voices.find((x) => x.name === cfg.voice) || voices[0]; if (v) u.voice = v;
       u.onend = u.onerror = () => res(); setTimeout(res, 1500);
       speechSynthesis.speak(u);
@@ -711,6 +711,17 @@ function flushSay() {
 setInterval(flushSay, 2000);
 $('alAck').onclick = () => ackAlert(true);
 $('alMore').onclick = () => { const q = alertNow && alertNow.q; ackAlert(false); if (q) { stopSpeaking(); tapCue('ได้เลยค่ะ'); ask(q, null, true); } };
+// ปุ่มปิด/เปิดเสียงที่หน้าจอหลัก (จำค่าไว้)
+function setMute(m) {
+  cfg.muted = !!m; saveCfg();
+  const b = $('btnMute'); b.setAttribute('aria-pressed', String(cfg.muted)); b.setAttribute('aria-label', cfg.muted ? 'เปิดเสียงน้องมีไฟ' : 'ปิดเสียงน้องมีไฟ');
+}
+setMute(cfg.muted);
+$('btnMute').onclick = () => {
+  const m = !cfg.muted;
+  if (m) { stopSpeaking(); setMute(true); toast('ปิดเสียงแล้ว น้องมีไฟจะตอบบนจออย่างเดียวค่ะ'); }
+  else { setMute(false); speak('เปิดเสียงแล้วค่ะ'); }
+};
 $('btnBell').onclick = () => {
   const h = $('alHist');
   if (!h.hidden) { h.hidden = true; if ($('alertCard').hidden) $('alerts').hidden = true; return; }
