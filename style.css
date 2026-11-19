@@ -403,7 +403,8 @@ a.tel{color:var(--purple);font-weight:600;text-decoration:underline}
 .kpic-leg{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:13px;color:#555}
 .kpic-leg i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:4px}
 .kpic-tr{margin-top:8px;font-size:13px;color:#666}
-.kpic-tr svg{width:100%;height:80px;display:block}
+.kpic-tr svg{width:100%;height:auto;display:block}
+.kpic-leg b{font-size:14px;color:#333}
 .kpic-line{stroke-dasharray:1000;stroke-dashoffset:1000;animation:kpiLine 1.4s .3s ease-out forwards}
 @keyframes kpiLine{to{stroke-dashoffset:0}}
 @media (prefers-reduced-motion:reduce){.kpic-arc,.kpic-line{animation:none;stroke-dashoffset:var(--to,0)}}
