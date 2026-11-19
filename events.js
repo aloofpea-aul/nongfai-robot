@@ -1,7 +1,7 @@
 // แจ้งเตือนจาก "สมุดเหตุการณ์" (ตัวเฝ้าฐานข้อมูลทุกระบบ ฝั่ง Apps Script)
 // ถามหาเหตุการณ์ใหม่ทุก 20 วิ เฉพาะตอนแอปเปิดอยู่บนจอ · ส่งแค่เลขล่าสุดที่เคยเห็น จึงเบาทั้งเครื่องและเซิร์ฟเวอร์
 // ครั้งแรกจำเลขล่าสุดไว้เฉยๆ ไม่ประกาศของเก่า
-import { describe, isNoise, sysInfo } from './systems.js?v=11191150';
+import { describe, isNoise, sysInfo } from './systems.js?v=11191640';
 const KEY = 'nongfai.events';
 const S = JSON.parse(localStorage.getItem(KEY) || '{}');
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch {} };
@@ -48,7 +48,7 @@ async function tick() {
       if (list.length <= 3) { out.push(...list); continue; }
       const s = sysInfo(sys), names = [...new Set(list.map((c) => c.text))];
       if (s.k === 'vehicles') { const ppl = [...new Set(list.map((c) => c.text.split(' · ')[0]).filter((n) => n && n !== 'ไม่ระบุชื่อ'))]; out.push({ ...list[0], title: 'ยานพาหนะ · ' + list.length + ' รายการ', text: list.map((c) => '• ' + c.title.split(' · ')[1] + ' ' + c.text).join('\n'), sub: ppl.length ? 'ผู้ใช้: ' + ppl.join(', ') : '', say: 'ยานพาหนะมีความเคลื่อนไหว ' + list.length + ' รายการค่ะ' + (ppl.length ? ' ผู้ใช้คือ ' + ppl.slice(0, 4).map((n) => 'พี่' + n.replace(/^(นาย|นางสาว|นาง|น\.ส\.)\s*/, '').split(' ')[0]).join(' ') : ''), q: 'วันนี้ใครใช้รถคันไหนบ้าง' }); continue; }
-      if (s.k === 'checkin') { out.push({ ...list[0], title: 'ลงเวลา · ' + list.length + ' คน', text: list.map((c) => '• ' + c.text + (c.sub ? ' ' + c.sub : '')).join('\n'), sub: '', say: 'มีคนลงเวลาเพิ่ม ' + list.length + ' คนค่ะ' }); continue; }
+      if (s.k === 'checkin') { out.push({ ...list[0], img: '', imgs: list.map((c) => c.img).filter(Boolean).slice(0, 8), title: 'ลงเวลา · ' + list.length + ' คน', text: list.map((c) => '• ' + c.text + (c.sub ? ' ' + c.sub : '')).join('\n'), sub: '', say: 'มีคนลงเวลาเพิ่ม ' + list.length + ' คนค่ะ' }); continue; }
       out.push({ ...list[0], title: sys + ' · ความเคลื่อนไหว ' + list.length + ' รายการ', text: names.join(', '), sub: [...new Set(list.map((c) => c.title.split(' · ')[1]))].join(' · '), say: sys + ' มีความเคลื่อนไหว ' + list.length + ' รายการค่ะ', q: sys + ' วันนี้มีความเคลื่อนไหวอะไรบ้าง', ents: [...new Set(list.flatMap((c) => c.ents))].slice(0, 4), icon: s.icon, color: s.color });
     }
     ctx.push(out.reverse());

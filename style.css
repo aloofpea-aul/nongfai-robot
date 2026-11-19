@@ -372,3 +372,7 @@ a.tel{color:var(--purple);font-weight:600;text-decoration:underline}
 .al-next{display:flex;flex-wrap:wrap;gap:6px;font-size:14px;color:#777;align-items:center}
 .al-next span{background:#fff;border:1px solid #e3dcef;border-radius:999px;padding:3px 10px}
 .al-next span:first-child{border:0;background:none;padding:0}
+
+.al-img{float:right;width:84px;height:84px;border-radius:50%;object-fit:cover;margin:0 0 6px 10px;border:3px solid var(--al-c,#1e8f6e)}
+.al-next span img{width:18px;height:18px;border-radius:50%;vertical-align:-4px;margin-right:4px}
+.al-imgs{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 8px}.al-imgs img{width:52px;height:52px;border-radius:50%;object-fit:cover;border:2px solid var(--al-c,#1e8f6e)}

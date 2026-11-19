@@ -143,11 +143,23 @@ async function scan() {
   pickName('เลือกชื่อเอง สแกนหน้าไม่ผ่าน');
 }
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-function grab() {
+function grab(w = 360) {
   const v = $('ckVideo'); if (!v.videoWidth) return '';
-  const w = 200, h = Math.round(v.videoHeight * w / v.videoWidth), c = document.createElement('canvas'); c.width = w; c.height = h;
+  const h = Math.round(v.videoHeight * w / v.videoWidth), c = document.createElement('canvas'); c.width = w; c.height = h;
   c.getContext('2d').drawImage(v, 0, 0, w, h);
-  return c.toDataURL('image/jpeg', 0.6);
+  return c.toDataURL('image/jpeg', w > 250 ? 0.72 : 0.6);
+}
+
+const shrink = (url, w) => new Promise((ok) => { const i = new Image(); i.onload = () => { const c = document.createElement('canvas'); c.width = w; c.height = Math.round(i.height * w / i.width); c.getContext('2d').drawImage(i, 0, 0, c.width, c.height); ok(c.toDataURL('image/jpeg', 0.6)); }; i.onerror = () => ok(''); i.src = url; });
+// ถ่ายรูปหน้า (นับ 3-2-1) สำหรับคนที่เลือกชื่อเอง — ลงเวลาเข้างานต้องมีรูปทุกครั้ง
+async function snapPhoto(e) {
+  const my = run;
+  camScreen('ถ่ายรูปยืนยัน · ' + nick(e.name), 'มองกล้องค่ะ');
+  try { await openCam(); } catch { return ''; }
+  for (const n of [3, 2, 1]) { if (my !== run) return ''; $('ckMsg').textContent = 'ถ่ายรูปใน ' + n + '…'; await sleep(700); }
+  let r = null; try { r = await detect(); } catch {}
+  $('ckRing').className = 'ck-ring ' + (r ? 'ok' : 'seen');
+  const img = grab(); stopCam(); return img;
 }
 
 // ---------- ยืนยัน แล้วบันทึกเข้าระบบลงเวลาเดิม ----------
@@ -167,7 +179,7 @@ function confirmPerson(e, selfie, how) {
     ['กะ 1 (00-08)', 'กะ 2 (08-16)', 'กะ 3 (16-24)'].forEach((t, i) => row.append(btn(t, 'ghost', () => set(i + 1))));
     nodes.push(el('div', 'ck-sub', 'เลือกกะ'), row); set(shift);
   }
-  const go = btn(label + ' ' + hhmm() + ' น.', 'big', () => submit(e, action, selfie, how, shift));
+  const go = btn(label + ' ' + hhmm() + ' น.', 'big', async () => { let img = selfie; if (!img && action === 'checkin') { img = await snapPhoto(e); if (!img) { X.toast('เปิดกล้องไม่ได้ จะลงเวลาโดยไม่มีรูปค่ะ'); } } submit(e, action, img, how, shift); });
   const row2 = el('div', 'ck-row'); row2.append(btn('ไม่ใช่ฉัน', 'ghost', () => pickName('เลือกชื่อเอง สแกนหน้าจำผิด')));
   if (action === 'checkout') row2.append(btn('ลงเวลาเข้างานแทน', 'ghost', () => submit(e, 'checkin', selfie, how, shift)));
   screen('ยืนยันตัวตน', ...nodes, go, row2);
@@ -179,8 +191,17 @@ async function submit(e, action, selfie, how, shift) {
   const p = { action, empId: e.id, lat: OFFICE.lat, lng: OFFICE.lng, accuracy: 5, lineUID: '', note: 'ลงเวลาที่น้องมีไฟ · ' + how };
   if (action === 'checkin' && shift) p.selectedShift = shift;
   let res = null;
-  try { res = await ckGet(selfie && action === 'checkin' ? { ...p, selfie: selfie.split(',')[1] } : p); } catch {}
-  if ((!res || !res.success) && selfie && action === 'checkin') { try { res = await ckGet(p); } catch {} } // ส่งรูปไม่ผ่าน ลองแบบไม่มีรูป
+  let photoOk = false;
+  if (selfie && action === 'checkin') {
+    // แนบรูปหน้าไปกับการลงเวลา (ระบบเดิมเก็บรูปไว้ดูในหน้าสรุป) · ส่งไม่ผ่านลองรูปเล็กลง แล้วค่อยไม่แนบ
+    for (const img of [selfie, await shrink(selfie, 220)]) {
+      if (!img) continue;
+      try { res = await ckGet({ ...p, selfie: img.split(',')[1] }); } catch { res = null; }
+      if (res && res.success) { photoOk = true; break; }
+      if (res && res.message && !/url|ยาว|size|large|413|414/i.test(res.message)) break; // ไม่ผ่านด้วยเหตุผลอื่น ไม่ต้องลองต่อ
+    }
+  }
+  if (!res || !res.success) { try { res = await ckGet(p); } catch { res = null; } }
   if (my !== run) return;
   if (!res || !res.success) {
     screen('บันทึกไม่สำเร็จ', el('div', 'ck-err', (res && res.message) || 'ระบบลงเวลาไม่ตอบ ลองใหม่อีกครั้ง หรือใช้ LINE ลงเวลาค่ะ'), btn('ลองใหม่', '', () => submit(e, action, selfie, how, shift)), btn('ปิด', 'ghost', closeCheckin));
@@ -189,7 +210,8 @@ async function submit(e, action, selfie, how, shift) {
   const t = res.time || hhmm();
   today[e.name] = { ...statusOf(e), [action === 'checkin' ? 'in' : 'out']: t };
   const verb = action === 'checkin' ? 'ลงเวลาเข้างาน' : 'ลงเวลาออกงาน';
-  screen('เรียบร้อย', el('div', 'ck-okicon', '✓'), el('div', 'ck-name', e.name), el('div', 'ck-done', verb + ' ' + t + ' น.' + (res.shift ? ' · ' + res.shift : '')), btn('เสร็จ', '', closeCheckin));
+  const pic = selfie ? (() => { const i = el('img', 'ck-photo'); i.src = selfie; i.alt = ''; return i; })() : el('div', 'ck-okicon', '✓');
+  screen('เรียบร้อย', pic, el('div', 'ck-name', e.name), ...(action === 'checkin' ? [el('div', 'ck-sub', photoOk ? '📷 แนบรูปหน้าแล้ว' : selfie ? 'บันทึกเวลาแล้ว แต่แนบรูปไม่สำเร็จ' : 'ไม่มีรูปหน้า')] : []), el('div', 'ck-done', verb + ' ' + t + ' น.' + (res.shift ? ' · ' + res.shift : '')), btn('เสร็จ', '', closeCheckin));
   X.speak(verb + ' ' + sayTime(t) + ' เรียบร้อยค่ะ พี่' + nick(e.name) + (action === 'checkin' ? ' ขอให้ทำงานปลอดภัยนะคะ' : ' เดินทางกลับปลอดภัยนะคะ'));
   X.done && X.done();
   setTimeout(() => { if (my === run) closeCheckin(); }, 7000);
