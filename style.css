@@ -376,3 +376,11 @@ a.tel{color:var(--purple);font-weight:600;text-decoration:underline}
 .al-img{float:right;width:84px;height:84px;border-radius:50%;object-fit:cover;margin:0 0 6px 10px;border:3px solid var(--al-c,#1e8f6e)}
 .al-next span img{width:18px;height:18px;border-radius:50%;vertical-align:-4px;margin-right:4px}
 .al-imgs{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 8px}.al-imgs img{width:52px;height:52px;border-radius:50%;object-fit:cover;border:2px solid var(--al-c,#1e8f6e)}
+
+.ck-pics{position:relative;display:flex;align-items:flex-end;justify-content:center;gap:10px}
+.ck-photo.db{width:150px;height:150px;transform:none}
+.ck-photo.none{width:150px;height:150px;border-radius:50%;background:#efe6fb;color:var(--purple-dk);display:flex;align-items:center;justify-content:center;font-size:40px}
+.ck-live{margin:0;display:flex;flex-direction:column;align-items:center;gap:2px}
+.ck-live img{width:72px;height:72px;border-radius:50%;object-fit:cover;transform:scaleX(-1);border:3px solid #d8cdea}
+.ck-live figcaption{font-size:12px;color:#777}
+.ck-tick{position:absolute;right:calc(50% - 90px);top:-6px;background:#1D9E75;color:#fff;border-radius:50%;width:40px;height:40px;display:flex;align-items:center;justify-content:center;font-size:24px}

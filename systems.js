@@ -1,3 +1,4 @@
+import { faceOf } from './faces.js?v=11191650';
 // พจนานุกรมระบบในศูนย์รวมงาน: ไอคอน สี ลิงก์แอป และคำอธิบาย → ใช้แปลง "เหตุการณ์" จากสมุดเหตุการณ์เป็นข้อความที่เข้าใจง่าย
 // ชื่อระบบ (key) ต้องตรงกับ WATCH_FILES ใน gas/Watch.gs
 export const SYS = {
@@ -85,7 +86,7 @@ function describeCheckin(ev) {
   const area = get(/area|พื้นที่/i);
   const verb = isOut ? 'ลงเวลาออกงาน' : 'ลงเวลาเข้างาน';
   const raw = Object.entries(row).find(([k, v]) => /selfie|photo|pic|รูป/i.test(k) && /^https?:/.test(String(v)));
-  const img = raw ? driveImg(String(raw[1])) : '';
+  const img = faceOf(name) || (raw ? driveImg(String(raw[1])) : '');
   return { img, topic: s.k, icon: s.icon, color: s.color, title: 'ลงเวลา · ' + (isOut ? 'ออกงาน' : 'เข้างาน'), text: name, sub: [time ? time[0] + ' น.' : '', area].filter(Boolean).join(' · '),
     say: name + ' ' + verb + (time ? ' ' + time[0].split(/[:.]/).map(Number).join(' นาฬิกา ') + ' นาที' : '') + 'ค่ะ', app: s.app, ents: [], sys: ev.sys, evId: ev.id, at: ev.at, q: 'วันนี้ใครลงเวลาแล้ว ใครยังไม่ลงเวลาบ้าง' };
 }

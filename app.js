@@ -1,16 +1,17 @@
 // น้องมีไฟ — แอปหลัก: ฟังเสียงไทย → ถาม Gemini (สตรีม) → พูดตอบทีละประโยค + แสดงบนจอ
-import { Mascot } from './mascot.js?v=11191640';
-import { WavRecorder } from './recorder.js?v=11191640';
-import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary, hooks } from './tools.js?v=11191640';
-import { startPresence, stopPresence, presenceOn, someoneHere, setPresenceRate, status as camStatus } from './presence.js?v=11191640';
-import { startWatch, TOPICS, topicOn, alertLog, clearAlertLog } from './watch.js?v=11191640';
-import { wxCard, tmdCard } from './wxlevel.js?v=11191640';
-import { SYS } from './systems.js?v=11191640';
-import { initCheckin, openCheckin } from './checkin.js?v=11191640';
-import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11191640';
+import { Mascot } from './mascot.js?v=11191650';
+import { WavRecorder } from './recorder.js?v=11191650';
+import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary, hooks } from './tools.js?v=11191650';
+import { startPresence, stopPresence, presenceOn, someoneHere, setPresenceRate, status as camStatus } from './presence.js?v=11191650';
+import { startWatch, TOPICS, topicOn, alertLog, clearAlertLog } from './watch.js?v=11191650';
+import { wxCard, tmdCard } from './wxlevel.js?v=11191650';
+import { loadFaces } from './faces.js?v=11191650';
+import { SYS } from './systems.js?v=11191650';
+import { initCheckin, openCheckin } from './checkin.js?v=11191650';
+import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11191650';
 
 const $ = (id) => document.getElementById(id);
-export const VERSION = '11191640';
+export const VERSION = '11191650';
 // อัปเดตตัวเอง: ถ้าบนเว็บมีเวอร์ชันใหม่กว่า ให้โหลดหน้าใหม่ทันที (กันไอโฟนจำไฟล์เก่า)
 fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json()).then((j) => {
   if (j.v && j.v !== VERSION && !sessionStorage.getItem('nf.reload.' + j.v)) {
@@ -846,6 +847,8 @@ initCheckin({
 function startCheckin() { stopAll(); bumpIdle(); openCheckin(); }
 $('btnCheckin').onclick = startCheckin;
 hooks.openCheckin = startCheckin;
+// รูปหน้าพนักงานจากฐานข้อมูล (โหลดครั้งแรก แล้วรีเฟรชวันละครั้ง)
+setTimeout(() => { if (OPS()) loadFaces(); }, 5000);
 const CK_RE = /^(ลงเวลา|เช็[กค]อิน|เช็[กค]เอา(ท์|ต์)|สแกนหน้า)/;
 const CK_Q = /ใคร|กี่|สรุป|ยัง|บ้าง|มั้ย|ไหม|เมื่อ|สาย/;
 document.querySelectorAll('.mbtn[data-q]').forEach((b) => (b.onclick = () => { stopSpeaking(); tapCue('ได้เลยค่ะ'); ask(b.dataset.q, null, true); }));
