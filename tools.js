@@ -1,7 +1,7 @@
-import { faceOf, loadFaces } from './faces.js?v=11192010';
-import { findEvents } from './events.js?v=11192010';
-import { describe, sysInfo, SYS } from './systems.js?v=11192010';
-import { loadNotices, ntState, ntArea, ntWhen, ntHm, ntDate } from './notices.js?v=11192010';
+import { faceOf, loadFaces } from './faces.js?v=11192240';
+import { findEvents } from './events.js?v=11192240';
+import { describe, sysInfo, SYS } from './systems.js?v=11192240';
+import { loadNotices, ntState, ntArea, ntWhen, ntHm, ntDate } from './notices.js?v=11192240';
 // เครื่องมือให้น้องมีไฟดึงข้อมูลจากศูนย์รวมงาน กฟส.อ่าวลึก (Gemini function calling)
 // public = ใครถามก็ตอบได้ · internal = ต้องยืนยันตัวตนพนักงานก่อน (PIN)
 
@@ -368,7 +368,7 @@ async function kpiRegion2({ keyword, scope }) {
     ตัวชี้วัด: list.slice(0, 40).map((x) => ({ รหัส: x.code, ชื่อ: x.name.slice(0, 70), คะแนน: x.sc != null ? +x.sc.toFixed(2) : 'ยังไม่มีผล', ผล: x.res, เดือน: x.month })),
     หมายเหตุ: 'ข้อมูลจริงจาก Google Sheet ของแดชบอร์ด KPI · คะแนนเฉลี่ยเป็นค่าเฉลี่ยอย่างง่าย ไม่ได้ถ่วงน้ำหนักตามเกณฑ์ กฟภ.',
     คำแนะนำการตอบ: 'นำเสนอแบบสรุปผู้บริหาร: 1) ภาพรวมคะแนนเฉลี่ยและจำนวนที่ได้ 5 เต็ม 2) จุดแข็ง 3) ตัวที่ต้องเร่ง (บอกรหัส ชื่อสั้น คะแนน และห่างจากเกณฑ์เท่าไร) 4) แนวโน้ม 5) ข้อเสนอแนะสั้นๆ ไม่เกิน 6 ประโยค' };
-  return withD(ai, { source: 'KPI ปี 2569 · ' + who, app: '/kpi-pea-region2-2569/kpi/',
+  return withD(ai, { source: 'KPI ปี 2569 · ' + who, app: '/kpi-pea-region2-2569/index.html?from=hub', autoOpen: !keyword,
     kpi: { who, avg, n: list.length, rated: rated.length, bands: [rated.filter((x) => x.sc >= 4.5).length, rated.filter((x) => x.sc >= 4 && x.sc < 4.5).length, rated.filter((x) => x.sc >= 3 && x.sc < 4).length, rated.filter((x) => x.sc < 3).length], trend },
     items: [...weak, ...rated.filter((x) => x.sc >= 4).sort((a, b) => a.sc - b.sc), ...list.filter((x) => typeof x.sc !== 'number')].slice(0, 60).map((x) => ({ title: x.code + ' ' + x.name.slice(0, 80), sub: [x.owner, x.month ? 'ข้อมูล ' + x.month : '', x.res != null ? 'ผล ' + x.res + (x.unit ? ' ' + x.unit : '') : ''].filter(Boolean).join(' · '),
       badge: typeof x.sc === 'number' ? x.sc.toFixed(2) + ' · ' + band(x.sc) : 'ยังไม่มีผล', tone: typeof x.sc !== 'number' ? '' : x.sc >= 4 ? 'green' : x.sc >= 3 ? 'amber' : 'red',
@@ -493,7 +493,7 @@ async function drawingsBom({ keyword }) {
 // ---------- 20b) ค้นแบบมาตรฐาน กฟภ. พร้อมภาพ 2D / 3D (ดึงจากคลังแบบในศูนย์รวมงาน ไม่สร้างใหม่) ----------
 async function dwgCatalog() {
   // ดัชนีชื่อแบบ (สร้างจากคลังแบบ pea-drawings ด้วย scripts/build-dwg-index.py) — ภาพ/โมเดลเปิดจากหน้าแบบในคลังโดยตรง
-  return cached('dwgcat', 24 * 3600e3, async () => (await fetch('./dwg-index.json?v=11192010')).json());
+  return cached('dwgcat', 24 * 3600e3, async () => (await fetch('./dwg-index.json?v=11192240')).json());
 }
 const DWG_SYN = [[/สามเฟส|3เฟส/g, '3 เฟส'], [/หนึ่งเฟส|เฟสเดียว|1เฟส/g, '1 เฟส'], [/เสาคู่|สองเสา/g, 'นั่งร้าน'], [/(\d+)\s*เควี|(\d+)\s*kv/gi, '$1$2 kV'], [/ลูกถ้วย|ลูกถ้วยไฟ/g, 'ลูกถ้วย'], [/แรงต่ำ/g, 'แรงต่ำ']];
 const dwgNorm = (t) => { t = String(t || '').toLowerCase(); DWG_SYN.forEach(([a, b]) => { t = t.replace(a, b); }); return t; };

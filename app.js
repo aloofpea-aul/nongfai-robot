@@ -1,18 +1,18 @@
 // น้องมีไฟ — แอปหลัก: ฟังเสียงไทย → ถาม Gemini (สตรีม) → พูดตอบทีละประโยค + แสดงบนจอ
-import { Mascot } from './mascot.js?v=11192010';
-import { WavRecorder } from './recorder.js?v=11192010';
-import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary, hooks } from './tools.js?v=11192010';
-import { startPresence, stopPresence, presenceOn, someoneHere, setPresenceRate, status as camStatus } from './presence.js?v=11192010';
-import { startWatch, TOPICS, topicOn, alertLog, clearAlertLog } from './watch.js?v=11192010';
-import { kpiCard } from './kpicard.js?v=11192010';
-import { wxCard, tmdCard } from './wxlevel.js?v=11192010';
-import { loadFaces } from './faces.js?v=11192010';
-import { SYS } from './systems.js?v=11192010';
-import { initCheckin, openCheckin } from './checkin.js?v=11192010';
-import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11192010';
+import { Mascot } from './mascot.js?v=11192240';
+import { WavRecorder } from './recorder.js?v=11192240';
+import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary, hooks } from './tools.js?v=11192240';
+import { startPresence, stopPresence, presenceOn, someoneHere, setPresenceRate, status as camStatus } from './presence.js?v=11192240';
+import { startWatch, TOPICS, topicOn, alertLog, clearAlertLog } from './watch.js?v=11192240';
+import { kpiCard } from './kpicard.js?v=11192240';
+import { wxCard, tmdCard } from './wxlevel.js?v=11192240';
+import { loadFaces } from './faces.js?v=11192240';
+import { SYS } from './systems.js?v=11192240';
+import { initCheckin, openCheckin } from './checkin.js?v=11192240';
+import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11192240';
 
 const $ = (id) => document.getElementById(id);
-export const VERSION = '11192010';
+export const VERSION = '11192240';
 // อัปเดตตัวเอง: ถ้าบนเว็บมีเวอร์ชันใหม่กว่า ให้โหลดหน้าใหม่ทันที (กันไอโฟนจำไฟล์เก่า)
 fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json()).then((j) => {
   if (j.v && j.v !== VERSION && !sessionStorage.getItem('nf.reload.' + j.v)) {
@@ -73,7 +73,11 @@ function showResults(d) {
   const head = el('div', 'rs-head'); head.append(el('span', null, 'ข้อมูลจาก ' + (d.source || '')));
   if (d.app) { const a = el('a', null, 'เปิดแอป'); a.href = d.app; a.onclick = (e) => { if (openApp(d.app, d.source)) e.preventDefault(); }; head.append(a); }
   box.append(head);
-  if (d.kpi) box.append(kpiCard(d.kpi));
+  if (d.kpi) {
+    box.append(kpiCard(d.kpi));
+    if (d.app) { const b = el('button', 'kpic-open', '📊 เปิดหน้า KPI Dashboard เต็มจอ (คะแนนถ่วงน้ำหนัก PEATA)'); b.type = 'button'; b.onclick = () => openApp(d.app, '📊 KPI ปี 2569 · ' + d.kpi.who); box.append(b); }
+    if (d.autoOpen && d.app && OPS()) setTimeout(() => openApp(d.app, '📊 KPI ปี 2569 · ' + d.kpi.who), 2500);
+  }
   if (d.wx) box.append(wxCard(d.wx));
   if (d.tmd) box.append(tmdCard(d.tmd, (p, t) => openApp(p, t)));
   if ((d.stats || []).length && !d.wx && !d.kpi) { const g = el('div', 'rs-stats'); d.stats.forEach((s) => { const c = el('div', 'st' + (s.t ? ' ' + s.t : '')); c.append(el('b', null, s.v == null ? '-' : String(s.v)), el('span', null, s.l)); g.append(c); }); box.append(g); }
