@@ -137,6 +137,16 @@ function diffFile_(sys, old, cur) {
 
 // ทำงานทุก 1 นาที (ตั้งด้วย setupWatch)
 function watchTick() {
+  // ประหยัดโควตาเวลาทริกเกอร์ของบัญชี (ฟรีวันละ ~90 นาที ใช้ร่วมทุกโปรเจกต์): กลางวันทุก 5 นาที · 22:00–06:00 ทุก 15 นาที
+  const now = new Date(Date.now() + 7 * 3600e3), h = now.getUTCHours();
+  // ย้ายทริกเกอร์จากทุก 1 นาทีเป็นทุก 5 นาที (ทำครั้งเดียวอัตโนมัติ)
+  const pp = PropertiesService.getScriptProperties();
+  if (pp.getProperty('TRIG_V') !== '5') {
+    ScriptApp.getProjectTriggers().filter((t) => t.getHandlerFunction() === 'watchTick').forEach((t) => ScriptApp.deleteTrigger(t));
+    ScriptApp.newTrigger('watchTick').timeBased().everyMinutes(5).create();
+    pp.setProperty('TRIG_V', '5');
+  }
+  if ((h >= 22 || h < 6) && now.getUTCMinutes() % 15 >= 5) return;
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(1000)) return; // รอบก่อนยังไม่เสร็จ → ข้ามรอบนี้
   const t0 = Date.now(), p = PropertiesService.getScriptProperties();
@@ -185,7 +195,7 @@ function setupWatch() {
   ScriptApp.getProjectTriggers().filter((t) => t.getHandlerFunction() === 'watchTick').forEach((t) => ScriptApp.deleteTrigger(t));
   evSheet_(); snapSheet_();
   watchTick();
-  ScriptApp.newTrigger('watchTick').timeBased().everyMinutes(1).create();
+  ScriptApp.newTrigger('watchTick').timeBased().everyMinutes(5).create();
   return 'ติดตั้งแล้ว: สมุดเหตุการณ์ ' + SpreadsheetApp.openById(PropertiesService.getScriptProperties().getProperty('EVENTS_ID')).getUrl();
 }
 
