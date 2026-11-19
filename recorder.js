@@ -13,7 +13,8 @@ export class WavRecorder {
   stop() { if (this._stop) this._stop(true); }
   cancel() { if (this._stop) this._stop(false); }
 
-  async record({ maxMs = 20000, silenceMs = 1500, noSpeechMs = 8000, onSpeech } = {}) {
+  // ถือว่า "เริ่มพูด" เมื่อเสียงดังแบบเสียงคนต่อเนื่อง ~0.25 วิ (กันเสียงประตู ไอ จาม เคาะโต๊ะ) และต้องพูดรวม ≥ minSpeechMs
+  async record({ maxMs = 20000, silenceMs = 1500, noSpeechMs = 8000, minSpeechMs = 450, onSpeech } = {}) {
     this.prime();
     const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
     const ctx = this.ctx;
@@ -21,7 +22,7 @@ export class WavRecorder {
     const proc = ctx.createScriptProcessor(4096, 1, 1);
     const chunks = [];
     const t0 = performance.now();
-    let speech = false, lastLoud = 0, floor = 0, speechChunk = 0;
+    let speech = false, lastLoud = 0, floor = 0, speechChunk = 0, run = 0, voiced = 0;
 
     return new Promise((resolve) => {
       const finish = (ok) => {
@@ -32,7 +33,7 @@ export class WavRecorder {
         stream.getTracks().forEach((t) => t.stop()); // ปล่อยไมค์ เสียงพูดจะได้ออกลำโพงดังตามปกติ
         // ปิด AudioContext ของไมค์ทิ้ง ให้ไอโฟนคืนเสียงลำโพงให้ระบบพูด (สร้างใหม่ตอนแตะไมค์ครั้งหน้า)
         const rate = ctx.sampleRate; ctx.close().catch(() => {}); this.ctx = null;
-        if (!ok || !speech) return resolve(null);
+        if (!ok || !speech || voiced < minSpeechMs) return resolve(null);
         // เก็บเสียงตั้งแต่ก่อนเริ่มพูดเล็กน้อย ตัดความเงียบช่วงต้นทิ้ง
         resolve({ b64: encodeWav(chunks.slice(Math.max(0, speechChunk - 6)), rate), mime: 'audio/wav' });
       };
@@ -43,10 +44,15 @@ export class WavRecorder {
         let s = 0; for (let i = 0; i < d.length; i++) s += d[i] * d[i];
         const rms = Math.sqrt(s / d.length), now = performance.now() - t0;
         if (now < 300) { floor = Math.max(floor, rms); return; }
-        if (rms > Math.max(0.012, floor * 2.2)) {
-          if (!speech) { speech = true; speechChunk = chunks.length - 1; onSpeech?.(); }
+        let zc = 0; for (let i = 1; i < d.length; i++) if ((d[i] >= 0) !== (d[i - 1] >= 0)) zc++;
+        const zcr = zc / d.length, ms = (d.length / ctx.sampleRate) * 1000;
+        const loud = rms > Math.max(0.014, floor * 2.4) && zcr > 0.01 && zcr < 0.35; // ช่วงความถี่แบบเสียงพูด
+        if (loud) {
+          run++;
+          if (speech) voiced += ms;
+          else if (run >= 3) { speech = true; voiced = run * ms; speechChunk = chunks.length - run; onSpeech?.(); }
           lastLoud = now;
-        }
+        } else run = 0;
         if (speech && now - lastLoud > silenceMs) finish(true);
         else if (!speech && now > noSpeechMs) finish(false);
         else if (now > maxMs) finish(true);

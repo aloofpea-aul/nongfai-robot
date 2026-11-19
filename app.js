@@ -1,15 +1,15 @@
 // น้องมีไฟ — แอปหลัก: ฟังเสียงไทย → ถาม Gemini (สตรีม) → พูดตอบทีละประโยค + แสดงบนจอ
-import { Mascot } from './mascot.js?v=11190915';
-import { WavRecorder } from './recorder.js?v=11190915';
-import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary, hooks } from './tools.js?v=11190915';
-import { startPresence, stopPresence, presenceOn, someoneHere, setPresenceRate, status as camStatus } from './presence.js?v=11190915';
-import { startWatch, TOPICS, topicOn, alertLog, clearAlertLog } from './watch.js?v=11190915';
-import { SYS } from './systems.js?v=11190915';
-import { initCheckin, openCheckin } from './checkin.js?v=11190915';
-import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11190915';
+import { Mascot } from './mascot.js?v=11190930';
+import { WavRecorder } from './recorder.js?v=11190930';
+import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary, hooks } from './tools.js?v=11190930';
+import { startPresence, stopPresence, presenceOn, someoneHere, setPresenceRate, status as camStatus } from './presence.js?v=11190930';
+import { startWatch, TOPICS, topicOn, alertLog, clearAlertLog } from './watch.js?v=11190930';
+import { SYS } from './systems.js?v=11190930';
+import { initCheckin, openCheckin } from './checkin.js?v=11190930';
+import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11190930';
 
 const $ = (id) => document.getElementById(id);
-export const VERSION = '11190915';
+export const VERSION = '11190930';
 // อัปเดตตัวเอง: ถ้าบนเว็บมีเวอร์ชันใหม่กว่า ให้โหลดหน้าใหม่ทันที (กันไอโฟนจำไฟล์เก่า)
 fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json()).then((j) => {
   if (j.v && j.v !== VERSION && !sessionStorage.getItem('nf.reload.' + j.v)) {
@@ -298,6 +298,9 @@ function setAudioMode(type) { try { if (navigator.audioSession && type === 'auto
 function micOn() { listening = true; $('btnMic').classList.add('listening'); mascot.setMood('listening'); setStatus('กำลังฟังอยู่ค่ะ…', 'listening'); }
 function micOff() { listening = false; $('btnMic').classList.remove('listening'); mascot.setMood('normal'); }
 
+// คำที่มักได้จากเสียงรอบข้าง ไม่ใช่คำถามจริง
+const STRAY = /^(ค่ะ|คะ|ครับ|คับ|จ้า|อืม+|เอ่อ|อ่า|โอเค|ok|ขอบคุณ(ค่ะ|ครับ|มาก)?|ขอบคุณที่รับชม.*|สวัสดี(ค่ะ|ครับ)?|ไม่มีอะไร|ใช่|ไม่ใช่|หา|ฮะ|ห๊ะ|\[.*\])$/i;
+const isStray = (t) => { const x = String(t || '').trim().replace(/[\s.,!?ๆ]+/g, ''); return x.length < 3 || STRAY.test(x); };
 async function listenAudio(auto) {
   if (wav.active) { wav.stop(); return; }
   stopSpeaking(); abortAsk();
@@ -311,12 +314,14 @@ async function listenAudio(auto) {
   bumpIdle();
   await tapCue('ค่ะ'); // ตอบรับก่อนเริ่มฟัง และปลดล็อกเสียงพูดบนไอโฟน
   try {
-    const audio = await wav.record({ onSpeech: () => setStatus('ฟังอยู่ พูดจบแล้วรอสักครู่นะคะ', 'listening') });
+    const audio = await wav.record({ noSpeechMs: auto ? 6000 : 8000, minSpeechMs: auto ? 600 : 400, onSpeech: () => setStatus('ฟังอยู่ พูดจบแล้วรอสักครู่นะคะ', 'listening') });
     micOff();
-    if (!audio) { setStatus('ไม่ได้ยินเสียง แตะไมค์แล้วพูดใหม่นะคะ'); return; }
+    if (!audio) { setStatus(auto ? 'แตะไมค์แล้วพูดได้เลยค่ะ' : 'ไม่ได้ยินเสียง แตะไมค์แล้วพูดใหม่นะคะ'); return; }
     setStatus('กำลังแปลงเสียงเป็นข้อความ…'); mascot.setMood('thinking');
     const text = await transcribe(audio);
     mascot.setMood('normal');
+    // ไมค์ที่เปิดเอง: ถ้าได้ยินแค่เสียงรอบข้าง/คำลอยๆ ให้เงียบไว้ ไม่ตอบเอง
+    if (auto && (!text || isStray(text))) { setStatus('แตะไมค์แล้วพูดได้เลยค่ะ'); return; }
     if (!text) { setStatus('ฟังไม่ชัด แตะไมค์แล้วพูดใหม่อีกครั้งนะคะ'); speak('ขอโทษค่ะ ฟังไม่ชัด รบกวนพูดอีกครั้งนะคะ'); return; }
     if (voiceCommand(text)) return;
     confirmSend(text);
@@ -387,7 +392,7 @@ async function transcribe(audio) {
 - ภาษาไทยเป็นหลัก อาจมีคำภาษาอังกฤษ ตัวเลข หรือรหัส ให้เขียนตามที่ได้ยิน เช่น ALA06, KPI 2.11
 - ห้ามตอบคำถาม ห้ามสรุป ห้ามแก้ใจความ ห้ามเติมคำที่ไม่ได้พูด ตัดเฉพาะคำซ้ำ เอ่อ อ่า
 - ถ้าเสียงไม่ชัดให้เลือกคำที่ใกล้ที่สุดจากรายการคำศัพท์ด้านล่าง
-- ถ้าไม่มีเสียงพูดของคน ให้ตอบว่า [ไม่มีเสียง]
+- ถ้าไม่มีเสียงพูดของคน หรือเป็นเสียงคนคุยกันเองไกลๆ เสียงทีวี/วิทยุ/เพลง หรือฟังไม่ออกว่าพูดอะไร ให้ตอบว่า [ไม่มีเสียง] ห้ามเดา
 ตอบเฉพาะข้อความที่ถอดได้ บรรทัดเดียว
 คำศัพท์ที่อาจได้ยิน (ชื่อคน ฟีดเดอร์ ชื่อระบบ): ${glossaryText || 'กฟส.อ่าวลึก, เวรแก้ไฟ, ฟีดเดอร์, หม้อแปลง, Patrol'}${glossaryExtra() ? ', ' + glossaryExtra() : ''}`;
   const body = { contents: [{ role: 'user', parts: [{ inlineData: { mimeType: audio.mime, data: audio.b64 } }, { text: prompt }] }], generationConfig: { temperature: 0, maxOutputTokens: 300 } };
@@ -535,7 +540,8 @@ async function ask(question, audio, keepCue) {
   if (wantVerify) { openPin(); return; }
   onQueueEmpty = () => {
     setStatus(staffOn() ? 'โหมดเจ้าหน้าที่ · ถามต่อได้เลยค่ะ' : 'ถามต่อได้เลยค่ะ');
-    if (cfg.autoListen && document.body.classList.contains('mode-answer')) setTimeout(() => { if (!busy()) listen(); }, 400);
+    // ฟังต่อเองเฉพาะตอนมีคนยืนอยู่หน้าจอ (ถ้าเปิดกล้องไว้) ไม่งั้นรอแตะไมค์
+    if (cfg.autoListen && document.body.classList.contains('mode-answer') && (!presenceOn() || someoneHere())) setTimeout(() => { if (!busy()) (useAudioAI() ? listenAudio('follow') : listen()); }, 400);
   };
   if (!speakingNow) { const f = onQueueEmpty; onQueueEmpty = null; f(); }
 }
