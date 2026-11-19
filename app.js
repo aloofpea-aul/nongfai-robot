@@ -1,15 +1,16 @@
 // น้องมีไฟ — แอปหลัก: ฟังเสียงไทย → ถาม Gemini (สตรีม) → พูดตอบทีละประโยค + แสดงบนจอ
-import { Mascot } from './mascot.js?v=11190950';
-import { WavRecorder } from './recorder.js?v=11190950';
-import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary, hooks } from './tools.js?v=11190950';
-import { startPresence, stopPresence, presenceOn, someoneHere, setPresenceRate, status as camStatus } from './presence.js?v=11190950';
-import { startWatch, TOPICS, topicOn, alertLog, clearAlertLog } from './watch.js?v=11190950';
-import { SYS } from './systems.js?v=11190950';
-import { initCheckin, openCheckin } from './checkin.js?v=11190950';
-import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11190950';
+import { Mascot } from './mascot.js?v=11191040';
+import { WavRecorder } from './recorder.js?v=11191040';
+import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary, hooks } from './tools.js?v=11191040';
+import { startPresence, stopPresence, presenceOn, someoneHere, setPresenceRate, status as camStatus } from './presence.js?v=11191040';
+import { startWatch, TOPICS, topicOn, alertLog, clearAlertLog } from './watch.js?v=11191040';
+import { wxCard } from './wxlevel.js?v=11191040';
+import { SYS } from './systems.js?v=11191040';
+import { initCheckin, openCheckin } from './checkin.js?v=11191040';
+import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11191040';
 
 const $ = (id) => document.getElementById(id);
-export const VERSION = '11190950';
+export const VERSION = '11191040';
 // อัปเดตตัวเอง: ถ้าบนเว็บมีเวอร์ชันใหม่กว่า ให้โหลดหน้าใหม่ทันที (กันไอโฟนจำไฟล์เก่า)
 fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json()).then((j) => {
   if (j.v && j.v !== VERSION && !sessionStorage.getItem('nf.reload.' + j.v)) {
@@ -70,7 +71,8 @@ function showResults(d) {
   const head = el('div', 'rs-head'); head.append(el('span', null, 'ข้อมูลจาก ' + (d.source || '')));
   if (d.app) { const a = el('a', null, 'เปิดแอป'); a.href = d.app; a.onclick = (e) => { if (openApp(d.app, d.source)) e.preventDefault(); }; head.append(a); }
   box.append(head);
-  if ((d.stats || []).length) { const g = el('div', 'rs-stats'); d.stats.forEach((s) => { const c = el('div', 'st' + (s.t ? ' ' + s.t : '')); c.append(el('b', null, s.v == null ? '-' : String(s.v)), el('span', null, s.l)); g.append(c); }); box.append(g); }
+  if (d.wx) box.append(wxCard(d.wx));
+  if ((d.stats || []).length && !d.wx) { const g = el('div', 'rs-stats'); d.stats.forEach((s) => { const c = el('div', 'st' + (s.t ? ' ' + s.t : '')); c.append(el('b', null, s.v == null ? '-' : String(s.v)), el('span', null, s.l)); g.append(c); }); box.append(g); }
   const items = d.items || [], list = el('div', 'rs');
   const renderItems = (n) => { list.replaceChildren(...items.slice(0, n).map((it) => itemRow(it, d))); };
   if ((d.chips || []).length) { const cw = el('div', 'rs-chips'); cw.append(el('span', null, 'เกี่ยวข้อง:')); d.chips.forEach((c) => { const b = el('button', null, c.t); b.type = 'button'; b.onclick = () => { stopSpeaking(); tapCue('ได้เลยค่ะ'); ask(c.q, null, true); }; cw.append(b); }); box.append(cw); }

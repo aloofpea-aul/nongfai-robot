@@ -303,3 +303,42 @@ a.tel{color:var(--purple);font-weight:600;text-decoration:underline}
 .al-text,.al-sub{white-space:pre-wrap;overflow-wrap:anywhere}
 .al-scroll.more{mask-image:linear-gradient(#000 80%,transparent);-webkit-mask-image:linear-gradient(#000 80%,transparent)}
 .al-btns{flex:none;margin-top:8px}
+
+/* สภาพอากาศระดับ 1–6 (ภาพเคลื่อนไหว) */
+.wxlv{display:grid;grid-template-columns:minmax(120px,190px) 1fr;gap:6px 14px;align-items:center;background:#fff;border:2px solid var(--wx);border-radius:18px;padding:10px 14px;margin:4px 0 10px}
+.wxlv svg{width:100%;height:auto;grid-row:span 2;overflow:hidden}
+.wxlv-info{display:flex;gap:12px;align-items:center}
+.wxlv-num{font-size:64px;font-weight:700;line-height:1;color:var(--wx);font-family:Prompt,sans-serif}
+.wxlv-num small{font-size:20px;color:#999;font-weight:500}
+.wxlv-txt{display:flex;flex-direction:column;gap:2px}
+.wxlv-txt b{font-size:21px;color:var(--wx)}
+.wxlv-txt span{font-size:16px;color:#444}
+.wxlv-txt em{font-style:normal;font-size:14px;color:#777}
+.wxlv-txt em.warn{color:#a32d2d}
+.wxlv-bar{display:flex;gap:4px}
+.wxlv-bar i{flex:1;height:22px;border-radius:6px;background:#eee;display:flex;align-items:center;justify-content:center;font-style:normal;font-size:12px;color:#999}
+.wxlv-bar i.f{color:#fff}
+.wxlv-bar i.f:last-of-type,.wxlv-bar i.f:has(+ i:not(.f)){animation:wxPulse 1.6s ease-in-out infinite}
+.wx-sun circle{fill:#F5B942}.wx-sun line{stroke:#F5B942;stroke-width:5;stroke-linecap:round}
+.wx-sun{animation:wxSpin 14s linear infinite;transform-box:fill-box;transform-origin:center}
+.wx-cloud{fill:#C9D3DE}.wx-cloud.rain{fill:#9AA9BA}.wx-cloud.storm{fill:#5E6675}
+.wx-cloud.drift{animation:wxDrift 6s ease-in-out infinite alternate}.wx-cloud.drift.fast{animation-duration:2.2s}
+.wx-haze line{stroke:#9fd3d1;stroke-width:4;stroke-linecap:round;animation:wxHaze 3s ease-in-out infinite alternate}
+.wx-drop{stroke:#2A7DE1;stroke-width:3;stroke-linecap:round;animation:wxDrop .9s linear infinite}
+.wx-rain.slant .wx-drop{animation-duration:.6s}
+.wx-wind{fill:none;stroke:#D9952B;stroke-width:3.5;stroke-linecap:round;stroke-dasharray:60 200;animation:wxWind 1.8s linear infinite}
+.wx-tree line{stroke:#7a5230;stroke-width:5}.wx-tree circle{fill:#3c9a3c}
+.wx-tree{animation:wxSway 1.2s ease-in-out infinite alternate;transform-box:fill-box;transform-origin:50% 100%}
+.wx-bolt{fill:#F5D142;stroke:#c98a00;stroke-width:1.5;animation:wxBolt 2.4s steps(1) infinite}
+.wx-flash{fill:#fff;opacity:0;animation:wxFlash 2.4s infinite;pointer-events:none}
+@keyframes wxSpin{to{transform:rotate(360deg)}}
+@keyframes wxDrift{from{transform:translateX(-8px)}to{transform:translateX(8px)}}
+@keyframes wxHaze{from{opacity:.3}to{opacity:.9}}
+@keyframes wxDrop{from{transform:translateY(-14px);opacity:0}20%{opacity:1}to{transform:translateY(34px);opacity:0}}
+@keyframes wxWind{from{stroke-dashoffset:260}to{stroke-dashoffset:0}}
+@keyframes wxSway{from{transform:rotate(-9deg)}to{transform:rotate(9deg)}}
+@keyframes wxBolt{0%,60%{opacity:0}62%,70%{opacity:1}72%,76%{opacity:0}78%,86%{opacity:1}88%{opacity:0}}
+@keyframes wxFlash{0%,60%{opacity:0}62%{opacity:.55}66%{opacity:0}78%{opacity:.35}82%,100%{opacity:0}}
+@keyframes wxPulse{50%{filter:brightness(1.25);transform:scaleY(1.15)}}
+@media (max-width:620px){.wxlv{grid-template-columns:110px 1fr}.wxlv-num{font-size:48px}.wxlv-txt b{font-size:18px}}
+@media (prefers-reduced-motion:reduce){.wxlv *{animation:none!important}}
