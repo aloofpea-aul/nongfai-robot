@@ -1,18 +1,18 @@
 // น้องมีไฟ — แอปหลัก: ฟังเสียงไทย → ถาม Gemini (สตรีม) → พูดตอบทีละประโยค + แสดงบนจอ
-import { Mascot } from './mascot.js?v=11192240';
-import { WavRecorder } from './recorder.js?v=11192240';
-import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary, hooks } from './tools.js?v=11192240';
-import { startPresence, stopPresence, presenceOn, someoneHere, setPresenceRate, status as camStatus } from './presence.js?v=11192240';
-import { startWatch, TOPICS, topicOn, alertLog, clearAlertLog } from './watch.js?v=11192240';
-import { kpiCard } from './kpicard.js?v=11192240';
-import { wxCard, tmdCard } from './wxlevel.js?v=11192240';
-import { loadFaces } from './faces.js?v=11192240';
-import { SYS } from './systems.js?v=11192240';
-import { initCheckin, openCheckin } from './checkin.js?v=11192240';
-import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11192240';
+import { Mascot } from './mascot.js?v=11192355';
+import { WavRecorder } from './recorder.js?v=11192355';
+import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary, hooks } from './tools.js?v=11192355';
+import { startPresence, stopPresence, presenceOn, someoneHere, setPresenceRate, status as camStatus } from './presence.js?v=11192355';
+import { startWatch, TOPICS, topicOn, alertLog, clearAlertLog } from './watch.js?v=11192355';
+import { kpiCard } from './kpicard.js?v=11192355';
+import { wxCard, tmdCard } from './wxlevel.js?v=11192355';
+import { loadFaces } from './faces.js?v=11192355';
+import { SYS } from './systems.js?v=11192355';
+import { initCheckin, openCheckin } from './checkin.js?v=11192355';
+import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11192355';
 
 const $ = (id) => document.getElementById(id);
-export const VERSION = '11192240';
+export const VERSION = '11192355';
 // อัปเดตตัวเอง: ถ้าบนเว็บมีเวอร์ชันใหม่กว่า ให้โหลดหน้าใหม่ทันที (กันไอโฟนจำไฟล์เก่า)
 fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json()).then((j) => {
   if (j.v && j.v !== VERSION && !sessionStorage.getItem('nf.reload.' + j.v)) {

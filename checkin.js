@@ -1,4 +1,4 @@
-import { loadFaces, faceOf, faceCount } from './faces.js?v=11192240';
+import { loadFaces, faceOf, faceCount } from './faces.js?v=11192355';
 // ลงเวลาทำงานที่น้องมีไฟด้วยการสแกนใบหน้า — บันทึกเข้าระบบลงเวลาเดิม (pea-checkin) ตัวเดียวกับใน LINE
 // ใบหน้า: ประมวลผลในเครื่อง เก็บแค่ตัวเลขจดจำหน้า (ไม่เก็บรูป) ที่ "น้องไฟเรียนรู้" · ใช้เฉพาะลงเวลา · ลงทะเบียนเมื่อเจ้าตัวยินยอม
 const CHECKIN_API = 'https://script.google.com/macros/s/AKfycbxY0vjjr3MAl6e_OSTTbubrK-cVTrsx3o38xQGLJkJMro8rS8H-LaWl2J3oeE_I31FR/exec';
@@ -174,11 +174,39 @@ async function snapPhoto(e) {
 }
 
 // ---------- ยืนยัน แล้วบันทึกเข้าระบบลงเวลาเดิม ----------
-function confirmPerson(e, selfie, how) {
+// กันกดผิด: สแกนซ้ำหลังลงเวลาเข้าไม่ถึง 2 ชม. / เลยเที่ยงแล้วยังไม่มีเวลาเข้า (ยกเว้นพนักงานกะ B1)
+const RECENT_MIN = 120, NOON = 12;
+const toMin = (t) => { const m = String(t || '').match(/(\d{1,2})[:.](\d{2})/); return m ? +m[1] * 60 + +m[2] : null; };
+const nowMin = () => { const d = bkk(); return d.getUTCHours() * 60 + d.getUTCMinutes(); };
+function confirmPerson(e, selfie, how, force) {
   const st = statusOf(e), action = !st.in ? 'checkin' : !st.out ? 'checkout' : null;
   const head = el('div', 'ck-person');
   head.append(photos(e, selfie));
   head.append(el('div', 'ck-name', e.name), el('div', 'ck-sub', [e.pos, st.in ? 'เข้า ' + st.in : '', st.out ? 'ออก ' + st.out : ''].filter(Boolean).join(' · ')));
+  if (!force && action === 'checkout' && !isB1(e)) {
+    const since = nowMin() - toMin(st.in);
+    if (toMin(st.in) != null && since >= 0 && since < RECENT_MIN) {
+      const row = el('div', 'ck-row');
+      row.append(btn('เสร็จ', '', closeCheckin), btn('ลงเวลาออกงานจริง', 'ghost', () => {
+        const ok = btn('ยืนยันออกงาน ' + hhmm() + ' น.', 'big', () => submit(e, 'checkout', selfie, how, null));
+        screen('ยืนยันออกงาน', head, el('div', 'ck-q', 'พี่' + nick(e.name) + ' จะลงเวลาออกงานตอนนี้ใช่ไหมคะ'), el('div', 'ck-sub', 'เพิ่งลงเวลาเข้าเมื่อ ' + st.in + ' น.'), ok, btn('ยกเลิก', 'ghost', closeCheckin));
+        X.speak('ยืนยันลงเวลาออกงานตอนนี้ใช่ไหมคะ');
+      }));
+      screen('ลงเวลาทำงาน', head, el('div', 'ck-done', 'ลงเวลาเข้าไปแล้วตอน ' + st.in + ' น. ค่ะ'), row);
+      X.speak('พี่' + nick(e.name) + ' ลงเวลาเข้าไปแล้วตอน ' + sayTime(st.in) + ' ค่ะ');
+      return;
+    }
+  }
+  if (!force && action === 'checkin' && !isB1(e) && bkk().getUTCHours() >= NOON) {
+    const t = hhmm();
+    screen('ลงเวลาทำงาน', head, el('div', 'ck-warn', '⚠️ วันนี้ยังไม่มีเวลาเข้างาน จะลงเวลาอะไรคะ'),
+      btn('🚪 ลงเวลาออกงาน ' + t + ' น.', 'big', () => submit(e, 'checkout', selfie, how, null)),
+      btn('✅ ลงเวลาเข้างาน ' + t + ' น.', 'big2', () => confirmPerson(e, selfie, how, true)),
+      el('div', 'ck-sub', 'ถ้าลืมลงเวลาเข้าตอนเช้า ให้แจ้งแก้ในระบบลงเวลาตามขั้นตอนเดิม'),
+      btn('ไม่ใช่ฉัน', 'ghost', () => pickName('เลือกชื่อเอง สแกนหน้าจำผิด')));
+    X.speak('พี่' + nick(e.name) + ' วันนี้ยังไม่มีเวลาเข้างาน จะลงเวลาออกงาน หรือเข้างานคะ');
+    return;
+  }
   if (!action) { screen('ลงเวลาทำงาน', head, el('div', 'ck-done', 'วันนี้ลงเวลาเข้าและออกครบแล้วค่ะ'), btn('เสร็จ', '', closeCheckin)); X.speak('พี่' + nick(e.name) + ' วันนี้ลงเวลาครบแล้วค่ะ'); return; }
   const label = action === 'checkin' ? 'ลงเวลาเข้างาน' : 'ลงเวลาออกงาน';
   const nodes = [head, el('div', 'ck-q', 'พี่' + nick(e.name) + ' ใช่ไหมคะ')];

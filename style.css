@@ -410,3 +410,6 @@ a.tel{color:var(--purple);font-weight:600;text-decoration:underline}
 @media (prefers-reduced-motion:reduce){.kpic-arc,.kpic-line{animation:none;stroke-dashoffset:var(--to,0)}}
 
 .kpic-open{display:block;width:100%;margin:8px 0 4px;padding:14px;border:0;border-radius:14px;background:#7a4fd0;color:#fff;font:600 16px inherit;font-family:inherit;cursor:pointer}
+
+.ck-warn{margin:12px 0;padding:12px;border-radius:12px;background:#fff4dc;color:#7a4a00;font-size:18px;text-align:center}
+.ck-btn.big2{font-size:20px;min-height:60px}
