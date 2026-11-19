@@ -15,7 +15,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600&family=Sarabun:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=11191130">
+<link rel="stylesheet" href="style.css?v=11191150">
 <script type="importmap">
 { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js" } }
 </script>
@@ -47,14 +47,16 @@
   <section class="right">
     <div id="alerts" class="alerts" hidden>
       <div id="alertCard" class="alertcard" hidden>
+        <div id="alTop" class="al-top" hidden><span id="alCount" class="al-cnt"></span><span id="alLeft" class="al-left"></span><button id="alAll" type="button" class="al-all">รับทราบทั้งหมด</button></div>
         <div class="al-head"><span id="alIcon" class="al-icon" aria-hidden="true"></span><b id="alTitle"></b><span id="alTime" class="al-time"></span></div>
         <div class="al-scroll">
           <div id="alText" class="al-text"></div>
           <div id="alSub" class="al-sub"></div>
           <div id="alEnts" class="al-ents" hidden></div>
         </div>
-        <div class="al-btns"><button id="alOpen" class="fbtn ok" hidden>เปิดแอป</button><button id="alMore" class="fbtn">สรุปให้ฟัง</button><button id="alAck" class="fbtn">รับทราบ</button></div>
+        <div class="al-btns"><button id="alOpen" class="fbtn" hidden>เปิดแอป</button><button id="alMore" class="fbtn">สรุปให้ฟัง</button><button id="alAck" class="fbtn ok">รับทราบ</button></div>
       </div>
+      <div id="alNext" class="al-next" hidden></div>
       <div id="alHist" class="alhist" hidden>
         <div class="al-hh"><span>อัปเดตก่อนหน้า</span><button id="alClose" class="fbtn">ปิด</button></div>
         <ul id="alList"></ul>
@@ -265,6 +267,6 @@
 
 <div id="toast" class="toast" hidden></div>
 
-<script type="module" src="app.js?v=11191130"></script>
+<script type="module" src="app.js?v=11191150"></script>
 </body>
 </html>

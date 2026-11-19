@@ -361,3 +361,14 @@ a.tel{color:var(--purple);font-weight:600;text-decoration:underline}
 .wxlv{position:relative}
 .wxlv-share{position:absolute;top:8px;right:8px;border:0;border-radius:999px;background:#06C755;color:#fff;font-family:Prompt,sans-serif;font-size:13px;padding:4px 12px;min-height:30px}
 .wxlv-txt b{padding-right:76px}
+
+/* คิวแจ้งเตือน: ทีละใบ มีตัวนับ การ์ดซ้อนด้านหลัง และรับทราบทั้งหมด */
+.al-top{display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:14px;color:#666;flex:none}
+.al-cnt{background:#efe6fb;color:var(--purple-dk);border-radius:999px;padding:2px 12px;font-weight:600}
+.al-all{margin-left:auto;border:1.5px solid var(--purple);background:#fff;color:var(--purple-dk);border-radius:999px;padding:4px 14px;min-height:36px;font-family:Prompt,sans-serif;font-size:15px}
+.alertcard.stacked{box-shadow:0 7px 0 -3px #fff,0 7px 0 -1px #ddd2ec,0 14px 0 -6px #fff,0 14px 0 -4px #e6ddf2;margin-bottom:14px}
+.alertcard.next{animation:alnext .3s ease-out}
+@keyframes alnext{from{transform:translateX(24px);opacity:0}to{transform:none;opacity:1}}
+.al-next{display:flex;flex-wrap:wrap;gap:6px;font-size:14px;color:#777;align-items:center}
+.al-next span{background:#fff;border:1px solid #e3dcef;border-radius:999px;padding:3px 10px}
+.al-next span:first-child{border:0;background:none;padding:0}

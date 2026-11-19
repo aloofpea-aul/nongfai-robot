@@ -1,16 +1,16 @@
 // น้องมีไฟ — แอปหลัก: ฟังเสียงไทย → ถาม Gemini (สตรีม) → พูดตอบทีละประโยค + แสดงบนจอ
-import { Mascot } from './mascot.js?v=11191130';
-import { WavRecorder } from './recorder.js?v=11191130';
-import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary, hooks } from './tools.js?v=11191130';
-import { startPresence, stopPresence, presenceOn, someoneHere, setPresenceRate, status as camStatus } from './presence.js?v=11191130';
-import { startWatch, TOPICS, topicOn, alertLog, clearAlertLog } from './watch.js?v=11191130';
-import { wxCard, tmdCard } from './wxlevel.js?v=11191130';
-import { SYS } from './systems.js?v=11191130';
-import { initCheckin, openCheckin } from './checkin.js?v=11191130';
-import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11191130';
+import { Mascot } from './mascot.js?v=11191150';
+import { WavRecorder } from './recorder.js?v=11191150';
+import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary, hooks } from './tools.js?v=11191150';
+import { startPresence, stopPresence, presenceOn, someoneHere, setPresenceRate, status as camStatus } from './presence.js?v=11191150';
+import { startWatch, TOPICS, topicOn, alertLog, clearAlertLog } from './watch.js?v=11191150';
+import { wxCard, tmdCard } from './wxlevel.js?v=11191150';
+import { SYS } from './systems.js?v=11191150';
+import { initCheckin, openCheckin } from './checkin.js?v=11191150';
+import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11191150';
 
 const $ = (id) => document.getElementById(id);
-export const VERSION = '11191130';
+export const VERSION = '11191150';
 // อัปเดตตัวเอง: ถ้าบนเว็บมีเวอร์ชันใหม่กว่า ให้โหลดหน้าใหม่ทันที (กันไอโฟนจำไฟล์เก่า)
 fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json()).then((j) => {
   if (j.v && j.v !== VERSION && !sessionStorage.getItem('nf.reload.' + j.v)) {
@@ -632,7 +632,7 @@ $('fbFixForm').onsubmit = (e) => {
 
 
 // ---------- แจ้งเตือนอัปเดตจากศูนย์รวมงาน ----------
-let alertNow = null, alertUnseen = 0, sayLater = [];
+let alertNow = null, alertUnseen = 0, sayLater = [], alertQ = [];
 function quietNow() {
   if (!cfg.quietOn) return false;
   const n = bkkNow(), m = n.getUTCHours() * 60 + n.getUTCMinutes();
@@ -645,33 +645,59 @@ const TOPIC_APP = { notices: '/duty-roster/', tickets: '/duty-roster/', tmd: '/t
 const TOPIC_ICON = { notices: '📢', tickets: '☎️', tmd: '⛈️', test: '🔔', ...Object.fromEntries(Object.values(SYS).map((x) => [x.k, x.icon])) };
 const TOPIC_COLOR = Object.fromEntries(Object.values(SYS).map((x) => [x.k, x.color]));
 const alApp = (a) => a.app || TOPIC_APP[a.topic] || '';
-function showAlert(a) {
+function showAlert(a, isNext) {
   alertNow = a;
+  const card = $('alertCard');
+  card.classList.remove('next'); if (isNext) { void card.offsetWidth; card.classList.add('next'); }
   $('alIcon').textContent = a.icon || TOPIC_ICON[a.topic] || '🔔';
   $('alertCard').style.setProperty('--al-c', a.color || TOPIC_COLOR[a.topic] || '#e24b4a');
   $('alTitle').textContent = a.title; $('alTime').textContent = a.time || '';
   $('alText').textContent = a.text || ''; $('alSub').textContent = a.sub || '';
   const ents = a.ents || [];
   $('alEnts').hidden = !ents.length;
-  $('alEnts').replaceChildren(...(ents.length ? [el('span', null, 'เกี่ยวข้อง:'), ...ents.map((x) => { const b = el('button', null, x); b.type = 'button'; b.onclick = () => { $('alAck').onclick(); stopSpeaking(); tapCue('ได้เลยค่ะ'); ask(x + ' มีความเคลื่อนไหวอะไรบ้างในทุกระบบ', null, true); }; return b; })] : []));
+  $('alEnts').replaceChildren(...(ents.length ? [el('span', null, 'เกี่ยวข้อง:'), ...ents.map((x) => { const b = el('button', null, x); b.type = 'button'; b.onclick = () => { ackAlert(false); stopSpeaking(); tapCue('ได้เลยค่ะ'); ask(x + ' มีความเคลื่อนไหวอะไรบ้างในทุกระบบ', null, true); }; return b; })] : []));
   $('alOpen').hidden = !alApp(a) || !OPS();
   $('alMore').hidden = !a.q;
   $('alertCard').hidden = false; $('alerts').hidden = false;
+  renderQueue();
   const sc = $('alertCard').querySelector('.al-scroll'); sc.scrollTop = 0;
   const fade = () => sc.classList.toggle('more', sc.scrollHeight - sc.scrollTop - sc.clientHeight > 8);
   sc.onscroll = fade; requestAnimationFrame(fade);
 }
-$('alOpen').onclick = () => { const a = alertNow; if (!a) return; const app = alApp(a); $('alAck').onclick(); openApp(app, (a.icon || TOPIC_ICON[a.topic] || '') + ' ' + (a.sys || a.title.split(' · ')[0])); };
+// ตัวนับ "1 จาก N" · การ์ดซ้อนด้านหลัง · รายการถัดไป
+function renderQueue() {
+  const n = alertQ.length;
+  $('alTop').hidden = n < 2;
+  $('alCount').textContent = '1 จาก ' + n; $('alLeft').textContent = 'อีก ' + (n - 1) + ' เรื่องรออยู่';
+  $('alertCard').classList.toggle('stacked', n > 1);
+  $('alAck').textContent = n > 1 ? 'รับทราบ · ถัดไป' : 'รับทราบ';
+  const nx = alertQ.slice(1, 4);
+  $('alNext').hidden = !nx.length;
+  $('alNext').replaceChildren(...(nx.length ? [el('span', null, 'ถัดไป:'), ...nx.map((a) => el('span', null, (a.icon || TOPIC_ICON[a.topic] || '🔔') + ' ' + a.title)), ...(n > 4 ? [el('span', null, '+' + (n - 4))] : [])] : []));
+}
+const sayOk = (a) => cfg.alertVoice && !quietNow() && (OPS() || a.topic === 'notices' || a.topic === 'test');
+// รับทราบใบนี้ → ใบถัดไปขึ้นมา (อ่านให้ฟังถ้า speak) · ใบสุดท้ายกล่องหายไป
+function ackAlert(speakNext) {
+  alertQ.shift();
+  alertUnseen = Math.max(0, alertUnseen - 1); setBell();
+  if (alertQ.length) { const a = alertQ[0]; showAlert(a, true); if (speakNext && a.say && sayOk(a)) { stopSpeaking(); speak(a.say); } return; }
+  alertNow = null; $('alertCard').hidden = true; $('alNext').hidden = true; alertUnseen = 0; setBell();
+  if ($('alHist').hidden) $('alerts').hidden = true;
+}
+$('alAll').onclick = () => { alertQ = [alertQ[0]]; stopSpeaking(); ackAlert(false); };
+$('alOpen').onclick = () => { const a = alertNow; if (!a) return; const app = alApp(a); ackAlert(false); openApp(app, (a.icon || TOPIC_ICON[a.topic] || '') + ' ' + (a.sys || a.title.split(' · ')[0])); };
 function setBell() { $('bellCount').textContent = alertUnseen > 9 ? '9+' : alertUnseen; $('bellCount').hidden = !alertUnseen; }
 function onAlerts(list) {
   if (!OPS()) { list = list.filter((a) => a.topic === 'notices' || a.topic === 'test'); if (!list.length) return; } // โหมดลูกค้า: ไม่แสดงข้อมูลภายในบนจอ
   wakeUp();
-  showAlert(list[0]);
+  const wasOpen = !$('alertCard').hidden && alertQ.length;
+  alertQ.push(...list);
+  if (wasOpen) renderQueue(); else showAlert(alertQ[0]); // เรื่องใหม่ต่อท้ายคิว ไม่แทรกใบที่กำลังดู
   alertUnseen += list.length; setBell();
   mascot.pulse();
   const publicOnly = list.every((a) => a.topic === 'notices' || a.topic === 'test'); // ประกาศงดจ่ายไฟเป็นข้อมูลสาธารณะ พูดในโหมดลูกค้าได้
   if (!cfg.alertVoice || quietNow() || (!OPS() && !publicOnly)) return; // โหมดลูกค้า: ไม่พูดข้อมูลภายในออกเสียง
-  sayLater.push(list.length > 1 ? 'มีอัปเดตจากศูนย์รวมงาน ' + list.length + ' เรื่องค่ะ ' + list[0].say : list[0].say);
+  sayLater.push(wasOpen ? 'มีเรื่องใหม่เข้ามาอีก ' + list.length + ' เรื่องค่ะ' : alertQ.length > 1 ? 'มีอัปเดตจากศูนย์รวมงาน ' + alertQ.length + ' เรื่องค่ะ ' + alertQ[0].say : alertQ[0].say);
   flushSay();
 }
 function flushSay() {
@@ -680,8 +706,8 @@ function flushSay() {
   t.replace(/ค่ะ\s+/g, 'ค่ะ\n').split('\n').forEach(speak);
 }
 setInterval(flushSay, 2000);
-$('alAck').onclick = () => { $('alertCard').hidden = true; alertUnseen = 0; setBell(); if ($('alHist').hidden) $('alerts').hidden = true; };
-$('alMore').onclick = () => { const q = alertNow && alertNow.q; if (!q) { $('alAck').onclick(); return; } $('alAck').onclick(); if (q) { stopSpeaking(); tapCue('ได้เลยค่ะ'); ask(q, null, true); } };
+$('alAck').onclick = () => ackAlert(true);
+$('alMore').onclick = () => { const q = alertNow && alertNow.q; ackAlert(false); if (q) { stopSpeaking(); tapCue('ได้เลยค่ะ'); ask(q, null, true); } };
 $('btnBell').onclick = () => {
   const h = $('alHist');
   if (!h.hidden) { h.hidden = true; if ($('alertCard').hidden) $('alerts').hidden = true; return; }
