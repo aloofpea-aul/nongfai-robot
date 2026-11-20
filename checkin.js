@@ -1,4 +1,4 @@
-import { loadFaces, faceOf, faceCount, callName, isPapa } from './faces.js?v=11201200';
+import { loadFaces, faceOf, faceCount, callName, isPapa } from './faces.js?v=11201730';
 // ลงเวลาทำงานที่น้องมีไฟด้วยการสแกนใบหน้า — บันทึกเข้าระบบลงเวลาเดิม (pea-checkin) ตัวเดียวกับใน LINE
 // ใบหน้า: ประมวลผลในเครื่อง เก็บแค่ตัวเลขจดจำหน้า (ไม่เก็บรูป) ที่ "น้องไฟเรียนรู้" · ใช้เฉพาะลงเวลา · ลงทะเบียนเมื่อเจ้าตัวยินยอม
 const CHECKIN_API = 'https://script.google.com/macros/s/AKfycbxY0vjjr3MAl6e_OSTTbubrK-cVTrsx3o38xQGLJkJMro8rS8H-LaWl2J3oeE_I31FR/exec';
@@ -64,11 +64,13 @@ export function closeCheckin() { if ($('ckDlg').open) $('ckDlg').close(); }
 async function loadData() {
   const [e, d, f] = await Promise.all([
     loadFaces().then(() => ckGet({ action: 'getEmployeeFull' })).catch(() => []),
-    ckGet({ action: 'getTodayDashboard' }).catch(() => ({})),
+    // getTodayDashboard มีแค่ลูกจ้าง · getAttendanceByDate มีครบทุกคน (พนักงาน+ลูกจ้าง) → ใช้ทั้งสองอย่าง
+    Promise.all([ckGet({ action: 'getTodayDashboard' }), ckGet({ action: 'getAttendanceByDate', dateStr: bkk().toISOString().slice(0, 10) })])
+      .then(([a, b]) => ({ records: [...(a && a.records || []), ...(Array.isArray(b) ? b : [])] })).catch(() => ({})),
     learnPost({ action: 'faces' }).then((j) => j.faces || []).catch((err) => { X.toast(String(err.message || err)); return []; }),
   ]);
   emps = (Array.isArray(e) ? e : []).map((x) => ({ id: String(x.id), name: nm(x.name), pos: x.position || '', pic: faceOf(x.name) || x.picUrl || '', dbPic: !!faceOf(x.name) }));
-  today = {}; (d.records || []).forEach((r) => { today[nm(r.name)] = { in: r.checkIn || '', out: r.checkOut || '' }; });
+  today = {}; (d.records || []).forEach((r) => { const k = nm(r.name), o = today[k] || { in: '', out: '' }; today[k] = { in: o.in || r.checkIn || '', out: o.out || r.checkOut || '' }; });
   faces = f.map((x) => ({ id: String(x.id), name: x.name, d: x.d.map((v) => new Float32Array(v)) }));
 }
 const empOf = (id) => emps.find((e) => e.id === id);

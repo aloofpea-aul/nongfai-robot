@@ -1,7 +1,7 @@
-import { faceOf, loadFaces } from './faces.js?v=11201200';
-import { findEvents } from './events.js?v=11201200';
-import { describe, sysInfo, SYS } from './systems.js?v=11201200';
-import { loadNotices, ntState, ntArea, ntWhen, ntHm, ntDate } from './notices.js?v=11201200';
+import { faceOf, loadFaces } from './faces.js?v=11201730';
+import { findEvents } from './events.js?v=11201730';
+import { describe, sysInfo, SYS } from './systems.js?v=11201730';
+import { loadNotices, ntState, ntArea, ntWhen, ntHm, ntDate } from './notices.js?v=11201730';
 // เครื่องมือให้น้องมีไฟดึงข้อมูลจากศูนย์รวมงาน กฟส.อ่าวลึก (Gemini function calling)
 // public = ใครถามก็ตอบได้ · internal = ต้องยืนยันตัวตนพนักงานก่อน (PIN)
 
@@ -400,9 +400,8 @@ async function checkinToday({ keyword, period, date, month }) {
         items: rows.map((x) => ({ title: x.ชื่อ, sub: 'ทำงาน ' + x.วันทำงาน + ' วัน · เฉลี่ย ' + x.เวลาเฉลี่ย + (x.นอกพื้นที่ ? ' · นอกพื้นที่ ' + x.นอกพื้นที่ : ''), badge: x.สาย ? 'สาย ' + x.สาย : '', tone: x.สาย ? 'amber' : '' })) });
   }
   const d = period === 'date' && date ? date : bkkToday();
-  const recRaw = d === bkkToday()
-    ? ((await cached('checkin', 120e3, () => getJSON(CHECKIN_API + '?action=getTodayDashboard'))).records || [])
-    : await cached('ckDay' + d, 300e3, () => getJSON(CHECKIN_API + '?action=getAttendanceByDate&dateStr=' + d)).then((x) => (Array.isArray(x) ? x : []));
+  // getTodayDashboard มีแค่ลูกจ้าง → ใช้บันทึกรายวัน (ครบทั้งพนักงานและลูกจ้าง) ทุกวัน รวมวันนี้
+  const recRaw = await cached('ckDay' + d, d === bkkToday() ? 120e3 : 300e3, () => getJSON(CHECKIN_API + '?action=getAttendanceByDate&dateStr=' + d)).then((x) => (Array.isArray(x) ? x : []));
   let emps = []; try { await loadFaces(); emps = await employees(); } catch {}
   const posOf = Object.fromEntries(emps.map((e) => [e.name, e.pos])), picOf = Object.fromEntries(emps.map((e) => [e.name, faceOf(e.name) || e.pic]));
   const recs = recRaw.map((r) => { const n = nm(r.name), st = startOf(posOf[n]), mi = hm2min(r.checkIn); return { ชื่อ: n, ตำแหน่ง: posOf[n] || '', เข้างาน: r.checkIn || '', ออกงาน: r.checkOut || '', พื้นที่: r.area || '', หมายเหตุ: r.note || '', สาย: st != null && mi != null && mi > st ? mi - st : 0, pic: faceOf(n) || picOf[n] || r.picUrl }; });
@@ -493,7 +492,7 @@ async function drawingsBom({ keyword }) {
 // ---------- 20b) ค้นแบบมาตรฐาน กฟภ. พร้อมภาพ 2D / 3D (ดึงจากคลังแบบในศูนย์รวมงาน ไม่สร้างใหม่) ----------
 async function dwgCatalog() {
   // ดัชนีชื่อแบบ (สร้างจากคลังแบบ pea-drawings ด้วย scripts/build-dwg-index.py) — ภาพ/โมเดลเปิดจากหน้าแบบในคลังโดยตรง
-  return cached('dwgcat', 24 * 3600e3, async () => (await fetch('./dwg-index.json?v=11201200')).json());
+  return cached('dwgcat', 24 * 3600e3, async () => (await fetch('./dwg-index.json?v=11201730')).json());
 }
 const DWG_SYN = [[/สามเฟส|3เฟส/g, '3 เฟส'], [/หนึ่งเฟส|เฟสเดียว|1เฟส/g, '1 เฟส'], [/เสาคู่|สองเสา/g, 'นั่งร้าน'], [/(\d+)\s*เควี|(\d+)\s*kv/gi, '$1$2 kV'], [/ลูกถ้วย|ลูกถ้วยไฟ/g, 'ลูกถ้วย'], [/แรงต่ำ/g, 'แรงต่ำ']];
 const dwgNorm = (t) => { t = String(t || '').toLowerCase(); DWG_SYN.forEach(([a, b]) => { t = t.replace(a, b); }); return t; };
