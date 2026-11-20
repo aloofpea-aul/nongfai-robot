@@ -1,7 +1,7 @@
-import { faceOf, loadFaces } from './faces.js?v=11201730';
-import { findEvents } from './events.js?v=11201730';
-import { describe, sysInfo, SYS } from './systems.js?v=11201730';
-import { loadNotices, ntState, ntArea, ntWhen, ntHm, ntDate } from './notices.js?v=11201730';
+import { faceOf, loadFaces } from './faces.js?v=11201735';
+import { findEvents } from './events.js?v=11201735';
+import { describe, sysInfo, SYS } from './systems.js?v=11201735';
+import { loadNotices, ntState, ntArea, ntWhen, ntHm, ntDate } from './notices.js?v=11201735';
 // เครื่องมือให้น้องมีไฟดึงข้อมูลจากศูนย์รวมงาน กฟส.อ่าวลึก (Gemini function calling)
 // public = ใครถามก็ตอบได้ · internal = ต้องยืนยันตัวตนพนักงานก่อน (PIN)
 
@@ -379,7 +379,8 @@ async function kpiRegion2({ keyword, scope }) {
 const CHECKIN_API = 'https://script.google.com/macros/s/AKfycbxY0vjjr3MAl6e_OSTTbubrK-cVTrsx3o38xQGLJkJMro8rS8H-LaWl2J3oeE_I31FR/exec';
 const nm = (x) => String(x || '').replace(/\s+/g, ' ').trim();
 const hm2min = (t) => { const m = String(t || '').match(/(\d{1,2})[:.](\d{2})/); return m ? +m[1] * 60 + +m[2] : null; };
-const startOf = (pos) => (/แม่บ้าน/.test(pos || '') ? 7 * 60 : /B1/i.test(pos || '') ? null : 8 * 60); // B1 เข้ากะ ไม่นับสาย
+// เวลาเข้างาน: แม่บ้าน 07:00 · ลูกจ้าง B1 เข้ากะ ไม่นับสาย · ลูกจ้างอื่น 08:00 · พนักงาน 08:30 (เวลาทำงาน 08:30-16:30)
+const startOf = (pos) => (/แม่บ้าน/.test(pos || '') ? 7 * 60 : /B1/i.test(pos || '') ? null : /ลูกจ้าง/.test(pos || '') ? 8 * 60 : 8 * 60 + 30);
 const thMin = (m) => (m ? Math.floor(m / 60) + ' ชม. ' + (m % 60) + ' นาที' : '-');
 async function employees() { const e = await cached('ckEmp', 600e3, () => getJSON(CHECKIN_API + '?action=getEmployeeFull')); return (Array.isArray(e) ? e : []).map((x) => ({ id: x.id, name: nm(x.name), pos: x.position || '', dept: x.dept || '', pic: x.picUrl || '' })); }
 async function checkinToday({ keyword, period, date, month }) {
@@ -412,7 +413,7 @@ async function checkinToday({ keyword, period, date, month }) {
   const late = recF.filter((r) => r.สาย > 0);
   const ai = { วันที่: d, วันหยุดสุดสัปดาห์: weekend, ลงเวลาแล้ว: recF.length, ยังไม่ลงเวลา: notF.length, มาสาย: late.map((r) => r.ชื่อ + ' ' + r.เข้างาน + ' (สาย ' + r.สาย + ' นาที)'), นอกพื้นที่: recF.filter((r) => /นอก/.test(r.พื้นที่)).map((r) => r.ชื่อ),
     รายชื่อลงเวลา: recF.map(({ pic, ...x }) => x), รายชื่อยังไม่ลงเวลา: notF.map((e) => e.name + (e.pos ? ' (' + e.pos + ')' : '')),
-    หมายเหตุ: 'ลูกจ้าง B1 เข้างานตามกะ ไม่นับสาย · แม่บ้านเข้างาน 07:00 · คนอื่น 08:00' + (weekend ? ' · วันนี้เป็นวันหยุด คนที่ยังไม่ลงเวลาส่วนใหญ่ไม่ได้มาทำงาน' : '') };
+    หมายเหตุ: 'ลูกจ้าง B1 เข้างานตามกะ ไม่นับสาย · แม่บ้านเข้างาน 07:00 · ลูกจ้างอื่น 08:00 · พนักงาน (ไม่ใช่ลูกจ้าง) เข้างาน 08:30 เลิก 16:30' + (weekend ? ' · วันนี้เป็นวันหยุด คนที่ยังไม่ลงเวลาส่วนใหญ่ไม่ได้มาทำงาน' : '') };
   const items = [...recF.map((r) => ({ title: r.ชื่อ, sub: ['เข้า ' + (r.เข้างาน || '-'), r.ออกงาน ? 'ออก ' + r.ออกงาน : '', r.สาย ? 'สาย ' + r.สาย + ' นาที' : '', r.หมายเหตุ].filter(Boolean).join(' · '), badge: r.สาย ? 'สาย' : r.พื้นที่ || 'มาแล้ว', tone: r.สาย ? 'amber' : /นอก/.test(r.พื้นที่) ? 'amber' : 'green', thumb: r.pic, images: r.pic ? [r.pic] : [] })),
     ...notF.map((e) => ({ title: e.name, sub: e.pos, badge: 'ยังไม่ลงเวลา', tone: 'red', thumb: faceOf(e.name) || e.pic, images: (faceOf(e.name) || e.pic) ? [faceOf(e.name) || e.pic] : [] }))];
   return withD(ai, { source: 'ลงเวลาทำงาน ' + d, app: '/pea-checkin/dashboard_mobile.html', stats: [{ l: 'มาแล้ว', v: recF.length }, { l: 'ยังไม่ลงเวลา', v: notF.length }, { l: 'มาสาย', v: late.length }, { l: 'นอกพื้นที่', v: recF.filter((r) => /นอก/.test(r.พื้นที่)).length }], items });
@@ -492,7 +493,7 @@ async function drawingsBom({ keyword }) {
 // ---------- 20b) ค้นแบบมาตรฐาน กฟภ. พร้อมภาพ 2D / 3D (ดึงจากคลังแบบในศูนย์รวมงาน ไม่สร้างใหม่) ----------
 async function dwgCatalog() {
   // ดัชนีชื่อแบบ (สร้างจากคลังแบบ pea-drawings ด้วย scripts/build-dwg-index.py) — ภาพ/โมเดลเปิดจากหน้าแบบในคลังโดยตรง
-  return cached('dwgcat', 24 * 3600e3, async () => (await fetch('./dwg-index.json?v=11201730')).json());
+  return cached('dwgcat', 24 * 3600e3, async () => (await fetch('./dwg-index.json?v=11201735')).json());
 }
 const DWG_SYN = [[/สามเฟส|3เฟส/g, '3 เฟส'], [/หนึ่งเฟส|เฟสเดียว|1เฟส/g, '1 เฟส'], [/เสาคู่|สองเสา/g, 'นั่งร้าน'], [/(\d+)\s*เควี|(\d+)\s*kv/gi, '$1$2 kV'], [/ลูกถ้วย|ลูกถ้วยไฟ/g, 'ลูกถ้วย'], [/แรงต่ำ/g, 'แรงต่ำ']];
 const dwgNorm = (t) => { t = String(t || '').toLowerCase(); DWG_SYN.forEach(([a, b]) => { t = t.replace(a, b); }); return t; };
