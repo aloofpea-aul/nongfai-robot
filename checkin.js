@@ -1,4 +1,4 @@
-import { loadFaces, faceOf, faceCount, callName, isPapa } from './faces.js?v=11200045';
+import { loadFaces, faceOf, faceCount, callName, isPapa } from './faces.js?v=11201200';
 // ลงเวลาทำงานที่น้องมีไฟด้วยการสแกนใบหน้า — บันทึกเข้าระบบลงเวลาเดิม (pea-checkin) ตัวเดียวกับใน LINE
 // ใบหน้า: ประมวลผลในเครื่อง เก็บแค่ตัวเลขจดจำหน้า (ไม่เก็บรูป) ที่ "น้องไฟเรียนรู้" · ใช้เฉพาะลงเวลา · ลงทะเบียนเมื่อเจ้าตัวยินยอม
 const CHECKIN_API = 'https://script.google.com/macros/s/AKfycbxY0vjjr3MAl6e_OSTTbubrK-cVTrsx3o38xQGLJkJMro8rS8H-LaWl2J3oeE_I31FR/exec';
@@ -29,7 +29,13 @@ async function learnPost(body) {
   const r = await fetch(L.url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ ...body, secret: L.secret }) });
   const j = await r.json(); if (!j.ok) throw new Error(j.error || 'บันทึกไม่สำเร็จ'); return j;
 }
-const ckGet = (p) => fetch(CHECKIN_API + '?' + new URLSearchParams(p)).then((r) => r.json());
+// เรียกระบบลงเวลา · ตัดที่ 25 วินาที ไม่ให้ค้าง (เน็ตมือถือช้า/GAS ไม่ตอบ)
+const ckGet = async (p, ms = 25000) => {
+  const ctl = new AbortController(), to = setTimeout(() => ctl.abort(), ms);
+  try { const r = await fetch(CHECKIN_API + '?' + new URLSearchParams(p), { signal: ctl.signal, redirect: 'follow' }); const t = await r.text(); try { return JSON.parse(t); } catch { return { success: false, message: 'ระบบลงเวลาตอบกลับผิดรูปแบบ (' + r.status + ')' }; } }
+  catch (e) { return { success: false, message: e.name === 'AbortError' ? 'ระบบลงเวลาไม่ตอบภายใน 25 วินาที' : 'เชื่อมต่อระบบลงเวลาไม่ได้ (' + (e.message || e) + ')' }; }
+  finally { clearTimeout(to); }
+};
 
 async function loadFaceApi() {
   if (fa) return fa;
@@ -229,28 +235,18 @@ async function submit(e, action, selfie, how, shift) {
   screen('กำลังบันทึก', el('div', 'ck-wait', 'กำลังบันทึกเข้าระบบลงเวลา…'));
   const p = { action, empId: e.id, lat: OFFICE.lat, lng: OFFICE.lng, accuracy: 5, lineUID: '', note: 'ลงเวลาที่น้องมีไฟ · ' + how };
   if (action === 'checkin' && shift) p.selectedShift = shift;
-  let res = null;
-  let photoOk = false;
-  if (selfie && action === 'checkin') {
-    // แนบรูปหน้าไปกับการลงเวลา (ระบบเดิมเก็บรูปไว้ดูในหน้าสรุป) · ส่งไม่ผ่านลองรูปเล็กลง แล้วค่อยไม่แนบ
-    for (const img of [selfie, await shrink(selfie, 220)]) {
-      if (!img) continue;
-      try { res = await ckGet({ ...p, selfie: img.split(',')[1] }); } catch { res = null; }
-      if (res && res.success) { photoOk = true; break; }
-      if (res && res.message && !/url|ยาว|size|large|413|414/i.test(res.message)) break; // ไม่ผ่านด้วยเหตุผลอื่น ไม่ต้องลองต่อ
-    }
-  }
-  if (!res || !res.success) { try { res = await ckGet(p); } catch { res = null; } }
+  // ระบบลงเวลาเดิมไม่มีช่องเก็บรูป → ส่งแบบเดียวกับแอป LINE (ไม่แนบรูป) · รูปใช้แค่โชว์ยืนยันบนจอ
+  const res = await ckGet(p);
   if (my !== run) return;
   if (!res || !res.success) {
-    screen('บันทึกไม่สำเร็จ', el('div', 'ck-err', (res && res.message) || 'ระบบลงเวลาไม่ตอบ ลองใหม่อีกครั้ง หรือใช้ LINE ลงเวลาค่ะ'), btn('ลองใหม่', '', () => submit(e, action, selfie, how, shift)), btn('ปิด', 'ghost', closeCheckin));
+    screen('บันทึกไม่สำเร็จ', el('div', 'ck-err', (res && res.message) || 'ระบบลงเวลาไม่ตอบ'), el('div', 'ck-sub', 'ลองใหม่อีกครั้ง หรือใช้ LINE ลงเวลาค่ะ'), btn('🔄 ลองใหม่', 'big', () => submit(e, action, selfie, how, shift)), btn('ปิด', 'ghost', closeCheckin));
     X.speak('บันทึกไม่สำเร็จค่ะ'); return;
   }
   const t = res.time || hhmm();
   today[e.name] = { ...statusOf(e), [action === 'checkin' ? 'in' : 'out']: t };
   const verb = action === 'checkin' ? 'ลงเวลาเข้างาน' : 'ลงเวลาออกงาน';
   const pic = photos(e, selfie, true);
-  screen('เรียบร้อย', pic, el('div', 'ck-name', e.name), ...(action === 'checkin' ? [el('div', 'ck-sub', photoOk ? '📷 แนบรูปหน้าแล้ว' : selfie ? 'บันทึกเวลาแล้ว แต่แนบรูปไม่สำเร็จ' : 'ไม่มีรูปหน้า')] : []), el('div', 'ck-done', verb + ' ' + t + ' น.' + (res.shift ? ' · ' + res.shift : '')), btn('เสร็จ', '', closeCheckin));
+  screen('เรียบร้อย', pic, el('div', 'ck-name', e.name), el('div', 'ck-done', verb + ' ' + t + ' น.' + (res.shift ? ' · ' + res.shift : '')), btn('เสร็จ', '', closeCheckin));
   if (X.express) X.express(isPapa(e.name) ? 'love' : 'happy', 3);
   X.speak(verb + ' ' + sayTime(t) + ' เรียบร้อยค่ะ ' + callName(e.name) + (action === 'checkin' ? ' ขอให้ทำงานปลอดภัยนะคะ' : ' เดินทางกลับปลอดภัยนะคะ'));
   X.done && X.done();
