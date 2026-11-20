@@ -1,18 +1,18 @@
 // น้องมีไฟ — แอปหลัก: ฟังเสียงไทย → ถาม Gemini (สตรีม) → พูดตอบทีละประโยค + แสดงบนจอ
-import { Mascot } from './mascot.js?v=11201740';
-import { WavRecorder } from './recorder.js?v=11201740';
-import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary, hooks } from './tools.js?v=11201740';
-import { startPresence, stopPresence, presenceOn, someoneHere, setPresenceRate, status as camStatus } from './presence.js?v=11201740';
-import { startWatch, TOPICS, topicOn, alertLog, clearAlertLog } from './watch.js?v=11201740';
-import { kpiCard } from './kpicard.js?v=11201740';
-import { wxCard, tmdCard } from './wxlevel.js?v=11201740';
-import { loadFaces, setPapa, papaName, isPapa } from './faces.js?v=11201740';
-import { SYS } from './systems.js?v=11201740';
-import { initCheckin, openCheckin } from './checkin.js?v=11201740';
-import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11201740';
+import { Mascot } from './mascot.js?v=11201800';
+import { WavRecorder } from './recorder.js?v=11201800';
+import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary, hooks } from './tools.js?v=11201800';
+import { startPresence, stopPresence, presenceOn, someoneHere, setPresenceRate, status as camStatus } from './presence.js?v=11201800';
+import { startWatch, TOPICS, topicOn, alertLog, clearAlertLog } from './watch.js?v=11201800';
+import { kpiCard } from './kpicard.js?v=11201800';
+import { wxCard, tmdCard } from './wxlevel.js?v=11201800';
+import { loadFaces, setPapa, papaName, isPapa } from './faces.js?v=11201800';
+import { SYS } from './systems.js?v=11201800';
+import { initCheckin, openCheckin } from './checkin.js?v=11201800';
+import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11201800';
 
 const $ = (id) => document.getElementById(id);
-export const VERSION = '11201740';
+export const VERSION = '11201800';
 // อัปเดตตัวเอง: ถ้าบนเว็บมีเวอร์ชันใหม่กว่า ให้โหลดหน้าใหม่ทันที (กันไอโฟนจำไฟล์เก่า)
 fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json()).then((j) => {
   if (j.v && j.v !== VERSION && !sessionStorage.getItem('nf.reload.' + j.v)) {
@@ -322,7 +322,9 @@ function micOff() { listening = false; $('btnMic').classList.remove('listening')
 const STRAY = /^(ค่ะ|คะ|ครับ|คับ|จ้า|อืม+|เอ่อ|อ่า|โอเค|ok|ขอบคุณ(ค่ะ|ครับ|มาก)?|ขอบคุณที่รับชม.*|สวัสดี(ค่ะ|ครับ)?|ไม่มีอะไร|ใช่|ไม่ใช่|หา|ฮะ|ห๊ะ|\[.*\])$/i;
 const isStray = (t) => { const x = String(t || '').trim().replace(/[\s.,!?ๆ]+/g, ''); return x.length < 3 || STRAY.test(x); };
 async function listenAudio(auto) {
-  if (wav.active) { wav.stop(); return; }
+  if (wav.active) { // แตะไมค์ระหว่างที่น้องมีไฟเปิดฟังเอง → เริ่มฟังใหม่ให้ทันที (เดิมกลายเป็นหยุดฟัง)
+    if (wav.auto && !auto) { wav.cancel(); await new Promise((r) => setTimeout(r, 200)); } else { wav.stop(); return; }
+  }
   if (cfg.micOff && auto) return; // ปิดฟังเองอยู่: ไม่เปิดไมค์เอง แต่แตะปุ่มไมค์ยังถามได้
   stopSpeaking(); abortAsk();
   setAudioMode('auto');
@@ -335,9 +337,9 @@ async function listenAudio(auto) {
   bumpIdle();
   await tapCue('ค่ะ'); // ตอบรับก่อนเริ่มฟัง และปลดล็อกเสียงพูดบนไอโฟน
   try {
-    const audio = await wav.record({ noSpeechMs: auto ? 6000 : 8000, minSpeechMs: auto ? 600 : 400, onSpeech: () => setStatus('ฟังอยู่ พูดจบแล้วรอสักครู่นะคะ', 'listening') });
+    const audio = await wav.record({ auto: !!auto, noSpeechMs: auto ? 6000 : 8000, minSpeechMs: auto ? 600 : 400, onSpeech: () => setStatus('ฟังอยู่ พูดจบแล้วรอสักครู่นะคะ', 'listening') });
     micOff();
-    if (!audio) { setStatus(auto ? 'แตะไมค์แล้วพูดได้เลยค่ะ' : 'ไม่ได้ยินเสียง แตะไมค์แล้วพูดใหม่นะคะ'); return; }
+    if (!audio) { if (!auto && wav.reason === 'nosignal') toast('ไมค์ไม่ส่งเสียงมา (iPad) แตะไมค์อีกครั้งได้เลยค่ะ', 5000); setStatus(auto ? 'แตะไมค์แล้วพูดได้เลยค่ะ' : wav.reason === 'short' ? 'ได้ยินสั้นไป แตะไมค์แล้วพูดอีกครั้งนะคะ' : 'ไม่ได้ยินเสียง แตะไมค์แล้วพูดใหม่นะคะ'); return; }
     setStatus('กำลังแปลงเสียงเป็นข้อความ…'); mascot.setMood('thinking');
     const text = await transcribe(audio);
     mascot.setMood('normal');

@@ -1,7 +1,7 @@
 // อัดเสียงเป็น WAV 16 kHz แล้วหยุดเองเมื่อคนพูดจบ — ใช้บน iPad/iPhone ที่ระบบฟังเสียงของเบราว์เซอร์ใช้ไม่ได้
 // เสียงที่อัดจะส่งให้ Gemini ถอดความและตอบในครั้งเดียว (ฟรี)
 export class WavRecorder {
-  constructor() { this.ctx = null; this._stop = null; }
+  constructor() { this.ctx = null; this._stop = null; this.auto = false; this.reason = ''; }
 
   // เรียกทันทีในจังหวะที่ผู้ใช้แตะ (iOS ต้องเปิด AudioContext ในจังหวะแตะ)
   prime() {
@@ -14,36 +14,49 @@ export class WavRecorder {
   cancel() { if (this._stop) this._stop(false); }
 
   // ถือว่า "เริ่มพูด" เมื่อเสียงดังแบบเสียงคนต่อเนื่อง ~0.25 วิ (กันเสียงประตู ไอ จาม เคาะโต๊ะ) และต้องพูดรวม ≥ minSpeechMs
-  async record({ maxMs = 20000, silenceMs = 1500, noSpeechMs = 8000, minSpeechMs = 450, onSpeech } = {}) {
-    this.prime();
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
-    const ctx = this.ctx;
+  // reason หลังจบ: '' = ได้เสียงพูด · nospeech = ไม่มีคนพูด · short = พูดสั้นไป · nosignal = ไมค์ไม่ส่งเสียงมาเลย (iPad ค้าง)
+  async record({ maxMs = 20000, silenceMs = 1500, noSpeechMs = 8000, minSpeechMs = 450, onSpeech, auto = false } = {}) {
+    this.prime(); this.auto = auto; this.reason = '';
+    try { await Promise.race([this.ctx.resume(), new Promise((r) => setTimeout(r, 800))]); } catch {}
+    // iPad บางครั้ง getUserMedia ค้างไม่ตอบ → ตัดที่ 6 วิ
+    const stream = await Promise.race([
+      navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } }),
+      new Promise((_, no) => setTimeout(() => no(Object.assign(new Error('ไมค์ไม่ตอบสนอง'), { name: 'TimeoutError' })), 6000)),
+    ]);
+    const ctx = this.ctx || (this.prime(), this.ctx);
     const src = ctx.createMediaStreamSource(stream);
     const proc = ctx.createScriptProcessor(4096, 1, 1);
     const chunks = [];
     const t0 = performance.now();
-    let speech = false, lastLoud = 0, floor = 0, speechChunk = 0, run = 0, voiced = 0;
+    let speech = false, lastLoud = 0, floor = 0, speechChunk = 0, run = 0, voiced = 0, frames = 0, energy = 0;
 
     return new Promise((resolve) => {
       const finish = (ok) => {
         if (!this._stop) return;
-        this._stop = null;
+        this._stop = null; clearInterval(dog);
         proc.onaudioprocess = null;
         try { proc.disconnect(); src.disconnect(); } catch {}
         stream.getTracks().forEach((t) => t.stop()); // ปล่อยไมค์ เสียงพูดจะได้ออกลำโพงดังตามปกติ
         // ปิด AudioContext ของไมค์ทิ้ง ให้ไอโฟนคืนเสียงลำโพงให้ระบบพูด (สร้างใหม่ตอนแตะไมค์ครั้งหน้า)
         const rate = ctx.sampleRate; ctx.close().catch(() => {}); this.ctx = null;
-        if (!ok || !speech || voiced < minSpeechMs) return resolve(null);
+        if (!ok || !speech || voiced < minSpeechMs) { this.reason = !frames || energy < 1e-7 ? 'nosignal' : !speech ? 'nospeech' : 'short'; return resolve(null); }
         // เก็บเสียงตั้งแต่ก่อนเริ่มพูดเล็กน้อย ตัดความเงียบช่วงต้นทิ้ง
         resolve({ b64: encodeWav(chunks.slice(Math.max(0, speechChunk - 6)), rate), mime: 'audio/wav' });
       };
       this._stop = finish;
+      // กันค้าง: ถ้าไม่มีเสียงเข้ามาเลย (AudioContext ถูกพัก) ให้ปลุก แล้วจบเองเมื่อเลยเวลา
+      const dog = setInterval(() => {
+        const el = performance.now() - t0;
+        if (!frames && ctx.state !== 'running') ctx.resume().catch(() => {});
+        if (el > maxMs + 2000 || (!speech && el > noSpeechMs + 1500)) finish(speech);
+      }, 500);
       proc.onaudioprocess = (e) => {
         const d = e.inputBuffer.getChannelData(0);
-        chunks.push(new Float32Array(d));
+        chunks.push(new Float32Array(d)); frames++;
         let s = 0; for (let i = 0; i < d.length; i++) s += d[i] * d[i];
-        const rms = Math.sqrt(s / d.length), now = performance.now() - t0;
-        if (now < 300) { floor = Math.max(floor, rms); return; }
+        const rms = Math.sqrt(s / d.length), now = performance.now() - t0; energy = Math.max(energy, rms);
+        // ระดับเสียงพื้น: ช่วงแรกอาจติดเสียง "ค่ะ" ของน้องมีไฟเอง → จำกัดเพดาน ไม่ให้เกณฑ์สูงจนจับเสียงคนไม่ได้
+        if (now < 300) { floor = Math.min(0.02, Math.max(floor, rms)); return; }
         let zc = 0; for (let i = 1; i < d.length; i++) if ((d[i] >= 0) !== (d[i - 1] >= 0)) zc++;
         const zcr = zc / d.length, ms = (d.length / ctx.sampleRate) * 1000;
         const loud = rms > Math.max(0.014, floor * 2.4) && zcr > 0.01 && zcr < 0.35; // ช่วงความถี่แบบเสียงพูด
