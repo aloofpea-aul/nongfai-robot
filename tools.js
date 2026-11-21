@@ -1,7 +1,7 @@
-import { faceOf, loadFaces } from './faces.js?v=11201800';
-import { findEvents } from './events.js?v=11201800';
-import { describe, sysInfo, SYS } from './systems.js?v=11201800';
-import { loadNotices, ntState, ntArea, ntWhen, ntHm, ntDate } from './notices.js?v=11201800';
+import { faceOf, loadFaces } from './faces.js?v=11211140';
+import { findEvents } from './events.js?v=11211140';
+import { describe, sysInfo, SYS } from './systems.js?v=11211140';
+import { loadNotices, ntState, ntArea, ntWhen, ntHm, ntDate } from './notices.js?v=11211140';
 // เครื่องมือให้น้องมีไฟดึงข้อมูลจากศูนย์รวมงาน กฟส.อ่าวลึก (Gemini function calling)
 // public = ใครถามก็ตอบได้ · internal = ต้องยืนยันตัวตนพนักงานก่อน (PIN)
 
@@ -493,7 +493,7 @@ async function drawingsBom({ keyword }) {
 // ---------- 20b) ค้นแบบมาตรฐาน กฟภ. พร้อมภาพ 2D / 3D (ดึงจากคลังแบบในศูนย์รวมงาน ไม่สร้างใหม่) ----------
 async function dwgCatalog() {
   // ดัชนีชื่อแบบ (สร้างจากคลังแบบ pea-drawings ด้วย scripts/build-dwg-index.py) — ภาพ/โมเดลเปิดจากหน้าแบบในคลังโดยตรง
-  return cached('dwgcat', 24 * 3600e3, async () => (await fetch('./dwg-index.json?v=11201800')).json());
+  return cached('dwgcat', 24 * 3600e3, async () => (await fetch('./dwg-index.json?v=11211140')).json());
 }
 const DWG_SYN = [[/สามเฟส|3เฟส/g, '3 เฟส'], [/หนึ่งเฟส|เฟสเดียว|1เฟส/g, '1 เฟส'], [/เสาคู่|สองเสา/g, 'นั่งร้าน'], [/(\d+)\s*เควี|(\d+)\s*kv/gi, '$1$2 kV'], [/ลูกถ้วย|ลูกถ้วยไฟ/g, 'ลูกถ้วย'], [/แรงต่ำ/g, 'แรงต่ำ']];
 const dwgNorm = (t) => { t = String(t || '').toLowerCase(); DWG_SYN.forEach(([a, b]) => { t = t.replace(a, b); }); return t; };
@@ -583,6 +583,48 @@ async function materialPrice({ keyword }) {
 }
 
 // ---------- แสดงผลอัตโนมัติสำหรับระบบที่ไม่ได้ทำการ์ดเฉพาะ ----------
+// ---------- งานของปะป๊า (ทะเบียนโครงการ + งานค้าง · bot "จดงาน Aloof") ----------
+// ใช้ได้เฉพาะเครื่องที่ตั้งค่า "เครื่องนี้เป็นของปะป๊า" (ไม่ใช้สแกนหน้า — สแกนหน้าใช้เฉพาะลงเวลา)
+const TASKS_API = 'https://script.google.com/macros/s/AKfycbyRO5GnQE5XEhn6tudB3PTuZ2dyvxZ96HcRf2qARbzaTFZPrjraMYrRviRkRsppqie8/exec';
+const REGISTRY_SHEET = 'https://docs.google.com/spreadsheets/d/1lGtWILi2wxgJZT11_fcE_6RUuF-pKbTWSQW6zyWuAk4/edit';
+// รหัสเก็บในเครื่องเท่านั้น (ตั้งค่า > รหัสงานของปะป๊า) ไม่อยู่ในโค้ดบน GitHub
+let TK = '';
+const taskApi = (q) => { if (!TK) throw new Error('ยังไม่ได้ใส่รหัสงานของปะป๊าในหน้าตั้งค่า'); return getJSON(TASKS_API + '?key=' + encodeURIComponent(TK) + '&' + new URLSearchParams(q).toString()); };
+const prioTone = (p) => (p === 'ด่วน' ? 'red' : p === 'ไว้ก่อน' ? '' : 'amber');
+const taskItem = (t) => ({ title: (t.sys ? '[' + t.sys + '] ' : '') + t.what, sub: '#' + t.row + ' · จด ' + (t.date || '-') + (t.status === 'กำลังทำ' ? ' · กำลังทำ' : ''), badge: t.prio, tone: prioTone(t.prio), link: REGISTRY_SHEET });
+async function myTasks({ system }) {
+  if (system) {
+    const j = await taskApi({ action: 'system', q: system });
+    const D = { source: 'งานค้าง · ' + j.short, stats: [{ l: 'งานค้าง', v: j.tasks.length }, { l: 'สถานะระบบ', v: j.status }],
+      items: j.tasks.map(taskItem) };
+    return withD({ ระบบ: j.short, งานค้าง: j.tasks.map((t) => ({ เลข: t.row, งาน: t.what, ความสำคัญ: t.prio, สถานะ: t.status })) }, D);
+  }
+  const j = await taskApi({ action: 'summary' });
+  const D = { source: 'งานค้างของปะป๊า', stats: [{ l: 'ทั้งหมด', v: j.total }, { l: 'ด่วน', v: j.urgent, t: j.urgent ? 'red' : '' }, { l: 'กำลังทำ', v: j.doing }],
+    items: j.tasks.map(taskItem) };
+  return withD({ ทั้งหมด: j.total, ด่วน: j.urgent, กำลังทำ: j.doing,
+    งานค้าง: j.tasks.slice(0, 25).map((t) => ({ เลข: t.row, ระบบ: t.sys, งาน: t.what, ความสำคัญ: t.prio, สถานะ: t.status })),
+    คำแนะนำการตอบ: 'สรุปสั้นๆ จำนวนงาน บอกงานด่วนก่อน อ่านไม่เกิน 3 งาน ที่เหลือให้ดูบนจอ' }, D);
+}
+async function systemLookup({ system }) {
+  const j = await taskApi({ action: 'system', q: system || '' });
+  const f = [['ชื่อระบบ', j.name], ['สถานะ', j.status], ['เว็บ', j.web], ['GitHub', j.repo], ['โฟลเดอร์ในศูนย์รวมงาน', j.hubFolder], ['Apps Script', j.appsScript], ['ชีตฐานข้อมูล', j.sheet], ['แก้ล่าสุด', j.lastEdit], ['หมายเหตุ', j.note]].filter(([, v]) => v);
+  const D = { source: 'ทะเบียนโครงการ · ' + j.short, stats: [{ l: 'งานค้าง', v: j.tasks.length }, { l: 'สถานะ', v: j.status }],
+    items: [{ title: j.name, sub: 'ลิงก์และไฟล์ของระบบนี้', badge: j.status, fields: f, link: j.web || j.repo || REGISTRY_SHEET }, ...j.tasks.map(taskItem)] };
+  return withD({ ระบบ: j.short, ชื่อ: j.name, สถานะ: j.status, มีเว็บ: !!j.web, repo: j.repo, appsScript: j.appsScript, ชีต: j.sheet, แก้ล่าสุด: j.lastEdit, งานค้าง: j.tasks.length }, D);
+}
+async function addTask({ system, task, priority }) {
+  if (!task) throw new Error('ยังไม่มีรายละเอียดงาน');
+  const j = await taskApi({ action: 'add', sys: system || '', text: task, prio: priority || '' });
+  cache.clear();
+  return { ผล: j.message, คำแนะนำการตอบ: 'ยืนยันสั้นๆ ว่าจดแล้ว บอกระบบและเลขงาน' };
+}
+async function setTaskStatus({ row, status }) {
+  const n = Number(row); if (!n) throw new Error('ต้องบอกเลขงาน เช่น 12');
+  const j = await taskApi({ action: status === 'กำลังทำ' ? 'start' : 'done', row: n });
+  return { ผล: j.message };
+}
+
 const NAMES = { tree_cutting: 'งานตัดต้นไม้', safety_talk: 'Safety talk', contacts: 'สมุดโทรศัพท์ทีมแก้ไฟ', budget: 'ระบบตัดงบ', book_numbers: 'ออกเลขหนังสือ', ccl: 'CCL งานก่อสร้าง', office_love: 'Office Love' };
 const APPS = { tree_cutting: '/tree-ala/', safety_talk: '/safety-talk/', contacts: '/duty-roster/', budget: '/budget/', book_numbers: '/booknum/', ccl: '/ccl/', office_love: '/office-love/' };
 function autoDisplay(name, r) {
@@ -679,6 +721,10 @@ export const TOOLS = {
   book_numbers: { access: 'internal', run: bookNumbers, decl: { name: 'book_numbers', description: 'ระบบออกเลขหนังสือ: เลขหนังสือล่าสุด ค้นเรื่อง หนังสือทั่วไป สัญญาจ้าง คำสั่ง ใบสำคัญจ่าย', parameters: { type: 'OBJECT', properties: { category: { type: 'STRING', description: 'หนังสือทั่วไป | หนังสือสัญญาจ้าง | คำสั่ง (พ.) | ใบสำคัญจ่าย' }, keyword: { type: 'STRING' } } } } },
   ccl: { access: 'internal', run: ccl, decl: { name: 'ccl', description: 'CCL ติดตามงานก่อสร้าง: งานก่อสร้าง สถานะ ผู้รับผิดชอบ สรุปภาพรวม', parameters: { type: 'OBJECT', properties: { keyword: { type: 'STRING' } } } } },
   office_love: { access: 'internal', run: officeLove, decl: { name: 'office_love', description: 'Office Love ระบบเดินตรวจความปลอดภัยสำนักงานของ รปภ.: การเข้าเวร จุดตรวจ เหตุผิดปกติ', parameters: { type: 'OBJECT', properties: { keyword: { type: 'STRING' } } } } },
+  my_tasks: { access: 'papa', run: myTasks, decl: { name: 'my_tasks', description: 'งานค้าง/สิ่งที่ปะป๊าต้องทำหรือต้องแก้ ในทะเบียนโครงการ (รวมทุกระบบที่ปะป๊าสร้าง) ใช้เมื่อปะป๊าถามว่า "งานค้างมีอะไร" "วันนี้ต้องทำอะไร" "ระบบ X ค้างอะไรอยู่"', parameters: { type: 'OBJECT', properties: { system: { type: 'STRING', description: 'ชื่อระบบ เช่น ตัดงบ CCL SLD ว่างได้ = ทุกระบบ' } } } } },
+  system_lookup: { access: 'papa', run: systemLookup, decl: { name: 'system_lookup', description: 'ข้อมูลระบบในทะเบียนโครงการของปะป๊า: ลิงก์เว็บ GitHub repo ชื่อ Apps Script ชีตฐานข้อมูล สถานะ แก้ล่าสุด และงานค้าง ใช้เมื่อปะป๊าถามว่า "ระบบ X อยู่ไหน/ไฟล์อะไร/เปิดระบบ X"', parameters: { type: 'OBJECT', properties: { system: { type: 'STRING', description: 'ชื่อระบบ เช่น ตัดต้นไม้ เวร KidGuard' } }, required: ['system'] } } },
+  add_task: { access: 'papa', run: addTask, decl: { name: 'add_task', description: 'จดงาน/ไอเดีย/สิ่งที่ต้องแก้ ลงทะเบียนงานค้างของปะป๊า ใช้เมื่อปะป๊าพูดว่า "จดงาน..." "จดไว้หน่อย..." "อย่าลืม..." ให้ทวนข้อความให้ปะป๊าฟังในคำตอบหลังจด', parameters: { type: 'OBJECT', properties: { system: { type: 'STRING', description: 'ชื่อระบบที่เกี่ยวข้อง ว่างได้' }, task: { type: 'STRING', description: 'สิ่งที่ต้องทำ เขียนกระชับ' }, priority: { type: 'STRING', description: 'ด่วน | ปกติ | ไว้ก่อน ว่างได้ = ปกติ' } }, required: ['task'] } } },
+  set_task_status: { access: 'papa', run: setTaskStatus, decl: { name: 'set_task_status', description: 'เปลี่ยนสถานะงานค้างของปะป๊าตามเลขงาน: เสร็จ หรือ กำลังทำ (ถ้าไม่รู้เลขงาน ให้เรียก my_tasks ก่อน)', parameters: { type: 'OBJECT', properties: { row: { type: 'NUMBER', description: 'เลขงาน (#)' }, status: { type: 'STRING', description: 'เสร็จ | กำลังทำ' } }, required: ['row', 'status'] } } },
   material_price: { access: 'internal', run: materialPrice, decl: { name: 'material_price', description: 'ค้นรหัสพัสดุ กฟภ. ชื่อวัสดุ หน่วย และราคามาตรฐานพัสดุงบลงทุนปี 2569 (ใช้ประมาณราคางานก่อสร้าง)', parameters: { type: 'OBJECT', properties: { keyword: { type: 'STRING', description: 'ชื่อวัสดุภาษาอังกฤษหรือรหัส เช่น POLE 12, TRANSFORMER 50 KVA, 1000000003' } }, required: ['keyword'] } } },
 };
 export const TOOL_DECLS = [{ functionDeclarations: Object.values(TOOLS).map((t) => t.decl) }];
@@ -686,11 +732,13 @@ export const TOOL_DECLS = [{ functionDeclarations: Object.values(TOOLS).map((t) 
 export async function runTool(name, args, ctx) {
   const t = TOOLS[name];
   if (!t) return { error: 'ไม่มีเครื่องมือนี้' };
-  if (t.access === 'internal' && !ctx.staff()) {
+  if (t.access === 'papa' && !(ctx.papa && ctx.papa())) return { error: 'เรื่องงานของปะป๊าใช้ได้เฉพาะเครื่องที่ตั้งค่าว่าเป็นของปะป๊าเท่านั้น' };
+  if ((t.access === 'internal' || t.access === 'papa') && !ctx.staff()) {
     ctx.needVerify();
     return { error: 'ข้อมูลภายใน ต้องให้เจ้าหน้าที่ยืนยันตัวตนก่อน', need_verify: true };
   }
   const creds = ctx.creds();
+  TK = creds.tasksKey || '';
   if ((name === 'stock_search' || name === 'vehicles') && (!creds.user || !creds.pass)) return { error: 'ยังไม่ได้ตั้งชื่อ/รหัสศูนย์รวมงานในหน้าตั้งค่าของน้องมีไฟ' };
   try {
     const r = await t.run(args || {}, creds);

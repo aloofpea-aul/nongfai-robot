@@ -1,18 +1,18 @@
 // น้องมีไฟ — แอปหลัก: ฟังเสียงไทย → ถาม Gemini (สตรีม) → พูดตอบทีละประโยค + แสดงบนจอ
-import { Mascot } from './mascot.js?v=11201800';
-import { WavRecorder } from './recorder.js?v=11201800';
-import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary, hooks } from './tools.js?v=11201800';
-import { startPresence, stopPresence, presenceOn, someoneHere, setPresenceRate, status as camStatus } from './presence.js?v=11201800';
-import { startWatch, TOPICS, topicOn, alertLog, clearAlertLog } from './watch.js?v=11201800';
-import { kpiCard } from './kpicard.js?v=11201800';
-import { wxCard, tmdCard } from './wxlevel.js?v=11201800';
-import { loadFaces, setPapa, papaName, isPapa } from './faces.js?v=11201800';
-import { SYS } from './systems.js?v=11201800';
-import { initCheckin, openCheckin } from './checkin.js?v=11201800';
-import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11201800';
+import { Mascot } from './mascot.js?v=11211140';
+import { WavRecorder } from './recorder.js?v=11211140';
+import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary, hooks } from './tools.js?v=11211140';
+import { startPresence, stopPresence, presenceOn, someoneHere, setPresenceRate, status as camStatus } from './presence.js?v=11211140';
+import { startWatch, TOPICS, topicOn, alertLog, clearAlertLog } from './watch.js?v=11211140';
+import { kpiCard } from './kpicard.js?v=11211140';
+import { wxCard, tmdCard } from './wxlevel.js?v=11211140';
+import { loadFaces, setPapa, papaName, isPapa } from './faces.js?v=11211140';
+import { SYS } from './systems.js?v=11211140';
+import { initCheckin, openCheckin } from './checkin.js?v=11211140';
+import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11211140';
 
 const $ = (id) => document.getElementById(id);
-export const VERSION = '11201800';
+export const VERSION = '11211140';
 // อัปเดตตัวเอง: ถ้าบนเว็บมีเวอร์ชันใหม่กว่า ให้โหลดหน้าใหม่ทันที (กันไอโฟนจำไฟล์เก่า)
 fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json()).then((j) => {
   if (j.v && j.v !== VERSION && !sessionStorage.getItem('nf.reload.' + j.v)) {
@@ -21,7 +21,7 @@ fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json(
   }
 }).catch(() => {});
 
-const DEFAULTS = { apiKey: '', model: 'gemini-3.5-flash-lite', voice: '', rate: 1.0, pitch: 1.15, autoListen: true, hubUser: '', hubPass: '', papaName: '', papaDevice: false, staffPin: '', mode: 'ops', stt: 'gemini', budgetUser: '', budgetPass: '', officeCode: '', cclUser: '', cclPass: '', olUser: '', olPass: '', learnUrl: '', learnSecret: '', confirm: true, alertOn: true, alertVoice: true, quietOn: true, quietFrom: '22:00', quietTo: '06:00', alertTopics: {}, wakeFace: Math.min(screen.width, screen.height) >= 700, wakeSleep: true, idlePlay: true, powerSave: true };
+const DEFAULTS = { apiKey: '', model: 'gemini-3.5-flash-lite', voice: '', rate: 1.0, pitch: 1.15, autoListen: true, hubUser: '', hubPass: '', papaName: '', papaDevice: false, staffPin: '', mode: 'ops', stt: 'gemini', budgetUser: '', budgetPass: '', officeCode: '', cclUser: '', cclPass: '', olUser: '', olPass: '', learnUrl: '', learnSecret: '', tasksKey: '', confirm: true, alertOn: true, alertVoice: true, quietOn: true, quietFrom: '22:00', quietTo: '06:00', alertTopics: {}, wakeFace: Math.min(screen.width, screen.height) >= 700, wakeSleep: true, idlePlay: true, powerSave: true };
 const cfg = { ...DEFAULTS, ...JSON.parse(localStorage.getItem('nongfai.cfg') || '{}') };
 const saveCfg = () => localStorage.setItem('nongfai.cfg', JSON.stringify(cfg));
 // เปิดแจ้งเตือนลงเวลาทำงานให้ (เดิมปิดไว้) ครั้งเดียว — ถ้าปิดเองทีหลังจะไม่เปิดซ้ำ
@@ -66,7 +66,7 @@ function papaNote() {
 let staffUntil = 0, wantVerify = false, lastAsk = null;
 const OPS = () => cfg.mode !== 'customer';   // ช่วงทดสอบใช้ในแผนก ผปร. = ถือว่าเป็นเจ้าหน้าที่ทุกคน
 const staffOn = () => OPS() || Date.now() < staffUntil;
-const toolCtx = { staff: staffOn, show: (d) => showResults(d), needVerify: () => { wantVerify = true; }, creds: () => ({ user: cfg.hubUser, pass: cfg.hubPass, budgetUser: cfg.budgetUser, budgetPass: cfg.budgetPass, officeCode: cfg.officeCode, cclUser: cfg.cclUser, cclPass: cfg.cclPass, olUser: cfg.olUser, olPass: cfg.olPass, learnUrl: cfg.learnUrl, learnSecret: cfg.learnSecret }) };
+const toolCtx = { staff: staffOn, papa: () => !!cfg.papaDevice, show: (d) => showResults(d), needVerify: () => { wantVerify = true; }, creds: () => ({ user: cfg.hubUser, pass: cfg.hubPass, budgetUser: cfg.budgetUser, budgetPass: cfg.budgetPass, officeCode: cfg.officeCode, cclUser: cfg.cclUser, cclPass: cfg.cclPass, olUser: cfg.olUser, olPass: cfg.olPass, learnUrl: cfg.learnUrl, learnSecret: cfg.learnSecret, tasksKey: cfg.tasksKey }) };
 
 // ---------- ผลค้นหา: สรุปตัวเลข + รายการพร้อมรูป + หน้ารายละเอียด ----------
 const el = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
@@ -958,7 +958,7 @@ function openSettings() {
   $('setRate').value = cfg.rate; $('rateVal').textContent = cfg.rate + 'x'; $('setPitch').value = cfg.pitch; $('pitchVal').textContent = (+cfg.pitch).toFixed(2); $('setAuto').checked = cfg.autoListen;
   $('setMode').value = cfg.mode; $('setStt').value = cfg.stt;
   $('set_budgetUser').value = cfg.budgetUser; $('set_budgetPass').value = cfg.budgetPass; $('set_officeCode').value = cfg.officeCode; $('set_cclUser').value = cfg.cclUser; $('set_cclPass').value = cfg.cclPass; $('set_olUser').value = cfg.olUser; $('set_olPass').value = cfg.olPass;
-  $('setHubUser').value = cfg.hubUser; $('setPapaName').value = cfg.papaName; $('setPapaDevice').checked = !!cfg.papaDevice; $('setHubPass').value = cfg.hubPass; $('setPin').value = cfg.staffPin;
+  $('setHubUser').value = cfg.hubUser; $('setPapaName').value = cfg.papaName; $('setPapaDevice').checked = !!cfg.papaDevice; $('setTasksKey').value = cfg.tasksKey || ''; $('setHubPass').value = cfg.hubPass; $('setPin').value = cfg.staffPin;
   $('setIdlePlay').checked = cfg.idlePlay; $('setPowerSave').checked = cfg.powerSave;
   showCamStatus();
   $('setWakeFace').checked = cfg.wakeFace; $('setWakeSleep').checked = cfg.wakeSleep;
@@ -1026,7 +1026,7 @@ $('settings').addEventListener('close', () => {
   cfg.apiKey = $('setKey').value.trim(); cfg.model = $('setModel').value.trim() || DEFAULTS.model;
   cfg.voice = $('setVoice').value; cfg.rate = +$('setRate').value; cfg.pitch = +$('setPitch').value; cfg.autoListen = $('setAuto').checked;
   cfg.budgetUser = $('set_budgetUser').value.trim(); cfg.budgetPass = $('set_budgetPass').value.trim(); cfg.officeCode = $('set_officeCode').value.trim(); cfg.cclUser = $('set_cclUser').value.trim(); cfg.cclPass = $('set_cclPass').value.trim(); cfg.olUser = $('set_olUser').value.trim(); cfg.olPass = $('set_olPass').value.trim();
-  cfg.hubUser = $('setHubUser').value.trim(); cfg.papaName = $('setPapaName').value.trim(); cfg.papaDevice = $('setPapaDevice').checked; setPapa(cfg.papaName || cfg.hubUser); cfg.hubPass = $('setHubPass').value; cfg.staffPin = $('setPin').value.trim();
+  cfg.hubUser = $('setHubUser').value.trim(); cfg.papaName = $('setPapaName').value.trim(); cfg.papaDevice = $('setPapaDevice').checked; cfg.tasksKey = $('setTasksKey').value.trim(); setPapa(cfg.papaName || cfg.hubUser); cfg.hubPass = $('setHubPass').value; cfg.staffPin = $('setPin').value.trim();
   cfg.mode = $('setMode').value; cfg.stt = $('setStt').value;
   fillLearn($('setLearnUrl').value.trim());
   let lu = $('setLearnUrl').value.trim(), ls = $('setLearnSecret').value.trim();
@@ -1062,6 +1062,8 @@ if (hp.get('cfg')) {
   if (importCfg(unpackCfg(hp.get('cfg')))) toast('นำเข้าการตั้งค่าทั้งหมดแล้วค่ะ', 5000);
   window.history.replaceState(null, "", location.pathname);
 }
+// ลิงก์ใส่รหัสงานของปะป๊าครั้งเดียว (#tk=...)
+if (hp.get('tk')) { cfg.tasksKey = hp.get('tk'); cfg.papaDevice = true; saveCfg(); window.history.replaceState(null, '', location.pathname); toast('เชื่อมงานของปะป๊าแล้วค่ะ', 5000); }
 if (hp.get('lu') && hp.get('ls')) {
   cfg.learnUrl = hp.get('lu'); cfg.learnSecret = hp.get('ls'); saveCfg(); window.history.replaceState(null, "", location.pathname);
   initLearn(cfg.learnUrl, cfg.learnSecret).then((ok) => toast(ok ? 'เชื่อมระบบเรียนรู้แล้วค่ะ' : 'เชื่อมระบบเรียนรู้ไม่สำเร็จค่ะ', 5000));
