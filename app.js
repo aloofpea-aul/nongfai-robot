@@ -1,19 +1,19 @@
 // น้องมีไฟ — แอปหลัก: ฟังเสียงไทย → ถาม Gemini (สตรีม) → พูดตอบทีละประโยค + แสดงบนจอ
-import { Mascot } from './mascot.js?v=11231500';
-import { WavRecorder } from './recorder.js?v=11231500';
-import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary, hooks } from './tools.js?v=11231500';
-import { startPresence, stopPresence, presenceOn, someoneHere, setPresenceRate, status as camStatus } from './presence.js?v=11231500';
-import { startWatch, TOPICS, topicOn, alertLog, clearAlertLog } from './watch.js?v=11231500';
-import { kpiCard } from './kpicard.js?v=11231500';
-import { wxCard, tmdCard } from './wxlevel.js?v=11231500';
-import { loadFaces, setPapa, papaName, isPapa } from './faces.js?v=11231500';
-import { SYS } from './systems.js?v=11231500';
-import { initCheckin, openCheckin } from './checkin.js?v=11231500';
-import { initVehicle, openVehicle } from './vehicle.js?v=11231500';
-import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11231500';
+import { Mascot } from './mascot.js?v=11231615';
+import { WavRecorder } from './recorder.js?v=11231615';
+import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary, hooks } from './tools.js?v=11231615';
+import { startPresence, stopPresence, presenceOn, someoneHere, setPresenceRate, status as camStatus } from './presence.js?v=11231615';
+import { startWatch, TOPICS, topicOn, alertLog, clearAlertLog } from './watch.js?v=11231615';
+import { kpiCard } from './kpicard.js?v=11231615';
+import { wxCard, tmdCard } from './wxlevel.js?v=11231615';
+import { loadFaces, setPapa, papaName, isPapa } from './faces.js?v=11231615';
+import { SYS } from './systems.js?v=11231615';
+import { initCheckin, openCheckin } from './checkin.js?v=11231615';
+import { initVehicle, openVehicle } from './vehicle.js?v=11231615';
+import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11231615';
 
 const $ = (id) => document.getElementById(id);
-export const VERSION = '11231500';
+export const VERSION = '11231615';
 // อัปเดตตัวเอง: ถ้าบนเว็บมีเวอร์ชันใหม่กว่า ให้โหลดหน้าใหม่ทันที (กันไอโฟนจำไฟล์เก่า)
 fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json()).then((j) => {
   if (j.v && j.v !== VERSION && !sessionStorage.getItem('nf.reload.' + j.v)) {

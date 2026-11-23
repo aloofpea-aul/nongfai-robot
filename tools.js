@@ -1,7 +1,7 @@
-import { faceOf, loadFaces } from './faces.js?v=11231500';
-import { findEvents } from './events.js?v=11231500';
-import { describe, sysInfo, SYS } from './systems.js?v=11231500';
-import { loadNotices, ntState, ntArea, ntWhen, ntHm, ntDate } from './notices.js?v=11231500';
+import { faceOf, loadFaces } from './faces.js?v=11231615';
+import { findEvents } from './events.js?v=11231615';
+import { describe, sysInfo, SYS } from './systems.js?v=11231615';
+import { loadNotices, ntState, ntArea, ntWhen, ntHm, ntDate } from './notices.js?v=11231615';
 // เครื่องมือให้น้องมีไฟดึงข้อมูลจากศูนย์รวมงาน กฟส.อ่าวลึก (Gemini function calling)
 // public = ใครถามก็ตอบได้ · internal = ต้องยืนยันตัวตนพนักงานก่อน (PIN)
 
@@ -279,6 +279,37 @@ async function treeCutting({ year, keyword }, c) {
   return { ปี: y, จำนวนงาน: (data.jobs || []).length, พบ: jobs.length, งาน: slim(jobs.slice(0, 30)), อื่นๆ: cap(slim(Object.fromEntries(Object.entries(data).filter(([k]) => k !== 'jobs'))), 3000) };
 }
 
+// ---------- ประเมินค่าเสียหาย (รถชนทรัพย์สิน กฟภ.) ----------
+const DMG_API = 'https://script.google.com/macros/s/AKfycbzji6NxwM2qAuw69HxJSgbFtH4aRne_MeCI6oP1pGXo_YBEWiNUq5ZlsATYhNrNZNas/exec';
+async function damageCases({ keyword }, c) {
+  needCreds(c);
+  const j = await cached('dmg', 300e3, () => postJSON(DMG_API, { action: 'list', user: c.user, pass: c.pass }));
+  if (j && j.ok === false) throw new Error(j.message || j.error || 'ระบบประเมินค่าเสียหายไม่ตอบ');
+  const all = (j.list || []).slice().sort((a, b) => String(b.incDate || '').localeCompare(String(a.incDate || '')));
+  const rows = all.filter((x) => match(x, keyword)).map((x) => ({ รหัส: x.id, วันเกิดเหตุ: x.incDate, ทะเบียนรถ: x.plate, ผู้ขับขี่: x.driver, สถานที่: x.place, ค่าเสียหาย: Number(x.total) || 0, ผู้บันทึก: x.createdBy }));
+  const sum = rows.reduce((a, x) => a + x.ค่าเสียหาย, 0);
+  return withD({ ทั้งหมด: all.length, พบ: rows.length, ค่าเสียหายรวม: sum, รายการ: rows.slice(0, 30) }, {
+    source: 'ประเมินค่าเสียหาย (รถชนทรัพย์สิน)', app: '/damage/',
+    stats: [{ l: 'เคส', v: rows.length }, { l: 'รวม (บาท)', v: sum.toLocaleString('th-TH') }],
+    items: rows.slice(0, 30).map((x) => ({ title: [x.ทะเบียนรถ, x.สถานที่].filter(Boolean).join(' · ') || x.รหัส, sub: [x.วันเกิดเหตุ, x.ผู้ขับขี่].filter(Boolean).join(' · '), badge: x.ค่าเสียหาย ? x.ค่าเสียหาย.toLocaleString('th-TH') + ' บ.' : '' })) });
+}
+
+// ---------- สำรวจออกแบบ/ประมาณราคางานก่อสร้าง ----------
+const CONS_API = 'https://script.google.com/macros/s/AKfycbx2wmhdFi462Xx3fbLnOuW9M0g_Ouy3WQmDRGax0-q6u93yzwLh49tyviaas4BN7MrmPg/exec';
+const CONS_ST = ['กำลังสำรวจ', 'รอถอดแบบ', 'ส่งใบเสนอราคาแล้ว', 'ชำระเงินแล้ว'];
+async function constructionJobs({ keyword, status }) {
+  const j = await cached('cons', 300e3, () => getJSON(CONS_API + '?action=list'));
+  const del = new Set(j.deleted || []);
+  const all = (j.jobs || []).filter((x) => x && !del.has(x.id) && !x.deleted).sort((a, b) => (b.updated || 0) - (a.updated || 0));
+  const rows = all.map((x) => ({ งาน: x.name, ประเภท: x.kind === 'quick' ? 'ประมาณราคาด่วน' : 'สำรวจ/วาดผัง', สถานะ: CONS_ST[x.status] || '', ผู้ขอ: x.cust && x.cust.n, สถานที่: x.place, เลขคำร้อง: x.reqNo, เลขใบเสนอราคา: x.qNo, จำนวนเสา: (x.poles || []).filter((p) => !p.ex).length, แก้ล่าสุด: x.updated ? new Date(x.updated + 7 * 3600e3).toISOString().slice(0, 10) : '' }))
+    .filter((x) => match(x, keyword) && (!status || String(x.สถานะ).includes(status)));
+  const cnt = (k) => rows.filter((x) => x.สถานะ === k).length;
+  return withD({ ทั้งหมด: all.length, พบ: rows.length, งาน: rows.slice(0, 30) }, {
+    source: 'สำรวจออกแบบงานก่อสร้าง', app: '/construction/',
+    stats: CONS_ST.map((k) => ({ l: k, v: cnt(k) })),
+    items: rows.slice(0, 30).map((x) => ({ title: x.งาน, sub: [x.ผู้ขอ, x.สถานที่, x.แก้ล่าสุด].filter(Boolean).join(' · '), badge: x.สถานะ })) });
+}
+
 // ---------- 10–11) งานจัดซื้อ / ซื้อหม้อแปลง (TF) ----------
 const PROCURE_API = 'https://script.google.com/macros/s/AKfycbwJEHg7z1xtXk4xWntweZ1MBzdz34l0KuPLyQ7iCe5Bm5isvWENHwnGn4MmVJ_MIyqZjQ/exec';
 const TFBUY_API = 'https://script.google.com/macros/s/AKfycbyeZSYM_uYyC1ZD2q3SdjVPWClHNFRsc_yfUclwPD9mnvw70hU_TG75CXsvmQjsQAAu/exec';
@@ -493,7 +524,7 @@ async function drawingsBom({ keyword }) {
 // ---------- 20b) ค้นแบบมาตรฐาน กฟภ. พร้อมภาพ 2D / 3D (ดึงจากคลังแบบในศูนย์รวมงาน ไม่สร้างใหม่) ----------
 async function dwgCatalog() {
   // ดัชนีชื่อแบบ (สร้างจากคลังแบบ pea-drawings ด้วย scripts/build-dwg-index.py) — ภาพ/โมเดลเปิดจากหน้าแบบในคลังโดยตรง
-  return cached('dwgcat', 24 * 3600e3, async () => (await fetch('./dwg-index.json?v=11231500')).json());
+  return cached('dwgcat', 24 * 3600e3, async () => (await fetch('./dwg-index.json?v=11231615')).json());
 }
 const DWG_SYN = [[/สามเฟส|3เฟส/g, '3 เฟส'], [/หนึ่งเฟส|เฟสเดียว|1เฟส/g, '1 เฟส'], [/เสาคู่|สองเสา/g, 'นั่งร้าน'], [/(\d+)\s*เควี|(\d+)\s*kv/gi, '$1$2 kV'], [/ลูกถ้วย|ลูกถ้วยไฟ/g, 'ลูกถ้วย'], [/แรงต่ำ/g, 'แรงต่ำ']];
 const dwgNorm = (t) => { t = String(t || '').toLowerCase(); DWG_SYN.forEach(([a, b]) => { t = t.replace(a, b); }); return t; };
@@ -706,6 +737,8 @@ export const TOOLS = {
   sld_devices: { access: 'internal', run: sldDevices, decl: { name: 'sld_devices', description: 'Single Line Diagram สถานีไฟฟ้าอ่าวลึก: รายชื่อฟีดเดอร์ และอุปกรณ์ในระบบจำหน่าย (หม้อแปลง ฟิวส์ สวิตช์ รีโคลสเซอร์) รหัส พิกัด ที่ตั้ง จำนวนมิเตอร์', parameters: { type: 'OBJECT', properties: { feeder: { type: 'STRING', description: 'เช่น ALA06' }, keyword: { type: 'STRING', description: 'รหัสอุปกรณ์ ชื่อหมู่บ้าน หรือชนิด เช่น TR, WF, หม้อแปลง' } } } } },
   patrol_findings: { access: 'internal', run: patrolFindings, decl: { name: 'patrol_findings', description: 'Patrol ระบบจำหน่าย: จุดบกพร่อง/จุดเสี่ยงที่ตรวจพบ สถานะการแก้ไข ฟีดเดอร์ ระดับความรุนแรง', parameters: { type: 'OBJECT', properties: { status: { type: 'STRING', description: 'สถานะ ว่างได้' }, feeder: { type: 'STRING' }, keyword: { type: 'STRING' } } } } },
   tree_cutting: { access: 'internal', run: treeCutting, decl: { name: 'tree_cutting', description: 'งานตัดต้นไม้ กฟส.อ่าวลึก: แผนงาน ผลงาน ผู้รับจ้าง พื้นที่ ตามปีงบประมาณ', parameters: { type: 'OBJECT', properties: { year: { type: 'STRING', description: 'ปี พ.ศ. เช่น 2569' }, keyword: { type: 'STRING' } } } } },
+  damage_cases: { access: 'internal', run: damageCases, decl: { name: 'damage_cases', description: 'ระบบประเมินค่าเสียหายระบบจำหน่าย (รถชนเสา/ทรัพย์สิน กฟภ.): เคสล่าสุด วันเกิดเหตุ ทะเบียนรถ ผู้ขับขี่ สถานที่ ค่าเสียหาย ยอดรวม', parameters: { type: 'OBJECT', properties: { keyword: { type: 'STRING', description: 'ทะเบียนรถ ชื่อผู้ขับขี่ หรือสถานที่ ว่างได้' } } } } },
+  construction_jobs: { access: 'internal', run: constructionJobs, decl: { name: 'construction_jobs', description: 'ระบบสำรวจออกแบบ/ประมาณราคางานก่อสร้าง (ขยายเขต ติดตั้งหม้อแปลง ฯลฯ): รายการงาน ผู้ขอ สถานที่ สถานะ (กำลังสำรวจ รอถอดแบบ ส่งใบเสนอราคาแล้ว ชำระเงินแล้ว) เลขคำร้อง/ใบเสนอราคา', parameters: { type: 'OBJECT', properties: { keyword: { type: 'STRING', description: 'ชื่องาน ผู้ขอ สถานที่ ว่างได้' }, status: { type: 'STRING', description: 'สถานะ ว่างได้' } } } } },
   procure_jobs: { access: 'internal', run: jobsTool(PROCURE_API, 'procure'), decl: { name: 'procure_jobs', description: 'ระบบงานจัดซื้อ (วิธีเฉพาะเจาะจง): รายการงานจัดซื้อ เรื่อง ผู้ขาย ยอดเงิน ขั้นตอน เลขที่เอกสาร', parameters: { type: 'OBJECT', properties: { keyword: { type: 'STRING' } } } } },
   tf_purchase_jobs: { access: 'internal', run: jobsTool(TFBUY_API, 'tfbuy'), decl: { name: 'tf_purchase_jobs', description: 'ระบบงานซื้อหม้อแปลง/ขายหม้อแปลงให้ผู้ใช้ไฟ (tfbuy): รายการงาน ผู้ซื้อ ยอดเงิน ขั้นตอน', parameters: { type: 'OBJECT', properties: { keyword: { type: 'STRING' } } } } },
   safety_talk: { access: 'internal', run: safetyTalk, decl: { name: 'safety_talk', description: 'กิจกรรม Safety Talk: รอบประชุม ผู้เข้าร่วม ขาด/ลา หัวข้อ', parameters: { type: 'OBJECT', properties: { keyword: { type: 'STRING' } } } } },
