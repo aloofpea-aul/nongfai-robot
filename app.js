@@ -1,18 +1,19 @@
 // น้องมีไฟ — แอปหลัก: ฟังเสียงไทย → ถาม Gemini (สตรีม) → พูดตอบทีละประโยค + แสดงบนจอ
-import { Mascot } from './mascot.js?v=11211140';
-import { WavRecorder } from './recorder.js?v=11211140';
-import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary, hooks } from './tools.js?v=11211140';
-import { startPresence, stopPresence, presenceOn, someoneHere, setPresenceRate, status as camStatus } from './presence.js?v=11211140';
-import { startWatch, TOPICS, topicOn, alertLog, clearAlertLog } from './watch.js?v=11211140';
-import { kpiCard } from './kpicard.js?v=11211140';
-import { wxCard, tmdCard } from './wxlevel.js?v=11211140';
-import { loadFaces, setPapa, papaName, isPapa } from './faces.js?v=11211140';
-import { SYS } from './systems.js?v=11211140';
-import { initCheckin, openCheckin } from './checkin.js?v=11211140';
-import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11211140';
+import { Mascot } from './mascot.js?v=11231500';
+import { WavRecorder } from './recorder.js?v=11231500';
+import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary, hooks } from './tools.js?v=11231500';
+import { startPresence, stopPresence, presenceOn, someoneHere, setPresenceRate, status as camStatus } from './presence.js?v=11231500';
+import { startWatch, TOPICS, topicOn, alertLog, clearAlertLog } from './watch.js?v=11231500';
+import { kpiCard } from './kpicard.js?v=11231500';
+import { wxCard, tmdCard } from './wxlevel.js?v=11231500';
+import { loadFaces, setPapa, papaName, isPapa } from './faces.js?v=11231500';
+import { SYS } from './systems.js?v=11231500';
+import { initCheckin, openCheckin } from './checkin.js?v=11231500';
+import { initVehicle, openVehicle } from './vehicle.js?v=11231500';
+import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11231500';
 
 const $ = (id) => document.getElementById(id);
-export const VERSION = '11211140';
+export const VERSION = '11231500';
 // อัปเดตตัวเอง: ถ้าบนเว็บมีเวอร์ชันใหม่กว่า ให้โหลดหน้าใหม่ทันที (กันไอโฟนจำไฟล์เก่า)
 fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json()).then((j) => {
   if (j.v && j.v !== VERSION && !sessionStorage.getItem('nf.reload.' + j.v)) {
@@ -439,6 +440,7 @@ function voiceCommand(t) {
   const x = t.replace(/\s+/g, '').replace(/ค่ะ|ครับ|คะ|นะ/g, '');
   if (/^(กลับ)?หน้าแรก$|^กลับหน้าหลัก$|^เริ่มใหม่$/.test(x)) { goHome(); speak('กลับหน้าแรกแล้วค่ะ'); return true; }
   if (/^(หยุด|พอแล้ว|เงียบ|ยกเลิก)$/.test(x)) { stopAll(); setStatus('หยุดแล้วค่ะ'); return true; }
+  if (OPS() && /^(ขอ)?(เบิก|ใช้|คืน)(รถ|ใช้รถ)/.test(x)) { startVehicle(); return true; }
   return false;
 }
 
@@ -881,12 +883,16 @@ $('typeForm').onsubmit = (e) => {
 };
 // ---------- ลงเวลาทำงานด้วยการสแกนหน้า ----------
 setPapa(cfg.papaName || cfg.hubUser);
-initCheckin({
+const ckCtx = {
   cfg: () => cfg, speak: (t) => { stopSpeaking(); speak(t); }, express: (n, s) => mascot.express(n, s), toast: (t, ms) => toast(t, ms),
   learn: () => ({ url: cfg.learnUrl, secret: cfg.learnSecret }),
   pausePresence: () => stopPresence(),
   resumePresence: () => { if (cfg.wakeFace) startWake(true); },
-});
+};
+initCheckin(ckCtx); initVehicle(ckCtx);
+function startVehicle() { stopAll(); bumpIdle(); openVehicle(); }
+$('btnVehicle').onclick = startVehicle;
+hooks.openVehicle = startVehicle;
 function startCheckin() { stopAll(); bumpIdle(); openCheckin(); }
 $('btnCheckin').onclick = startCheckin;
 hooks.openCheckin = startCheckin;

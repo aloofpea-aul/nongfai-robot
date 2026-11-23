@@ -1,4 +1,4 @@
-import { loadFaces, faceOf, faceCount, callName, isPapa } from './faces.js?v=11211140';
+import { loadFaces, faceOf, faceCount, callName, isPapa } from './faces.js?v=11231500';
 // ลงเวลาทำงานที่น้องมีไฟด้วยการสแกนใบหน้า — บันทึกเข้าระบบลงเวลาเดิม (pea-checkin) ตัวเดียวกับใน LINE
 // ใบหน้า: ประมวลผลในเครื่อง เก็บแค่ตัวเลขจดจำหน้า (ไม่เก็บรูป) ที่ "น้องไฟเรียนรู้" · ใช้เฉพาะลงเวลา · ลงทะเบียนเมื่อเจ้าตัวยินยอม
 const CHECKIN_API = 'https://script.google.com/macros/s/AKfycbxY0vjjr3MAl6e_OSTTbubrK-cVTrsx3o38xQGLJkJMro8rS8H-LaWl2J3oeE_I31FR/exec';
@@ -69,7 +69,7 @@ async function loadData() {
       .then(([a, b]) => ({ records: [...(a && a.records || []), ...(Array.isArray(b) ? b : [])] })).catch(() => ({})),
     learnPost({ action: 'faces' }).then((j) => j.faces || []).catch((err) => { X.toast(String(err.message || err)); return []; }),
   ]);
-  emps = (Array.isArray(e) ? e : []).map((x) => ({ id: String(x.id), name: nm(x.name), pos: x.position || '', pic: faceOf(x.name) || x.picUrl || '', dbPic: !!faceOf(x.name) }));
+  emps = (Array.isArray(e) ? e : []).map((x) => ({ id: String(x.id), name: nm(x.name), pos: x.position || '', dept: x.dept || '', pic: faceOf(x.name) || x.picUrl || '', dbPic: !!faceOf(x.name) }));
   today = {}; (d.records || []).forEach((r) => { const k = nm(r.name), o = today[k] || { in: '', out: '' }; today[k] = { in: o.in || r.checkIn || '', out: o.out || r.checkOut || '' }; });
   faces = f.map((x) => ({ id: String(x.id), name: x.name, d: x.d.map((v) => new Float32Array(v)) }));
 }
@@ -83,11 +83,26 @@ function screen(title, ...nodes) {
   $('ckCam').hidden = true;
 }
 function camScreen(title, msg) {
-  $('ckTitle').textContent = title; $('ckBody').replaceChildren(); $('ckCam').hidden = false; $('ckMsg').textContent = msg || ''; $('ckRing').className = 'ck-ring';
+  $('ckTitle').textContent = title; $('ckBody').replaceChildren(btn('สแกนไม่ติด? เลือกชื่อเอง', 'ghost', () => { run++; pickName('เลือกชื่อเอง สแกนหน้าไม่ผ่าน'); })); $('ckCam').hidden = false; $('ckMsg').textContent = msg || ''; $('ckRing').className = 'ck-ring';
 }
 function btn(txt, cls, fn) { const b = el('button', 'ck-btn ' + (cls || ''), txt); b.type = 'button'; b.onclick = fn; return b; }
 
+// ใช้ระบบจำหน้าสำหรับงานอื่น (เช่น เบิก/คืนรถ): สแกนหน้า → ได้คน → ส่งต่อให้ onPerson
+let purpose = null;
+export async function identify(title, onPerson) {
+  if (!$('ckDlg').open) $('ckDlg').showModal();
+  purpose = { title, onPerson };
+  const my = ++run;
+  screen(title, el('div', 'ck-wait', 'กำลังเตรียมระบบสแกนหน้า…'));
+  try { await Promise.all([loadData(), loadFaceApi()]); } catch (e) { if (my === run) { screen(title, el('div', 'ck-err', 'เปิดระบบสแกนหน้าไม่ได้ เลือกชื่อเองได้ค่ะ')); setTimeout(() => pickName('เลือกชื่อเอง'), 1200); } return; }
+  if (my !== run) return;
+  if (faces.length) { X.speak('มองกล้องแล้วกะพริบตาเพื่อยืนยันตัวตนค่ะ'); scan(); } else pickName('เลือกชื่อเอง');
+}
+export { screen as ckScreen, btn as ckBtn, el as ckEl };
+export const empList = () => emps;
+const done = (e, selfie, how) => (purpose ? purpose.onPerson(e, /สแกน/.test(how) ? 'face' : 'manual') : confirmPerson(e, selfie, how));
 export async function openCheckin() {
+  purpose = null;
   if (!$('ckDlg').open) $('ckDlg').showModal();
   const my = ++run;
   screen('ลงเวลาทำงาน', el('div', 'ck-wait', 'กำลังเตรียมระบบสแกนหน้า…'));
@@ -125,8 +140,8 @@ async function detect() {
 async function scan() {
   if (!faces.length) { X.toast('ยังไม่มีใครลงทะเบียนใบหน้า — กด "ลงทะเบียนใบหน้า" ก่อนค่ะ', 5000); return; }
   const my = ++run;
-  camScreen('สแกนหน้าลงเวลา', 'มองกล้อง แล้วกะพริบตา 1 ครั้งค่ะ');
-  try { await openCam(); } catch (e) { screen('ลงเวลาทำงาน', el('div', 'ck-err', 'เปิดกล้องไม่ได้: ' + (e.name || '') + ' ' + String(e.message || e).slice(0, 80)), btn('กลับ', '', home)); return; }
+  camScreen(purpose ? purpose.title : 'สแกนหน้าลงเวลา', 'มองกล้อง แล้วกะพริบตา 1 ครั้งค่ะ');
+  try { await openCam(); } catch (e) { screen('ลงเวลาทำงาน', el('div', 'ck-err', 'เปิดกล้องไม่ได้: ' + (e.name || '') + ' ' + String(e.message || e).slice(0, 80)), btn('เลือกชื่อเอง', 'big', () => pickName('เลือกชื่อเอง ไม่มีกล้อง')), btn('กลับ', 'ghost', purpose ? closeCheckin : home)); return; }
   const t0 = Date.now(); let open = 0, blink = false, yawMin = 9, yawMax = -9, votes = {}, seen = 0;
   while (my === run && Date.now() - t0 < SCAN_MS) {
     const r = await detect().catch(() => null);
@@ -143,7 +158,7 @@ async function scan() {
     const top = Object.entries(votes).sort((a, b) => b[1] - a[1])[0];
     $('ckRing').className = 'ck-ring ' + (m ? 'ok' : 'seen');
     $('ckMsg').textContent = !m ? (seen > 12 ? 'ยังจำหน้าไม่ได้ ลองถอดหมวก/แว่นดำ หรือหันเข้าหาแสงค่ะ' : 'กำลังจดจำใบหน้า…') : live ? 'จำได้แล้วค่ะ' : 'กะพริบตา 1 ครั้ง หรือหันหน้าซ้าย-ขวานิดหนึ่งค่ะ';
-    if (top && top[1] >= 3 && live) { const selfie = grab(); stopCam(); return confirmPerson(empOf(top[0]) || { id: top[0], name: faces.find((f) => f.id === top[0]).name, pos: '' }, selfie, 'สแกนหน้า'); }
+    if (top && top[1] >= 3 && live) { const selfie = grab(); stopCam(); return done(empOf(top[0]) || { id: top[0], name: faces.find((f) => f.id === top[0]).name, pos: '' }, selfie, 'สแกนหน้า'); }
     await sleep(60);
   }
   if (my !== run) return;
@@ -256,17 +271,41 @@ async function submit(e, action, selfie, how, shift) {
 }
 
 // ---------- เลือกชื่อเอง (สำรองเมื่อสแกนไม่ผ่าน · หมายเหตุบอกไว้ในระบบ) ----------
+// เลือกชื่อเอง: เลือกแผนก → รายชื่อเรียง พนักงาน · คนขับรถ · ลูกจ้าง (พิมพ์ค้นชื่อได้)
+const GROUPS = ['พนักงาน', 'คนขับรถ', 'ลูกจ้าง'];
+const groupOf = (e) => (/พขร|ขับรถ/.test(e.pos) ? 1 : /^EMP/i.test(e.id) || /ลูกจ้าง|แม่บ้าน/.test(e.pos) ? 2 : 0);
+function empBtn(e, how) {
+  const ck = !purpose && statusOf(e).in;
+  const b = el('button', 'ck-emp' + (ck ? ' done' : '')); b.type = 'button';
+  const av = el('div', 'ck-av'); if (e.pic) { const i = el('img'); i.src = e.pic; i.alt = ''; i.onerror = () => i.remove(); av.append(i); } else av.textContent = nick(e.name).slice(0, 2);
+  b.append(av, el('span', null, nick(e.name))); b.onclick = () => done(e, '', how); return b;
+}
+function nameList(list, how) {
+  const box = el('div');
+  GROUPS.forEach((g, gi) => {
+    const L = list.filter((e) => groupOf(e) === gi).sort((a, b) => a.name.localeCompare(b.name, 'th'));
+    if (!L.length) return;
+    box.append(el('div', 'ck-grp', g + ' · ' + L.length + ' คน'));
+    const grid = el('div', 'ck-grid'); grid.append(...L.map((e) => empBtn(e, how))); box.append(grid);
+  });
+  return box;
+}
 function pickName(how) {
   stopCam();
-  const q = el('input', 'ck-search'); q.placeholder = 'พิมพ์ชื่อ'; q.type = 'search';
-  const grid = el('div', 'ck-grid');
-  const draw = () => {
-    const w = q.value.trim();
-    const list = emps.filter((e) => !w || e.name.includes(w)).sort((a, b) => (statusOf(a).in ? 1 : 0) - (statusOf(b).in ? 1 : 0));
-    grid.replaceChildren(...list.map((e) => { const b = el('button', 'ck-emp' + (statusOf(e).in ? ' done' : '')); b.type = 'button'; const av = el('div', 'ck-av'); if (e.pic) { const i = el('img'); i.src = e.pic; i.alt = ''; i.onerror = () => i.remove(); av.append(i); } else av.textContent = nick(e.name).slice(0, 2); b.append(av, el('span', null, nick(e.name))); b.onclick = () => confirmPerson(e, '', how); return b; }));
+  const title = purpose ? purpose.title + ' · เลือกชื่อ' : 'เลือกชื่อของคุณ';
+  const q = el('input', 'ck-search'); q.placeholder = 'พิมพ์ชื่อค้นหา'; q.type = 'search';
+  const body = el('div');
+  const depts = [...new Set(emps.map((e) => e.dept || 'อื่นๆ'))].sort((a, b) => emps.filter((e) => (e.dept || 'อื่นๆ') === b).length - emps.filter((e) => (e.dept || 'อื่นๆ') === a).length);
+  const showDepts = () => {
+    const g = el('div', 'ck-depts');
+    g.append(...depts.map((d) => { const n = emps.filter((e) => (e.dept || 'อื่นๆ') === d).length; const b = btn(d + ' (' + n + ')', 'dept', () => showDept(d)); return b; }));
+    body.replaceChildren(el('div', 'ck-sub', 'เลือกแผนก'), g);
   };
-  q.oninput = draw; draw();
-  screen('เลือกชื่อของคุณ', q, el('div', 'ck-sub', 'ขอบแดง = ยังไม่ลงเวลา · ระบบจะบันทึกว่าเลือกชื่อเอง'), grid);
+  const showDept = (d) => body.replaceChildren(btn('‹ เลือกแผนกอื่น', 'ghost', showDepts), el('div', 'ck-dname', d), nameList(emps.filter((e) => (e.dept || 'อื่นๆ') === d), how));
+  q.oninput = () => { const w = q.value.trim(); if (!w) return showDepts(); body.replaceChildren(nameList(emps.filter((e) => e.name.includes(w)), how)); };
+  showDepts();
+  screen(title, q, el('div', 'ck-sub', purpose ? 'ระบบจะบันทึกว่าเลือกชื่อเอง' : 'ขอบแดง = ยังไม่ลงเวลา · ระบบจะบันทึกว่าเลือกชื่อเอง'), body);
+  X.speak('เลือกแผนก แล้วแตะชื่อของตัวเองได้เลยค่ะ');
 }
 
 // ---------- ลงทะเบียนใบหน้า (ต้องใช้ PIN เจ้าหน้าที่ + เจ้าตัวกดยินยอม) ----------
