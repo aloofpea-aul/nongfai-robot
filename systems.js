@@ -1,4 +1,4 @@
-import { faceOf, callName, showName } from './faces.js?v=11262230';
+import { faceOf, callName, showName } from './faces.js?v=11270520';
 // พจนานุกรมระบบในศูนย์รวมงาน: ไอคอน สี ลิงก์แอป และคำอธิบาย → ใช้แปลง "เหตุการณ์" จากสมุดเหตุการณ์เป็นข้อความที่เข้าใจง่าย
 // ชื่อระบบ (key) ต้องตรงกับ WATCH_FILES ใน gas/Watch.gs
 export const SYS = {

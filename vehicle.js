@@ -1,7 +1,7 @@
 // เบิก/คืนรถที่น้องมีไฟ: สแกนหน้า (หรือเลือกแผนก → ชื่อ) → เลือกรถ → ภารกิจ/ไมล์ → บันทึกเข้าระบบยานพาหนะจริง
 // หลังบ้านระบบยานพาหนะ (v17.5+) รับ onBehalf จากบัญชีผู้ดูแลที่ล็อกอินไว้ในเครื่องน้องมีไฟ แล้วบันทึกเป็นชื่อคนที่ยืนยันตัวตน
-import { identify, ckScreen as screen, ckBtn as btn, ckEl as el, closeCheckin } from './checkin.js?v=11262230';
-import { callName } from './faces.js?v=11262230';
+import { identify, ckScreen as screen, ckBtn as btn, ckEl as el, closeCheckin } from './checkin.js?v=11270520';
+import { callName } from './faces.js?v=11270520';
 
 const VEH_API = 'https://script.google.com/macros/s/AKfycbzLnelFGNLqynkfwm06vBDZE23p5_1-kDV3CZm_EuuMHDex4vEtNNYeJ9sRo-m0KLq1/exec';
 const MISSIONS = ['แก้ไฟฟ้าขัดข้อง', 'ตรวจระบบ', 'ติดต่อราชการ', 'ประชุม', 'ส่งเอกสาร'];

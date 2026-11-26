@@ -15,7 +15,7 @@ function loadScript(src) {
 }
 export function ensureES() {
   if (window.ES_DATA && window.MOUTH) return Promise.resolve(window.ES_DATA);
-  if (!loading) loading = Promise.all([window.ES_DATA ? 0 : loadScript('/english-step/data.js?v=20261126'), window.MOUTH ? 0 : loadScript('/english-step/mouth.js?v=20261126')]).then(() => window.ES_DATA).catch((e) => { loading = null; throw e; });
+  if (!loading) loading = Promise.all([window.ES_DATA ? 0 : loadScript('/english-step/data.js?v=20261127'), window.MOUTH ? 0 : loadScript('/english-step/mouth.js?v=20261126')]).then(() => window.ES_DATA).catch((e) => { loading = null; throw e; });
   return loading;
 }
 const low = (s) => String(s || '').trim().toLowerCase();
@@ -123,13 +123,14 @@ export async function engCall(action, data = {}) {
 
 /* ---------- หน้าจอ ---------- */
 const $ = (id) => document.getElementById(id);
+const rdH = (t) => esc(t).replace(/\{([^}]*)\}/g, '<span class="eng-rx">$1</span>');
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 function css() {
   if ($('engCss')) return;
   const st = document.createElement('style'); st.id = 'engCss';
   st.textContent = '.eng-stage{display:flex;align-items:center;gap:8px;background:#FBF7F3;border-radius:16px;padding:8px}.eng-stage>div{min-width:0}.eng-stage svg{width:100%;height:auto;display:block}' +
-    '.eng-word{font-size:44px;font-weight:700;line-height:1.1;font-family:system-ui,sans-serif}.eng-th{font-size:18px;color:#3D63C9}.eng-sent{font-size:17px;color:#444}' +
+    '.eng-word{font-size:44px;font-weight:700;line-height:1.1;font-family:system-ui,sans-serif}.eng-th{font-size:18px;color:#3D63C9}.eng-rd{font-size:20px;color:#993C1D}.eng-rx{border-bottom:2px dotted #D85A30}.eng-sent{font-size:17px;color:#444}' +
     '.eng-bar{height:12px;background:#eee;border-radius:6px;overflow:hidden}.eng-bar i{display:block;height:100%;width:0;background:#1D9E75;transition:width .5s}' +
     '.eng-msg{font-size:18px;min-height:26px;color:#4b2e83}.eng-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px}.eng-cap{font-size:15px;color:#666}' +
     '.ck-btn.eng-go{background:#B85A12;border-color:#B85A12;color:#fff}.eng-mic.on{background:#B42318;border-color:#B42318;color:#fff}';
@@ -183,8 +184,8 @@ export async function englishCoach(a = {}) {
   if (name && !a.topic) { try { const r = await engCall('robotUser', { name }); if (r.ok && r.found) weak = (r.learner.เสียงที่ยังต้องฝึก || []).sort((x, y) => x.คะแนนดีสุด - y.คะแนนดีสุด).map((x) => x.เสียง); } catch {} }
   const tp = pickTopic(D, a.topic, weak);
   let items;
-  if (tp.mode === 'vocab') items = D.VOCAB.slice().sort(() => Math.random() - 0.5).slice(0, PER_ROUND).map((v) => ({ w: v[1], th: v[2], sent: v[3], sth: D.VTH[D.VOCAB.indexOf(v)], pose: null }));
-  else { const s = tp.s, ws = [...s.ex, ...s.pairs.map((p) => p[0])].filter((w, i, arr) => arr.indexOf(w) === i).slice(0, PER_ROUND); items = ws.map((w) => ({ w, th: D.TH[w] || '', pose: poseOf(D, s.id, w) })); }
+  if (tp.mode === 'vocab') items = D.VOCAB.slice().sort(() => Math.random() - 0.5).slice(0, PER_ROUND).map((v) => ({ w: v[1], th: v[2], rd: (D.RD || {})[v[1]] || '', sent: v[3], srd: (D.SRD || [])[D.VOCAB.indexOf(v)] || '', sth: D.VTH[D.VOCAB.indexOf(v)], pose: null }));
+  else { const s = tp.s, ws = [...s.ex, ...s.pairs.map((p) => p[0])].filter((w, i, arr) => arr.indexOf(w) === i).slice(0, PER_ROUND); items = ws.map((w) => ({ w, th: D.TH[w] || '', rd: (D.RD || {})[w] || '', pose: poseOf(D, s.id, w) })); }
   S = { run: 0, cur: window.MOUTH.REST, i: 0, items, scores: [], name, mode: tp.mode, s: tp.s, D };
   $('engTitle').textContent = tp.mode === 'vocab' ? 'ฝึกพูดคำศัพท์กับน้องมีไฟ' : 'ฝึกเสียง ' + tp.s.name;
   const intro = tp.mode === 'vocab' ? `มาฝึกพูดคำศัพท์ ${items.length} คำกันนะคะ ฟังน้องมีไฟก่อน แล้วพูดตามค่ะ`
@@ -198,7 +199,7 @@ async function step() {
   const it = st.items[st.i], M = window.MOUTH, id = ++st.run;
   X.bumpIdle();
   $('engBody').innerHTML = (it.pose ? stageHTML() : '') +
-    `<div><div class="eng-word">${esc(it.w)}</div><div class="eng-th">${esc(it.th)}</div>${it.sent ? `<div class="eng-sent">${esc(it.sent)}<br><span class="eng-th" style="font-size:15px">${esc(it.sth || '')}</span></div>` : ''}</div>` +
+    `<div><div class="eng-word">${esc(it.w)}</div>${it.rd ? `<div class="eng-rd">${rdH(it.rd)}</div>` : ''}<div class="eng-th">${esc(it.th)}</div>${it.sent ? `<div class="eng-sent">${esc(it.sent)}${it.srd ? `<br><span class="eng-rd" style="font-size:16px">${rdH(it.srd)}</span>` : ''}<br><span class="eng-th" style="font-size:15px">${esc(it.sth || '')}</span></div>` : ''}</div>` +
     `<div class="eng-bar"><i id="engBar"></i></div><div class="eng-msg" id="engMsg">ฟังนะคะ…</div><div class="eng-cap" id="engHeard">คำที่ ${st.i + 1} จาก ${st.items.length}${st.name ? ' · บันทึกคะแนนให้ ' + esc(st.name) : ' · ยังไม่บันทึกคะแนน (บอกชื่อก่อนฝึกเพื่อบันทึก)'}</div>` +
     '<div class="eng-row"><button class="ck-btn" id="engHear" type="button">ฟังอีกครั้ง</button><button class="ck-btn eng-mic" id="engMic" type="button">พูด</button><button class="ck-btn" id="engNext" type="button">' + (st.i + 1 < st.items.length ? 'คำถัดไป' : 'ดูสรุป') + '</button><button class="ck-btn" id="engApp" type="button">เปิดแอปเต็มจอ</button></div>';
   $('engHear').onclick = () => demo(st, it, true);
