@@ -1,7 +1,8 @@
-import { faceOf, loadFaces } from './faces.js?v=11231615';
-import { findEvents } from './events.js?v=11231615';
-import { describe, sysInfo, SYS } from './systems.js?v=11231615';
-import { loadNotices, ntState, ntArea, ntWhen, ntHm, ntDate } from './notices.js?v=11231615';
+import { esInfo, engCall } from './english.js?v=11262230';
+import { faceOf, loadFaces } from './faces.js?v=11262230';
+import { findEvents } from './events.js?v=11262230';
+import { describe, sysInfo, SYS } from './systems.js?v=11262230';
+import { loadNotices, ntState, ntArea, ntWhen, ntHm, ntDate } from './notices.js?v=11262230';
 // เครื่องมือให้น้องมีไฟดึงข้อมูลจากศูนย์รวมงาน กฟส.อ่าวลึก (Gemini function calling)
 // public = ใครถามก็ตอบได้ · internal = ต้องยืนยันตัวตนพนักงานก่อน (PIN)
 
@@ -524,7 +525,7 @@ async function drawingsBom({ keyword }) {
 // ---------- 20b) ค้นแบบมาตรฐาน กฟภ. พร้อมภาพ 2D / 3D (ดึงจากคลังแบบในศูนย์รวมงาน ไม่สร้างใหม่) ----------
 async function dwgCatalog() {
   // ดัชนีชื่อแบบ (สร้างจากคลังแบบ pea-drawings ด้วย scripts/build-dwg-index.py) — ภาพ/โมเดลเปิดจากหน้าแบบในคลังโดยตรง
-  return cached('dwgcat', 24 * 3600e3, async () => (await fetch('./dwg-index.json?v=11231615')).json());
+  return cached('dwgcat', 24 * 3600e3, async () => (await fetch('./dwg-index.json?v=11262230')).json());
 }
 const DWG_SYN = [[/สามเฟส|3เฟส/g, '3 เฟส'], [/หนึ่งเฟส|เฟสเดียว|1เฟส/g, '1 เฟส'], [/เสาคู่|สองเสา/g, 'นั่งร้าน'], [/(\d+)\s*เควี|(\d+)\s*kv/gi, '$1$2 kV'], [/ลูกถ้วย|ลูกถ้วยไฟ/g, 'ลูกถ้วย'], [/แรงต่ำ/g, 'แรงต่ำ']];
 const dwgNorm = (t) => { t = String(t || '').toLowerCase(); DWG_SYN.forEach(([a, b]) => { t = t.replace(a, b); }); return t; };
@@ -721,8 +722,37 @@ export async function glossary() {
 
 // ---------- ประกาศให้ Gemini รู้จักเครื่องมือ ----------
 // ตัวเชื่อมกับหน้าจอ (แอปใส่ฟังก์ชันให้)
+
+// ---------- English Step (ฝึกภาษาอังกฤษ) ----------
+async function englishProgress(a) {
+  const isPapa = hooks.isPapa && hooks.isPapa();
+  if (a.scope === 'all' || (!a.name && isPapa && /ทุกคน|ใคร|ภาพรวม/.test(a.question || ''))) {
+    if (!isPapa) return { error: 'ภาพรวมผู้เรียนทุกคนดูได้เฉพาะเครื่องของปะป๊า' };
+    const r = await engCall('robotSummary');
+    return r.ok ? { ...r, หมายเหตุ: 'คำทั้งหมด 48 คำ เสียงทั้งหมด 12 เสียง (Level 0)' } : { error: r.msg || 'ดึงข้อมูลไม่สำเร็จ' };
+  }
+  const name = String(a.name || '').trim() || (isPapa && hooks.papaName ? hooks.papaName() : '');
+  if (!name) return { ต้องถามชื่อ: true, คำแนะนำการตอบ: 'ถามชื่อผู้เรียน (ชื่อที่ใช้ในศูนย์รวมงาน) ก่อน แล้วค่อยเรียกเครื่องมือนี้อีกครั้ง' };
+  const r = await engCall('robotUser', { name });
+  if (!r.ok) return { error: r.msg || 'ดึงข้อมูลไม่สำเร็จ' };
+  if (!r.found) return { ไม่พบ: name, คำแนะนำการตอบ: r.msg };
+  return { ผู้เรียน: r.learner, คำแนะนำการตอบ: 'สรุปสั้นๆ เป็นกันเอง ชมสิ่งที่ทำได้ บอก 1-2 อย่างที่ควรฝึกต่อ แล้วชวนฝึกกับน้องมีไฟ' };
+}
+async function englishExplain(a) {
+  const w1 = String(a.word || '').trim(), w2 = String(a.compare_with || '').trim();
+  const i1 = await esInfo(w1), i2 = w2 ? await esInfo(w2) : null;
+  const inLesson = (i) => i && (i.ความหมาย || i.กลุ่มเสียง);
+  if (inLesson(i1) || inLesson(i2)) setTimeout(() => hooks.englishCompare && hooks.englishCompare(w1, w2), 400);
+  const clean = (i) => { if (!i) return null; const { _sound, ...o } = i; return o; };
+  return { 'คำที่ 1': clean(i1), 'คำที่ 2': clean(i2), อยู่ในบทเรียน: !!(inLesson(i1) || inLesson(i2)),
+    คำแนะนำการตอบ: 'อธิบายความหมายและวิธีออกเสียงเป็นภาษาไทยสั้นๆ เป็นกันเอง ถ้ามีคำคู่ให้บอกว่าต่างกันตรงไหน (ปาก/ลิ้น/ความยาวเสียง) จอแสดงภาพปากเทียบให้อยู่แล้ว ปิดท้ายชวนฝึกพูด ถ้าไม่มีในบทเรียนให้อธิบายจากความรู้ทั่วไป' };
+}
 export const hooks = {};
 export const TOOLS = {
+  english_coach: { access: 'public', run: async (a) => { setTimeout(() => hooks.englishCoach && hooks.englishCoach(a), 400); return { ผล: 'เปิดหน้าฝึกพูดภาษาอังกฤษบนจอแล้ว น้องมีไฟจะพาฝึกต่อเอง', คำแนะนำการตอบ: 'ตอบสั้นๆ คำเดียวว่า มาฝึกกันค่ะ' }; }, decl: { name: 'english_coach', description: 'สอน/ฝึกพูดภาษาอังกฤษกับน้องมีไฟ (English Step Level 0): ภาพปากขยับ อ่านคำให้ฟัง ให้พูดตาม แล้วให้คะแนนและบอกวิธีแก้ ใช้เมื่อผู้ใช้ขอ "สอนภาษาอังกฤษ" "ฝึกพูด/ฝึกออกเสียง" "ฝึกเสียง th" "ฝึกคำศัพท์"', parameters: { type: 'OBJECT', properties: { topic: { type: 'STRING', description: 'เสียงหรือคำที่อยากฝึก เช่น th, v, l r, sh, z, อี ยาว, แอ, เสียงท้าย, ควบกล้ำ, คำศัพท์ หรือคำอังกฤษ ว่างได้ = น้องมีไฟเลือกเสียงที่ผู้เรียนยังอ่อน' }, name: { type: 'STRING', description: 'ชื่อผู้เรียนตามศูนย์รวมงาน ถ้าผู้ใช้บอกชื่อไว้ (ใช้บันทึกคะแนน) ว่างได้' } } } } },
+  open_english: { access: 'public', run: async () => { setTimeout(() => hooks.openApp && hooks.openApp('/english-step/', '🔤 English Step'), 400); return { ผล: 'เปิดแอป English Step เต็มจอแล้ว', คำแนะนำการตอบ: 'ตอบสั้นๆ ว่า เปิดแอปฝึกภาษาอังกฤษให้แล้วค่ะ' }; }, decl: { name: 'open_english', description: 'เปิดแอป English Step (ฝึกภาษาอังกฤษ: ห้องออกเสียง คลังศัพท์ เทคนิคจำ) เต็มจอ ใช้เมื่อผู้ใช้สั่ง "เปิดแอปภาษาอังกฤษ" "เปิด English Step"', parameters: { type: 'OBJECT', properties: {} } } },
+  english_progress: { access: 'internal', run: englishProgress, decl: { name: 'english_progress', description: 'ผลการเรียนภาษาอังกฤษใน English Step: คำที่จำได้ เสียงที่ผ่าน/ยังต้องฝึก คำที่ลืมบ่อย เรียนต่อเนื่องกี่วัน เรียนล่าสุดเมื่อไหร่ ของผู้เรียนรายคน หรือภาพรวมทุกคน (scope=all เฉพาะเครื่องปะป๊า)', parameters: { type: 'OBJECT', properties: { name: { type: 'STRING', description: 'ชื่อผู้เรียนตามศูนย์รวมงาน ว่างได้ = ปะป๊า (บนเครื่องปะป๊า)' }, scope: { type: 'STRING', description: 'all = ภาพรวมทุกคน' }, question: { type: 'STRING', description: 'คำถามของผู้ใช้โดยย่อ' } } } } },
+  english_explain: { access: 'public', run: englishExplain, decl: { name: 'english_explain', description: 'อธิบายความหมายและวิธีออกเสียงคำภาษาอังกฤษ หรือเทียบคู่คำที่เสียงคล้ายกัน (เช่น ship กับ sheep, think กับ sink) พร้อมเปิดภาพปากขยับเทียบบนจอ', parameters: { type: 'OBJECT', properties: { word: { type: 'STRING', description: 'คำภาษาอังกฤษ' }, compare_with: { type: 'STRING', description: 'คำที่อยากเทียบ ว่างได้' } }, required: ['word'] } } },
   start_vehicle: { access: 'internal', run: async () => { setTimeout(() => hooks.openVehicle && hooks.openVehicle(), 400); return { ผล: 'เปิดหน้าเบิก/คืนรถบนจอแล้ว ให้ผู้ใช้สแกนหน้าหรือเลือกชื่อ แล้วเลือกรถ' }; }, decl: { name: 'start_vehicle', description: 'เปิดหน้าเบิกใช้รถ/คืนรถ (ระบบยานพาหนะ) เมื่อผู้ใช้ขอเบิกรถ ใช้รถ หรือคืนรถ', parameters: { type: 'OBJECT', properties: {} } } },
   start_checkin: { access: 'internal', run: async () => { setTimeout(() => hooks.openCheckin && hooks.openCheckin(), 400); return { ผล: 'เปิดหน้าลงเวลาทำงาน (สแกนหน้า) บนจอแล้ว', คำแนะนำการตอบ: 'ตอบสั้นๆ ว่า เปิดหน้าลงเวลาให้แล้วค่ะ' }; }, decl: { name: 'start_checkin', description: 'เปิดหน้าลงเวลาทำงานด้วยการสแกนใบหน้าที่น้องมีไฟ ใช้เมื่อผู้ใช้จะลงเวลาเข้า/ออกงานเอง เช่น "ลงเวลา" "เช็กอิน" "ลงเวลาออก" (ไม่ใช่คำถามว่าใครลงเวลาแล้ว)', parameters: { type: 'OBJECT', properties: {} } } },
   activity_log: { access: 'internal', run: activityLog, decl: { name: 'activity_log', description: 'สมุดเหตุการณ์ของทุกระบบในศูนย์รวมงาน: ใครเพิ่ม/แก้/ลบอะไร เปลี่ยนขั้นตอนเมื่อไหร่ ย้อนหลังได้ และเชื่อมความสัมพันธ์ข้ามระบบด้วยตัวเชื่อม เช่น ฟีดเดอร์ (ALA01) รหัสอุปกรณ์ ทะเบียนรถ หมู่บ้าน ใช้เมื่อถามว่า "มีอะไรเปลี่ยน/เคลื่อนไหว/อัปเดต" "X สัปดาห์นี้มีอะไรบ้าง" "เกี่ยวข้องกับอะไรบ้าง" หรือสรุปความเคลื่อนไหวทั้งสาขา', parameters: { type: 'OBJECT', properties: { keyword: { type: 'STRING', description: 'คำค้น/ตัวเชื่อม เช่น ALA01, กข1234, บ้านแหลมสัก ว่างได้ = ทุกเรื่อง' }, system: { type: 'STRING', description: 'ชื่อระบบ เช่น ยานพาหนะ งานจัดซื้อ Patrol ตัดงบ ว่างได้ = ทุกระบบ' }, days: { type: 'NUMBER', description: 'ย้อนหลังกี่วัน (วันนี้=1 สัปดาห์นี้=7 เดือนนี้=30)' }, type: { type: 'STRING', description: 'เพิ่ม | แก้ | ลบ | อัปเดต ว่างได้' } } } } },

@@ -1,19 +1,20 @@
 // น้องมีไฟ — แอปหลัก: ฟังเสียงไทย → ถาม Gemini (สตรีม) → พูดตอบทีละประโยค + แสดงบนจอ
-import { Mascot } from './mascot.js?v=11231615';
-import { WavRecorder } from './recorder.js?v=11231615';
-import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary, hooks } from './tools.js?v=11231615';
-import { startPresence, stopPresence, presenceOn, someoneHere, setPresenceRate, status as camStatus } from './presence.js?v=11231615';
-import { startWatch, TOPICS, topicOn, alertLog, clearAlertLog } from './watch.js?v=11231615';
-import { kpiCard } from './kpicard.js?v=11231615';
-import { wxCard, tmdCard } from './wxlevel.js?v=11231615';
-import { loadFaces, setPapa, papaName, isPapa } from './faces.js?v=11231615';
-import { SYS } from './systems.js?v=11231615';
-import { initCheckin, openCheckin } from './checkin.js?v=11231615';
-import { initVehicle, openVehicle } from './vehicle.js?v=11231615';
-import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11231615';
+import { Mascot } from './mascot.js?v=11262230';
+import { WavRecorder } from './recorder.js?v=11262230';
+import { TOOL_DECLS, runTool, bkkNow, loadDetail, glossary, hooks } from './tools.js?v=11262230';
+import { startPresence, stopPresence, presenceOn, someoneHere, setPresenceRate, status as camStatus } from './presence.js?v=11262230';
+import { startWatch, TOPICS, topicOn, alertLog, clearAlertLog } from './watch.js?v=11262230';
+import { kpiCard } from './kpicard.js?v=11262230';
+import { wxCard, tmdCard } from './wxlevel.js?v=11262230';
+import { loadFaces, setPapa, papaName, isPapa } from './faces.js?v=11262230';
+import { SYS } from './systems.js?v=11262230';
+import { initEnglish, englishCoach, englishCompare, closeEnglish } from './english.js?v=11262230';
+import { initCheckin, openCheckin } from './checkin.js?v=11262230';
+import { initVehicle, openVehicle } from './vehicle.js?v=11262230';
+import { initLearn, learnStats, applyCorrections, glossaryExtra, addCorrection, findVerified, examplesText, sendFeedback, STATIC_TOOLS } from './learn.js?v=11262230';
 
 const $ = (id) => document.getElementById(id);
-export const VERSION = '11231615';
+export const VERSION = '11262230';
 // อัปเดตตัวเอง: ถ้าบนเว็บมีเวอร์ชันใหม่กว่า ให้โหลดหน้าใหม่ทันที (กันไอโฟนจำไฟล์เก่า)
 fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json()).then((j) => {
   if (j.v && j.v !== VERSION && !sessionStorage.getItem('nf.reload.' + j.v)) {
@@ -216,7 +217,7 @@ function showCard(title, items) {
   $('card').hidden = false;
 }
 function goHome() {
-  stopAll();
+  stopAll(); closeEnglish();
   chat.length = 0;
   setMode('home');
   $('userSaid').hidden = true;
@@ -323,6 +324,7 @@ function micOff() { listening = false; $('btnMic').classList.remove('listening')
 const STRAY = /^(ค่ะ|คะ|ครับ|คับ|จ้า|อืม+|เอ่อ|อ่า|โอเค|ok|ขอบคุณ(ค่ะ|ครับ|มาก)?|ขอบคุณที่รับชม.*|สวัสดี(ค่ะ|ครับ)?|ไม่มีอะไร|ใช่|ไม่ใช่|หา|ฮะ|ห๊ะ|\[.*\])$/i;
 const isStray = (t) => { const x = String(t || '').trim().replace(/[\s.,!?ๆ]+/g, ''); return x.length < 3 || STRAY.test(x); };
 async function listenAudio(auto) {
+  if (auto && window.__engCoachOn) return; // กำลังฝึกภาษาอังกฤษ ไม่เปิดไมค์ฟังคำถามเอง
   if (wav.active) { // แตะไมค์ระหว่างที่น้องมีไฟเปิดฟังเอง → เริ่มฟังใหม่ให้ทันที (เดิมกลายเป็นหยุดฟัง)
     if (wav.auto && !auto) { wav.cancel(); await new Promise((r) => setTimeout(r, 200)); } else { wav.stop(); return; }
   }
@@ -896,6 +898,22 @@ hooks.openVehicle = startVehicle;
 function startCheckin() { stopAll(); bumpIdle(); openCheckin(); }
 $('btnCheckin').onclick = startCheckin;
 hooks.openCheckin = startCheckin;
+// ---------- ฝึกภาษาอังกฤษ (English Step) ----------
+// พูดภาษาไทยแล้วรอจนพูดจบ (ใช้คิวเสียงเดิมของน้องมีไฟ)
+function speakWait(text) {
+  return new Promise((res) => {
+    if (!text || cfg.muted) return res();
+    speak(text);
+    if (!speakingNow) return res();
+    onQueueEmpty = res; setTimeout(res, Math.min(20000, 1500 + text.length * 150));
+  });
+}
+initEnglish({ cfg: () => cfg, mascot, speakWait, openApp, useAudioAI, wav, bumpIdle, isPapa: () => !!cfg.papaDevice, papaName: () => cfg.papaName || cfg.hubUser || '' });
+hooks.englishCoach = (a) => { stopAll(); bumpIdle(); englishCoach(a || {}); };
+hooks.englishCompare = (w1, w2) => { bumpIdle(); englishCompare(w1, w2); };
+hooks.openApp = (p, t) => openApp(p, t);
+hooks.isPapa = () => !!cfg.papaDevice;
+hooks.papaName = () => cfg.papaName || cfg.hubUser || '';
 // รูปหน้าพนักงานจากฐานข้อมูล (โหลดครั้งแรก แล้วรีเฟรชวันละครั้ง)
 setTimeout(() => { if (OPS()) loadFaces(); }, 5000);
 const CK_RE = /^(ลงเวลา|เช็[กค]อิน|เช็[กค]เอา(ท์|ต์)|สแกนหน้า)/;
